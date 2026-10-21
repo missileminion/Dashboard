@@ -6,7 +6,7 @@ const rad = Math.PI / 180, hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i +
 const lerp = (a, b, t) => a + (b - a) * t, smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
 /* ---------- where the sun is ---------- */
-function sunPos(date, lat, lon) {
+export function sunPos(date, lat, lon) {
   const d = date / 86400000 + 2440587.5 - 2451545.0, g = (357.529 + 0.98560028 * d) * rad;
   const L = (280.459 + 0.98564736 * d + 1.915 * Math.sin(g) + 0.02 * Math.sin(2 * g)) * rad, e = (23.439 - 3.6e-7 * d) * rad;
   const ra = Math.atan2(Math.cos(e) * Math.sin(L), Math.cos(L)), dec = Math.asin(Math.sin(e) * Math.sin(L));

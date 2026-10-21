@@ -249,3 +249,16 @@ body{overflow-x:hidden;max-width:100%}
 .banner{flex-wrap:wrap} .banner>span{min-width:0;overflow-wrap:anywhere}
 .cm-line{overflow-wrap:anywhere}
 @media (max-width:700px), (pointer:coarse) and (hover:none) and (max-width:1100px){ input,select,textarea{font-size:max(16px,1em)!important} }   /* a focused box under 16px makes Android and iOS zoom the page */
+
+/* ---------- weather: deviations, timeline, rain periods ---------- */
+.wx-sum{margin-top:var(--s3);font-size:15.5px;line-height:1.5;color:var(--rep);max-width:46ch}
+.wx-dev{margin-top:var(--s3)}
+.wx-drow{display:grid;grid-template-columns:1fr auto 92px;gap:var(--s3);align-items:baseline;padding:5px 0;border-bottom:1px solid var(--line)}
+.wx-drow:last-child{border:0} .wx-drow>span:first-child{color:var(--tx2)}
+.wx-dv{text-align:right;color:var(--tx)} .wx-dv.flat{color:var(--tx3)}
+.wx-chart{margin-top:2px} .wx-svg{width:100%;height:auto;display:block}
+.wx-leg{display:flex;flex-wrap:wrap;gap:var(--s4);margin-top:var(--s2);font-size:11.5px;color:var(--tx2)}
+.wx-leg span{display:flex;align-items:center;gap:6px} .wx-leg i{display:inline-block;width:14px;height:3px;border-radius:2px}
+.wx-rain{margin-top:var(--s3);padding-top:var(--s3);border-top:1px solid var(--line);display:flex;flex-direction:column;gap:3px;font-size:13.5px}
+.wx-days{margin-top:var(--s3);padding-top:var(--s2);border-top:1px solid var(--line)}
+@media (max-width:700px){.wx-chart{overflow-x:auto}.wx-svg{min-width:560px}.wx-drow{grid-template-columns:1fr auto 84px}}
