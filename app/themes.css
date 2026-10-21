@@ -210,7 +210,7 @@ body.theme-glass{--t-work:#9DB8FF;--t-brk:#7EE8C0;--t-extra:#FFC46B;--t-over:#FF
 /* ---------- phone layout (Samsung S24 is about 412 px wide) ---------- */
 .i::after{content:"";position:absolute;inset:-12px}   /* bigger touch target for the small info buttons */
 .i[style*="position:static"]{position:relative!important;top:auto!important;right:auto!important;vertical-align:middle}   /* the ones placed inline in a title: keep the touch area on the button itself */
-@media (max-width:700px){
+@media (max-width:700px), (pointer:coarse) and (hover:none) and (max-width:1100px){
   body{padding:var(--s3) var(--s3) calc(88px + env(safe-area-inset-bottom))}
   /* navigation moves to a bar at the bottom, where a thumb reaches it */
   .bar{flex-wrap:wrap;gap:var(--s2);margin-bottom:var(--s2)}
@@ -242,3 +242,10 @@ body.theme-glass{--t-work:#9DB8FF;--t-brk:#7EE8C0;--t-extra:#FFC46B;--t-over:#FF
   .tk-head{gap:var(--s2)}
 }
 @media (max-width:420px){ .g4,.g5{grid-template-columns:1fr 1fr} .hero{gap:var(--s2)} .rgwrap{gap:var(--s4)} }
+
+/* ---------- fixed layout: no pinch zoom, no sideways drift ---------- */
+html{touch-action:pan-x pan-y;-webkit-text-size-adjust:100%;text-size-adjust:100%;overflow-x:hidden;max-width:100%}
+body{overflow-x:hidden;max-width:100%}
+.banner{flex-wrap:wrap} .banner>span{min-width:0;overflow-wrap:anywhere}
+.cm-line{overflow-wrap:anywhere}
+@media (max-width:700px), (pointer:coarse) and (hover:none) and (max-width:1100px){ input,select,textarea{font-size:max(16px,1em)!important} }   /* a focused box under 16px makes Android and iOS zoom the page */

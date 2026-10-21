@@ -249,7 +249,7 @@ function banner(html, cls = "") { const b = $("banner"); b.hidden = !html; b.cla
 const needsId = () => !DEMO && (!window.CONFIG?.CLIENT_ID || /PASTE/i.test(CONFIG.CLIENT_ID));
 async function status(errors = []) {
   if (needsId()) {   // the published copy has no config.js: the client ID is entered once per device and kept in this browser
-    banner(`<span>Paste your Google OAuth client ID to connect Google Health (kept only in this browser, never sent anywhere but to Google).</span><input id="cidIn" placeholder="1234-abc.apps.googleusercontent.com" style="margin-left:auto;min-width:300px;background:var(--raised);color:var(--tx);border:1px solid var(--line);border-radius:6px;padding:6px 10px"><button class="btn" id="cidSave">Save</button>`);
+    banner(`<span>Paste your Google OAuth client ID to connect Google Health (kept only in this browser, never sent anywhere but to Google).</span><input id="cidIn" placeholder="1234-abc.apps.googleusercontent.com" style="margin-left:auto;flex:1 1 220px;min-width:0;background:var(--raised);color:var(--tx);border:1px solid var(--line);border-radius:6px;padding:6px 10px"><button class="btn" id="cidSave">Save</button>`);
     $("cidSave").onclick = () => { const v = $("cidIn").value.trim(); if (/\.apps\.googleusercontent\.com$/.test(v)) { try { localStorage.setItem("clientId", v); } catch {} location.reload(); } else $("cidIn").style.borderColor = "var(--worse)"; };
     return;
   }
