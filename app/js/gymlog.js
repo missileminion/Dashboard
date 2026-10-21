@@ -2,8 +2,9 @@
 // Entries are {id, date, day, exercise, weight (lb), reps, sets}. They are saved to gym-log.json on disk through /api/gymlog,
 // with a copy kept in the browser as a backup, exactly like the Stickynote. Every change fires "gymlog:change" so the Gym cards can update.
 import { esc, HOSTED } from "./util.js";
+import { gh, ghCheck, ghRead, ghWrite, ghMessage } from "./ghstore.js";
 
-const API = "api/gymlog", KEY = "gymlog.mirror";
+const API = "api/gymlog", KEY = "gymlog.mirror", GHPATH = "gym-log.json";
 export const PROGRAM = {
   "Legs": [
     ["Hack squat / pendulum squat", "3 × 6–10"], ["Leg extension", "3 × 10–15"], ["Seated leg curl", "3 × 10–12"],
@@ -31,7 +32,7 @@ const cmpDesc = (a, b) => b.date.localeCompare(a.date) || b.id - a.id;
 const buzz = ms => { try { navigator.vibrate && navigator.vibrate(ms); } catch {} };
 
 export function initGymLog(root, { demo = false } = {}) {
-  let entries = [], step = 5, weight = 45, filter = "All", lastIdx = -1, lastBuzz = 0, curDay = Object.keys(PROGRAM)[0];
+  let entries = [], deleted = new Set(), ghSha = null, step = 5, weight = 45, filter = "All", lastIdx = -1, lastBuzz = 0, curDay = Object.keys(PROGRAM)[0];
   let dirty = false, inflight = false, again = false, timer = null, filePath = "", status = "Loading…", statusBad = false;
   try { const d = localStorage.getItem("gymlog.day"); if (d && PROGRAM[d]) curDay = d; } catch {}
 
@@ -50,6 +51,12 @@ export function initGymLog(root, { demo = false } = {}) {
       </div>
       <button class="gl-save" id="glSave" type="button">Log set</button>
       <div class="basis" id="glStatus" style="margin-top:var(--s2);text-align:center"></div>
+      <details class="gl-sync" id="glSync"><summary>GitHub sync</summary><div class="gl-syncbody">
+        <div class="basis" id="glSyncInfo"></div>
+        <div id="glSyncForm"><input id="glRepo" type="text" placeholder="owner/repo, for example missileminion/dashboard-data" autocomplete="off" spellcheck="false"><input id="glTok" type="password" placeholder="Fine-grained token (kept only in this browser)" autocomplete="off">
+          <div class="basis">Create a private repo (add a README), then a token limited to just that repo with Contents: Read and write. Sets then sync between your phone and your Mac.</div></div>
+        <div style="display:flex;gap:var(--s2)"><button class="btn" id="glConnect" type="button">Connect</button><button class="btn" id="glDisconnect" type="button" hidden>Disconnect</button></div>
+      </div></details>
     </div>
     <div class="card gl-hist">
       <div style="display:flex;align-items:center;gap:var(--s3)"><div class="lbl" style="flex:1">History</div><button class="btn" id="glExport" type="button">Export CSV</button><button class="btn" id="glImport" type="button">Import CSV</button><input id="glFile" type="file" accept=".csv,text/csv" hidden></div>
@@ -58,24 +65,85 @@ export function initGymLog(root, { demo = false } = {}) {
   </div>`;
   const $$ = id => root.querySelector("#" + id), wheel = $$("glWheel"), exSel = $$("glEx");
 
-  /* ---------- storage ---------- */
-  const persistMirror = () => { try { localStorage.setItem(KEY, JSON.stringify(entries)); } catch {} };
-  function changed() { dirty = true; persistMirror(); setStatus("Saving…"); clearTimeout(timer); timer = setTimeout(flush, 500); dispatchEvent(new CustomEvent("gymlog:change")); }
+  /* ---------- storage: GitHub when connected, else the local file, always with a copy in this browser ---------- */
+  const ghPending = () => gh.on && !demo;
+  const persistMirror = () => { try { localStorage.setItem(KEY, JSON.stringify({ entries, deleted: [...deleted] })); } catch {} };
+  const nowTime = () => new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  const parseRemote = text => { const j = JSON.parse(text || "[]"); return Array.isArray(j) ? { entries: j, deleted: [] } : { entries: j.entries || [], deleted: j.deleted || [] }; };
+  function mergeIn(rem) {   // sets are only ever added or deleted, so merging two copies is a union minus the deletions
+    rem.deleted.forEach(id => deleted.add(id));
+    const have = new Set(entries.map(e => e.id)); let added = 0;
+    rem.entries.forEach(e => { if (!have.has(e.id) && !deleted.has(e.id)) { entries.push(e); added++; } });
+    const before = entries.length; entries = entries.filter(e => !deleted.has(e.id));
+    return added > 0 || entries.length !== before;
+  }
+  const behind = rem => entries.some(e => !rem.entries.some(r => r.id === e.id)) || [...deleted].some(id => !rem.deleted.includes(id));
+  const refreshAll = () => { persistMirror(); onExercise(); render(); dispatchEvent(new CustomEvent("gymlog:change")); };
+  function changed() { dirty = true; persistMirror(); setStatus("Saving…"); clearTimeout(timer); timer = setTimeout(flush, 600); dispatchEvent(new CustomEvent("gymlog:change")); }
+  async function localWrite() {   // on your Mac the plain file stays up to date too, as a second copy
+    if (HOSTED) return;
+    try { await fetch(API, { method: "PUT", body: JSON.stringify(entries, null, 1), headers: { "Content-Type": "application/json" } }); } catch {}
+  }
+  async function ghSave() {
+    for (let i = 0; i < 3; i++) {
+      try { ghSha = await ghWrite(GHPATH, JSON.stringify({ version: 1, entries, deleted: [...deleted] }, null, 1), ghSha, "Update gym log"); return; }
+      catch (e) {
+        if (e.status !== 409 && e.status !== 422) throw e;   // the file changed on another device: merge it in and try again
+        const rem = await ghRead(GHPATH); ghSha = rem?.sha ?? null; if (rem && mergeIn(parseRemote(rem.text))) refreshAll();
+      }
+    }
+    throw Object.assign(new Error("conflict"), { status: 409 });
+  }
   async function flush(keepalive = false) {
     clearTimeout(timer); if (!dirty) return;
-    if (HOSTED) { dirty = false; return setStatus("Saved in this browser only (the published copy has no file to write)"); }
     if (inflight) { again = true; return; }
+    if (ghPending()) {
+      inflight = true; dirty = false;
+      try { await ghSave(); setStatus("Saved to GitHub " + nowTime()); localWrite(); }
+      catch (e) { dirty = true; setStatus(ghMessage(e) + " Kept in this browser.", true); timer = setTimeout(flush, 15000); }
+      inflight = false; if (again) { again = false; flush(); } return;
+    }
+    if (HOSTED) { dirty = false; return setStatus("Saved in this browser only. Connect GitHub below to sync across devices."); }
     inflight = true; dirty = false;
     try {
       const body = JSON.stringify(entries, null, 1), r = await fetch(API, { method: "PUT", body, keepalive: keepalive === true && body.length < 60000, headers: { "Content-Type": "application/json" } });
       if (!r.ok) throw new Error(r.status);
-      setStatus("Saved " + new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }));
+      setStatus("Saved " + nowTime());
     } catch { dirty = true; setStatus("Not saved to the file (server unreachable). Kept in this browser.", true); timer = setTimeout(flush, 5000); }
     inflight = false; if (again) { again = false; flush(); }
   }
-  function setStatus(s, bad = false) { status = s; statusBad = bad; const el = $$("glStatus"); el.textContent = s + (filePath ? ` · ${filePath.replace(/^\/Users\/[^/]+/, "~")}` : ""); el.className = "basis" + (bad ? " worse" : ""); }
-  document.addEventListener("visibilitychange", () => { if (document.hidden) flush(true); });
+  async function pull(quiet) {   // bring in sets logged on another device
+    if (!ghPending() || dirty || inflight) return;
+    try {
+      const rem = await ghRead(GHPATH); if (!rem) return;
+      ghSha = rem.sha; const r = parseRemote(rem.text);
+      if (mergeIn(r)) { refreshAll(); localWrite(); }
+      if (behind(r)) { dirty = true; flush(); } else if (!quiet) setStatus("Synced with GitHub " + nowTime());
+    } catch (e) { if (!quiet) setStatus(ghMessage(e), true); }
+  }
+  function setStatus(s, bad = false) { status = s; statusBad = bad; const el = $$("glStatus"); el.textContent = s + (!ghPending() && filePath ? ` · ${filePath.replace(/^\/Users\/[^/]+/, "~")}` : ""); el.className = "basis" + (bad ? " worse" : ""); paintSync(); }
+  document.addEventListener("visibilitychange", () => { if (document.hidden) flush(true); else pull(true); });
   addEventListener("pagehide", () => flush(true));
+  setInterval(() => { if (!document.hidden) pull(true); }, 90000);
+
+  /* ---------- the GitHub panel ---------- */
+  function paintSync() {
+    const on = ghPending();
+    $$("glSyncInfo").textContent = on ? `Connected to ${gh.repo}. Every set is saved there as a commit, and sets from your other devices appear here.` : "Not connected: sets are saved only " + (HOSTED ? "in this browser." : "to the local file and this browser.");
+    $$("glSyncForm").hidden = on; $$("glConnect").hidden = on; $$("glDisconnect").hidden = !on;
+    $$("glSync").querySelector("summary").textContent = on ? "GitHub sync · connected" : "GitHub sync";
+  }
+  $$("glConnect").onclick = async () => {
+    const repo = $$("glRepo").value.trim(), tok = $$("glTok").value.trim();
+    if (!/^[\w.-]+\/[\w.-]+$/.test(repo) || tok.length < 20) return setStatus("Enter the repo as owner/name and paste the token.", true);
+    gh.set(repo, tok); setStatus("Checking…");
+    try { const priv = await ghCheck(); if (!priv && !confirm("That repo is PUBLIC, so your sets would be visible to anyone. Connect anyway?")) { gh.clear(); return setStatus("Not connected."); } }
+    catch (e) { gh.clear(); return setStatus(ghMessage(e), true); }
+    $$("glTok").value = ""; ghSha = null;
+    const rem = await ghRead(GHPATH).catch(() => null); if (rem) { ghSha = rem.sha; mergeIn(parseRemote(rem.text)); refreshAll(); }
+    dirty = true; await flush();
+  };
+  $$("glDisconnect").onclick = () => { if (confirm("Disconnect GitHub on this device? Your sets stay here and on GitHub.")) { gh.clear(); ghSha = null; setStatus(HOSTED ? "Saved in this browser only." : "Saved to the local file."); } };
 
   /* ---------- workout + exercise ---------- */
   const dayName = k => k.split(" (")[0];
@@ -144,7 +212,7 @@ export function initGymLog(root, { demo = false } = {}) {
       const dl = delta[e.id], dh = dl > 0 ? `<span class="gl-up">+${fmt(dl)}</span>` : dl < 0 ? `<span class="gl-down">−${fmt(Math.abs(dl))}</span>` : "";
       const row = document.createElement("div"); row.className = "gl-entry";
       row.innerHTML = `<div class="gl-main"><div class="gl-ex">${esc(e.exercise)}</div><div class="basis">${esc(dayName(e.day || ""))}</div></div><div class="gl-w"><b class="num">${fmt(e.weight)}<span>lb</span></b><small class="num">${dh}${e.sets} × ${e.reps}</small></div><button class="gl-del" type="button" aria-label="Delete entry">×</button>`;
-      row.querySelector(".gl-del").onclick = () => { if (confirm("Delete this entry?")) { entries = entries.filter(x => x.id !== e.id); changed(); render(); onExercise(); } };
+      row.querySelector(".gl-del").onclick = () => { if (confirm("Delete this entry?")) { entries = entries.filter(x => x.id !== e.id); deleted.add(e.id); changed(); render(); onExercise(); } };
       box.appendChild(row);
     }
   }
@@ -174,15 +242,24 @@ export function initGymLog(root, { demo = false } = {}) {
   (async () => {
     let mirror = null, fromFile = null;
     try { mirror = JSON.parse(localStorage.getItem(KEY) || "null"); } catch {}
-    if (HOSTED) setStatus("Saved in this browser only (the published copy has no file to write)");
-    else try {
+    if (mirror && !Array.isArray(mirror)) { (mirror.deleted || []).forEach(id => deleted.add(id)); mirror = mirror.entries || []; }
+    if (!HOSTED) try {
       const r = await fetch(API); filePath = r.headers.get("X-Path") || "";
       if (r.ok) { fromFile = JSON.parse(await r.text() || "[]"); setStatus("Loaded"); } else if (r.status === 404) setStatus(mirror?.length ? "Creating the file…" : "New file"); else throw new Error(r.status);
     } catch { setStatus("Server unreachable: using the copy kept in this browser.", true); }
     entries = Array.isArray(fromFile) ? fromFile : Array.isArray(mirror) ? mirror : [];
+    if (Array.isArray(mirror) && Array.isArray(fromFile)) mergeIn({ entries: mirror, deleted: [] });   // sets logged while the server was off
+    entries = entries.filter(e => !deleted.has(e.id));
     if (demo && !entries.length) { entries = demoEntries(); dirty = true; flush(); }
-    if (fromFile == null && entries.length && !demo && !HOSTED) { dirty = true; flush(); }
-    persistMirror(); onExercise(); render(); dispatchEvent(new CustomEvent("gymlog:change"));
+    refreshAll(); paintSync();
+    if (ghPending()) {
+      try {
+        const rem = await ghRead(GHPATH);
+        if (rem) { ghSha = rem.sha; const r = parseRemote(rem.text); if (mergeIn(r)) refreshAll(); if (behind(r)) { dirty = true; flush(); } else setStatus("Synced with GitHub " + nowTime()); }
+        else if (entries.length) { dirty = true; flush(); } else setStatus("Connected to GitHub. Log a set to create gym-log.json there.");
+      } catch (e) { setStatus(ghMessage(e) + " Using this browser's copy.", true); }
+    } else if (fromFile == null && entries.length && !demo && !HOSTED) { dirty = true; flush(); }
+    else if (HOSTED) setStatus("Saved in this browser only. Connect GitHub below to sync across devices.");
   })();
   return { get entries() { return entries; } };
 }

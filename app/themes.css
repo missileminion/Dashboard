@@ -200,3 +200,9 @@ body.theme-glass{--t-work:#9DB8FF;--t-brk:#7EE8C0;--t-extra:#FFC46B;--t-over:#FF
 .wx-stats{display:flex;flex-wrap:wrap;gap:var(--s3) var(--s5);margin-top:var(--s3)}
 .wx-hours{display:flex;gap:2px;overflow-x:auto;margin-top:var(--s4);padding-top:var(--s3);border-top:1px solid var(--line)}
 .wx-h{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:52px;padding:4px 0} .wx-h b{font-size:15px;font-weight:600} .wx-wet{color:var(--tx)!important}
+
+.gl-sync{margin-top:var(--s3);border-top:1px solid var(--line);padding-top:var(--s3)}
+.gl-sync summary{cursor:pointer;color:var(--tx2);font-size:13px}
+.gl-syncbody{display:flex;flex-direction:column;gap:var(--s2);margin-top:var(--s2)}
+.gl-syncbody input{width:100%;min-height:40px;background:var(--raised);color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:6px 12px;font:13.5px var(--sans)}
+#glSyncForm{display:flex;flex-direction:column;gap:var(--s2)}
