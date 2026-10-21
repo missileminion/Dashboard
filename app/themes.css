@@ -209,6 +209,7 @@ body.theme-glass{--t-work:#9DB8FF;--t-brk:#7EE8C0;--t-extra:#FFC46B;--t-over:#FF
 
 /* ---------- phone layout (Samsung S24 is about 412 px wide) ---------- */
 .i::after{content:"";position:absolute;inset:-12px}   /* bigger touch target for the small info buttons */
+.i[style*="position:static"]{position:relative!important}   /* the ones placed inline in a title: keep the touch area on the button itself */
 @media (max-width:700px){
   body{padding:var(--s3) var(--s3) calc(88px + env(safe-area-inset-bottom))}
   /* navigation moves to a bar at the bottom, where a thumb reaches it */
