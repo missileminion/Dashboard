@@ -11,7 +11,7 @@ export const gh = {
 const err = (status, msg) => Object.assign(new Error(msg || "HTTP " + status), { status });
 const hdr = () => ({ Authorization: `Bearer ${gh.token}`, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" });
 const b64 = s => btoa(unescape(encodeURIComponent(s))), unb64 = s => decodeURIComponent(escape(atob(s.replace(/\n/g, ""))));
-const url = p => `https://api.github.com/repos/${gh.repo}/${p}`;
+const url = p => `https://api.github.com/repos/${gh.repo}${p ? "/" + p : ""}`;   // no trailing slash: GitHub answers that with a response browsers refuse to read
 
 export async function ghCheck() {   // can this token see the repo and write to it?
   const r = await fetch(url(""), { headers: hdr(), cache: "no-store" }).catch(() => { throw err(0, "offline"); });
@@ -33,4 +33,4 @@ export async function ghWrite(path, text, sha, message) {   // returns the new s
 export const ghMessage = e => e.status === 401 ? "GitHub rejected the token. Make a new one and reconnect."
   : e.status === 403 ? "The token can't write to that repo (it needs Contents: read and write)."
   : e.status === 404 ? "Repo not found, or the token can't see it. Check the name and the token's repository access."
-  : e.status === 0 ? "Can't reach GitHub right now." : "GitHub error " + e.status;
+  : e.status === 0 ? "Can't reach GitHub right now. Check your connection, or an ad blocker or privacy extension blocking api.github.com." : "GitHub error " + e.status;
