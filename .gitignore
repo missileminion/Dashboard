@@ -1,0 +1,7 @@
+# personal data: never commit
+stickynote*.md
+gym-log*.json
+.tmp-*
+.DS_Store
+# your Google client ID lives only here for now (see app/config.example.js)
+app/config.js

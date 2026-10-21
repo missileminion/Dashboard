@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Health</title>
+<script type="importmap">{"imports":{"/vendor/":"./vendor/"}}</script>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<style>
+/* ---------- tokens ---------- */
+:root{
+  color-scheme:dark light;
+  --good:#ffffff; --good-bar:#ffffff; --bad:#ff1f1f; --mid:#8d929c; --none:transparent; --none-bar:#2a2d33; --none-bd:#333a44; --future:#14171c;
+  --ink:#ffffff; --ink2:#e8e8ea; --track:#202327; --link:#6f8aa3; --bg-solid:#0b0e13; --tipbg:rgba(13,16,21,.93); --popbg:#0d1015; --rangebg:#2b3644;
+  --lane-a:#151a21; --lane-b:#0f1318; --lane-bd:#1f2630; --lane-mid:#1c222b;
+  --st-deep:#9a62d0; --st-light:#82b8ff; --st-rem:#b5ecff; --st-awake:#ff9ec0; --st-restless:#2fd47a;
+  --grid:rgba(255,255,255,.14); --grid-minor:rgba(255,255,255,.055); --bg:#0a0c0f; --surface:#11151a; --raised:#171c23; --line:#222a33;
+  --tx:#dde2e8; --tx2:#8b97a5; --tx3:#5d6874;
+  --better:#ffffff; --worse:#ff3b3b; --neutral:#8b97a5; --accent:#d9dce2;
+  --deep:#9a62d0; --light:#82b8ff; --rem:#b5ecff; --awake:#ff9ec0; --restless:#2fd47a;
+  --r:8px; --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --sans:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:13px/1.4 var(--sans);padding:var(--s4)}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+/* panel = the unit that can sit next to habits / timer / backlog later */
+.panel{max-width:1240px;margin:0 auto;container-type:inline-size}
+.bar{display:flex;align-items:center;gap:var(--s4);margin-bottom:var(--s3)}
+.bar h1{font-size:15px;font-weight:600;margin:0;flex:1}
+.bar .meta{color:var(--tx2);font-size:12px}
+.seg{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{background:none;border:0;color:var(--tx2);padding:5px 12px;font:inherit;cursor:pointer}
+.seg button.on{background:var(--raised);color:var(--tx)}
+.seg button:disabled{opacity:.3;cursor:default}
+.btn{background:var(--surface);border:1px solid var(--line);color:var(--tx);padding:5px 12px;border-radius:6px;font:inherit;cursor:pointer}
+h2{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--tx3);font-weight:600;margin:var(--s5) 0 var(--s2)}
+.grid{display:grid;gap:var(--s3)}
+.g4{grid-template-columns:repeat(4,1fr)} .g3{grid-template-columns:repeat(3,1fr)} .g2{grid-template-columns:2fr 1fr}
+@container (max-width:900px){.g4{grid-template-columns:repeat(2,1fr)}.g3,.g2{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:var(--s3) var(--s3)}
+.lbl{color:var(--tx2);font-size:12px}
+.val{font-size:22px;font-weight:600;font-family:var(--mono);margin:2px 0;letter-spacing:-.02em}
+.val small{font-size:12px;color:var(--tx2);font-weight:400;margin-left:4px;letter-spacing:0}
+.d{font-size:12px;font-family:var(--mono)} .better{color:var(--better)} .worse{color:var(--worse)} .neutral{color:var(--neutral)}
+.basis{color:var(--tx3);font-size:11px}
+.slot{border-style:dashed;background:transparent}
+.slot .val{color:var(--tx3)}
+.hero{display:grid;grid-template-columns:1fr 1fr;gap:var(--s3)}
+
+.hero .main .val{font-size:30px}
+.range{position:relative;height:6px;background:var(--raised);border-radius:3px;margin:var(--s3) 0 var(--s1)}
+.range i{position:absolute;top:0;bottom:0;background:var(--rangebg);border-radius:3px}
+.range b{position:absolute;top:-3px;width:3px;height:12px;background:var(--tx);border-radius:2px}
+.row{display:grid;grid-template-columns:110px 1fr 120px;gap:var(--s3);align-items:center;padding:5px 0;border-bottom:1px solid var(--line)}
+.row:last-child{border:0}
+.tag{font-size:11px;padding:1px 7px;border-radius:10px;border:1px solid currentColor;white-space:nowrap}
+.legend{display:flex;gap:var(--s4);color:var(--tx2);font-size:12px;margin-top:var(--s2)}
+.legend span::before{content:"";display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px;background:var(--c)}
+svg{display:block;width:100%;height:auto}
+.states{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s3)}
+@container (max-width:900px){.states{grid-template-columns:1fr}}
+.banner{display:flex;gap:var(--s3);align-items:center;padding:var(--s3) var(--s4);border-radius:var(--r);border:1px solid var(--line);background:var(--surface)}
+.banner.warn{border-color:#5a4a22;color:#e5b567}.banner.err{border-color:#5a2a2e;color:var(--worse)}
+.skel{height:14px;border-radius:4px;background:linear-gradient(90deg,var(--raised),#202733,var(--raised));background-size:200% 100%;animation:s 1.4s infinite}
+@keyframes s{to{background-position:-200% 0}}
+.sleepstats{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--s2) var(--s4);margin:var(--s2) 0 var(--s2)}
+.sleepstats .big{margin-right:var(--s2);font-family:var(--mono);font-size:22px;font-weight:600;letter-spacing:-.02em}
+.sleepstats .big small{font-size:12px;color:var(--tx2);font-weight:400;margin-left:6px;letter-spacing:0}
+.chip{display:flex;flex-direction:column;gap:2px}.chip .k{font-size:11px;color:var(--tx2);display:flex;align-items:center;gap:6px}
+.chip .k::before{content:"";width:8px;height:8px;border-radius:3px;background:var(--c)}
+.chip .v{font-family:var(--mono);font-size:14px}.chip .v i{font-style:normal;color:var(--tx3);margin-left:6px;font-size:12px}
+#chartWrap{position:relative}
+#tip{position:absolute;top:0;pointer-events:none;background:var(--tipbg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12px;display:none;white-space:nowrap;backdrop-filter:blur(6px);z-index:2}
+#tip .t{font-family:var(--mono);color:var(--tx2);margin-bottom:2px}
+.note{color:var(--tx3);font-size:11px;margin-top:var(--s6)}
+
+.banner{margin-bottom:var(--s4)} .banner[hidden]{display:none}
+.gap{color:var(--tx3)} .row.hd{color:var(--tx3)}
+
+.seg button:disabled{opacity:.3;cursor:default}
+.demo{border:1px solid var(--worse);color:var(--worse);border-radius:6px;padding:2px 8px;font-size:11px;letter-spacing:.06em}
+
+/* three colours: bright red = bad, white = good, near-black = neutral or no data */
+.blocks{display:flex;flex-direction:column;gap:6px}
+.brow{display:flex;align-items:center;gap:var(--s3)}
+.blabel{width:78px;flex:none;font-size:12px;color:var(--tx2)}
+.bcells{display:grid;gap:5px;flex:1}
+.blk{display:block;aspect-ratio:1;max-height:30px;border-radius:6px;background:var(--none);border:1px solid var(--none-bd)}
+.blk.mid{background:var(--mid);border-color:var(--mid)}
+.blk.good{background:var(--good);border-color:var(--good)}.blk.bad{background:var(--bad);border-color:var(--bad)}
+.card{position:relative}
+.i{position:absolute;top:8px;right:9px;width:14px;height:14px;border-radius:50%;border:1px solid var(--line);color:var(--tx3);font:italic 9px/12px Georgia,serif;text-align:center;cursor:pointer;user-select:none}
+.i:hover,.i:focus{color:var(--tx);outline:none}
+.pop{position:absolute;z-index:50;width:360px;max-height:72vh;overflow:auto;background:var(--popbg);border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:12px;line-height:1.55;color:var(--tx2);box-shadow:0 12px 40px rgba(0,0,0,.35)}
+.pop b{color:var(--tx)}.pop p{margin:8px 0 0}.pop p:first-of-type{margin-top:6px}
+
+.chg{display:inline-grid;grid-template-columns:1.1em 5.6ch;justify-content:end;text-align:right}
+svg [stroke="var(--grid)"],svg [stroke="var(--grid-minor)"]{animation:gridFade 1.1s ease both}
+@keyframes gridFade{from{stroke-opacity:0}to{stroke-opacity:1}}
+.mgrid2{display:grid;grid-template-columns:minmax(230px,300px) 1fr;gap:var(--s5)}
+.bodycheck{border-right:1px solid var(--line);padding-right:var(--s4)}
+@container (max-width:900px){.mgrid2{grid-template-columns:1fr}.bodycheck{border-right:0;padding-right:0;border-bottom:1px solid var(--line);padding-bottom:var(--s3)}}
+.mpara{color:var(--rep);font-size:15.5px;line-height:1.65;margin:var(--s2) 0 0;max-width:68ch}
+.mpara+.mpara{margin-top:var(--s3)}
+.mpara b,.mpara .gap{color:inherit}
+.mhead{font-size:17px;font-weight:600;line-height:1.35;letter-spacing:-.01em;margin:2px 0 var(--s2)}
+.mrow{display:grid;grid-template-columns:118px 1fr;gap:var(--s3);padding:6px 0;border-bottom:1px solid var(--line);line-height:1.45}
+.mrow:last-child{border:0}
+.mk{color:var(--tx2)}
+.sbody{display:flex;flex-direction:column;gap:var(--s3)}
+.stack{display:flex;flex-direction:column;gap:var(--s3)}
+.rgwrap{display:flex;gap:var(--s6);align-items:center;flex-wrap:wrap;justify-content:center;padding:var(--s2) 0}
+.rglegend{display:flex;flex-direction:column;gap:var(--s3);min-width:210px}
+.rgrow{display:grid;grid-template-columns:14px 1fr auto 40px;gap:var(--s3);align-items:center;font-size:13px}
+.rgrow i{width:10px;height:10px;border-radius:50%}.rgrow b{font-weight:600}.rgrow em{font-style:normal;color:var(--tx3);text-align:right}
+.mflex{display:flex;gap:var(--s5);align-items:center;flex-wrap:wrap}
+.mgrid{display:grid;grid-template-columns:repeat(15,12px);grid-auto-rows:12px;gap:4px}
+.mgrid .blk{width:12px;height:12px;aspect-ratio:auto;max-height:none;border-radius:3px;border-width:0}
+.mgrid .blk.none{border:1px solid var(--none-bd)}
+.mstats{display:flex;flex-direction:row;gap:var(--s5);flex-wrap:wrap}
+.sw{display:inline-block;width:12px;height:12px;border-radius:3px}
+.zbars{display:flex;gap:var(--s4);align-items:flex-end;margin-top:var(--s2)}
+.zbars>div{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:54px}
+.zbars i{display:block;width:26px;border-radius:5px;background:var(--ink2)}
+.zbars span{font-size:11px;color:var(--tx2)}.zbars b{font-size:12px;font-weight:500}
+.orbwrap{display:flex;align-items:center;gap:var(--s3)}
+.orbcv{width:110px;height:110px;flex:none;display:block}
+.g3{grid-template-columns:repeat(3,1fr)}
+.g5{grid-template-columns:repeat(5,1fr)}
+@container (max-width:900px){.g5{grid-template-columns:repeat(2,1fr)}}
+.gev{grid-template-columns:1fr 1.5fr}.geq{grid-template-columns:1fr 1fr}
+@container (max-width:900px){.gev,.geq{grid-template-columns:1fr}}
+
+@media (prefers-reduced-motion:reduce){svg [stroke="var(--grid)"],svg [stroke="var(--grid-minor)"]{animation:none}}
+</style><link rel="stylesheet" href="themes.css">
+</head>
+<body class="theme-glass">
+<div class="bg-orbs" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+<div class="panel" id="panel">
+  <div class="bar">
+    <div class="seg tabs" id="tabs"><button data-t="health" class="on">Health</button><button data-t="prod">Productivity</button><button data-t="gym">Gym log</button></div>
+    <h1 class="hv">Health <span class="i" data-i="standards" role="button" tabindex="0" aria-label="When numbers turn red" style="position:static;display:inline-block;vertical-align:middle;margin-left:6px">i</span></h1>
+    <span class="demo hv" id="demoTag" hidden>DEMO DATA</span>
+    <span class="meta hv"><span id="device">Fitbit</span> · <span class="num" id="synced">Not synced</span></span>
+    <button class="btn hv" id="signin" hidden>Sign in</button>
+    <button class="btn hv" id="refresh">Refresh</button>
+  </div>
+  <div id="banner" class="banner hv" hidden></div>
+  <div id="fail" class="banner err hv" hidden></div>
+
+  <section class="hv" data-k="morning"><h2>Status report</h2><div class="sbody">
+    <div class="card" data-k="morning"><span class="i" data-i="morning" role="button" tabindex="0" aria-label="More information">i</span>
+      <div class="mgrid2">
+        <div class="bodycheck"><div class="lbl" style="display:flex;align-items:center;gap:8px;margin-bottom:var(--s2)">Body check <span class="i" data-i="early" role="button" tabindex="0" aria-label="More information" style="position:static;display:inline-block">i</span></div><div id="orb"></div></div>
+        <div><div class="lbl" id="morningDate"></div><div id="morning" style="margin-top:var(--s2)"></div></div>
+      </div>
+    </div>
+  </div></section>
+
+  <section class="hv" data-k="weather"><h2>Weather</h2><div class="sbody">
+    <div class="card" data-k="weather"><span class="i" data-i="weather" role="button" tabindex="0" aria-label="More information">i</span><div id="weatherRoot"></div></div>
+  </div></section>
+
+  <section class="hv" data-k="life"><h2>Life</h2><div class="sbody">
+    <div class="grid geq" data-k="lifeMain">
+      <div class="card" data-k="year"><span class="i" data-i="year" role="button" tabindex="0" aria-label="More information">i</span><div class="lbl">Year Ring</div><div id="yearRing" style="margin-top:var(--s2)"></div></div>
+      <div class="stack" data-k="lifeRight">
+        <div class="card" data-k="weak"><span class="i" data-i="weak" role="button" tabindex="0" aria-label="More information">i</span><div class="lbl">Weak Link</div><div id="weakLink" style="margin-top:var(--s2)"></div></div>
+        <div class="hero" id="hero" data-k="hero"></div>
+      </div>
+    </div>
+  </div></section>
+  <section class="hv" data-k="review"><h2>This week</h2><div class="sbody">
+    <div class="grid gev">
+      <div class="card" data-k="today"><span class="i" data-i="today" role="button" tabindex="0" aria-label="More information">i</span><div class="lbl">Today</div><div id="todayCall"></div></div>
+      <div class="card" data-k="review"><span class="i" data-i="review" role="button" tabindex="0" aria-label="More information">i</span><div class="lbl">Weekly review · last 7 days vs the 7 before</div><div id="weeklyReview" style="margin-top:var(--s2)"></div></div>
+    </div>
+  </div></section>
+  <section class="hv" data-k="sleep"><h2>Sleep</h2><div class="sbody">
+    <div class="grid g3" id="sleepKpi" data-k="sleepKpi"></div>
+    <div class="grid g2" data-k="sleepMain">
+      <div class="stack" data-k="stack">
+        <div class="card sleepcard" data-k="flow"><span class="i" id="sleepInfo" data-i="nightFlow" role="button" tabindex="0" aria-label="More information" style="top:12px;right:12px">i</span>
+          <div style="display:flex;align-items:center;gap:var(--s3);flex-wrap:wrap"><div class="seg" id="viewSeg"><button data-v="lanes" class="on">Night Flow</button><button data-v="stages">Stages</button></div><div style="flex:1"></div><div class="seg"><button id="prevN" aria-label="Previous night">‹</button><button id="nightLbl" style="min-width:130px;color:var(--tx);cursor:default"></button><button id="nextN" aria-label="Next night">›</button></div></div>
+          <div class="sleepstats" id="sleepStats"></div>
+          <div id="chartWrap"><div id="hyp"></div><div id="tip"></div></div>
+          <div class="basis" style="margin-top:var(--s2)" id="stageNote"></div></div>
+        <div class="card" data-k="month"><span class="i" data-i="sleepMonth" role="button" tabindex="0" aria-label="More information">i</span><div class="lbl">Sleep Month · last 60 nights</div><div id="sleepMonth" style="margin-top:var(--s2)"></div></div>
+      </div>
+      <div class="card" data-k="quality"><span class="i" data-i="sleepQuality" role="button" tabindex="0" aria-label="More information">i</span><div class="lbl">Sleep quality, this night</div><div id="quality"></div></div>
+    </div>
+  </div></section>
+  <section class="hv" data-k="load"><h2>Load</h2><div class="sbody">
+    <div class="grid g4" id="loadKpi" data-k="loadKpi"></div>
+  </div></section>
+  <section class="hv" data-k="runs"><h2>Runs</h2><div class="sbody">
+    <div class="grid g5" id="runKpi" data-k="runKpi"></div>
+    <div class="grid g2" data-k="runMain">
+      <div class="card" data-k="lastrun"><span class="i" data-i="lastRun" role="button" tabindex="0" aria-label="More information">i</span><div class="lbl" style="margin-bottom:var(--s2)">Last run</div><div id="lastRun"></div></div>
+      <div class="card" data-k="runform"><span class="i" data-i="runForm" role="button" tabindex="0" aria-label="More information">i</span><div class="lbl" style="margin-bottom:var(--s2)">Run form · improvement</div><div id="pace"></div><div class="basis" id="paceNote"></div></div>
+    </div>
+    <div class="card" data-k="recent"><div class="lbl">Recent runs</div><div id="runs"></div></div>
+  </div></section>
+  <section class="hv" data-k="gym"><h2>Gym</h2><div class="sbody">
+    <div class="grid g4" id="gymKpi" data-k="gymKpi"></div>
+    <div class="grid g2" data-k="gymMain">
+      <div class="card" data-k="lastgym"><span class="i" data-i="gym" role="button" tabindex="0" aria-label="More information">i</span><div class="lbl" style="margin-bottom:var(--s2)">Last workout</div><div id="lastGym"></div></div>
+      <div class="card" data-k="gymweeks"><div class="lbl">Gym days per week</div><div id="gymWeeks" style="margin-top:var(--s2)"></div><div class="basis" id="gymNote"></div></div>
+    </div>
+    <div class="card" data-k="lifts"><span class="i" data-i="lifts" role="button" tabindex="0" aria-label="More information">i</span><div class="lbl">Lift progress · from your gym log</div><div id="gymLifts" style="margin-top:var(--s2)"></div></div>
+    <div class="card" data-k="gymrecent"><div class="lbl">Recent workouts</div><div id="gymRecent"></div></div>
+  </div></section>
+  <section class="hv" data-k="health"><h2>How healthy am I</h2><div class="sbody">
+    <div class="grid gev" data-k="healthMain">
+      <div class="card" data-k="vitals"><span class="i" data-i="vitals" role="button" tabindex="0" aria-label="More information">i</span><div class="lbl" style="margin-bottom:var(--s2)">Latest vitals vs your usual range</div><div id="vitals"></div></div>
+      <div class="card" data-k="rhr"><div class="lbl">Resting heart rate, last 90 days (bpm)</div><div id="lrhr"></div></div>
+    </div>
+  </div></section>
+<section id="glog"><h2>Gym log</h2><div id="glogRoot"></div></section>
+<section id="prod"><h2>Productivity</h2><div id="timerRoot"></div>
+  <h2>Stickynote</h2><div class="card" data-k="tasks"><span class="i" data-i="tasks" role="button" tabindex="0" aria-label="More information">i</span><div id="tasksRoot"></div></div></section>
+</div>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="config.js"></script>
+<script>window.CONFIG=window.CONFIG||{SCOPES:"https://www.googleapis.com/auth/googlehealth.sleep.readonly https://www.googleapis.com/auth/googlehealth.health_metrics_and_measurements.readonly https://www.googleapis.com/auth/googlehealth.activity_and_fitness.readonly",CLIENT_ID:(function(){try{return localStorage.getItem("clientId")||""}catch(e){return ""}})()};</script>
+<script type="module" src="js/main.js"></script>
+<script>setTimeout(function(){var e=document.getElementById("hero");if(e&&!e.children.length){var b=document.getElementById("banner");b.hidden=false;b.className="banner err";b.innerHTML="<span>●</span><span>The page scripts did not load, most likely an old cached copy. Hard refresh with Cmd+Shift+R.</span>";}},4000)</script>
+</body></html>
