@@ -5,6 +5,8 @@
 <title>Health</title>
 <script type="importmap">{"imports":{"/vendor/":"./vendor/"}}</script>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <style>
 /* ---------- tokens ---------- */
 :root{
@@ -225,5 +227,6 @@ svg [stroke="var(--grid)"],svg [stroke="var(--grid-minor)"]{animation:gridFade 1
 <script src="config.js"></script>
 <script>window.CONFIG=window.CONFIG||{SCOPES:"https://www.googleapis.com/auth/googlehealth.sleep.readonly https://www.googleapis.com/auth/googlehealth.health_metrics_and_measurements.readonly https://www.googleapis.com/auth/googlehealth.activity_and_fitness.readonly",CLIENT_ID:(function(){try{return localStorage.getItem("clientId")||""}catch(e){return ""}})()};</script>
 <script type="module" src="js/main.js"></script>
+<script>if ("serviceWorker" in navigator && location.protocol === "https:") addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); });</script>
 <script>setTimeout(function(){var e=document.getElementById("hero");if(e&&!e.children.length){var b=document.getElementById("banner");b.hidden=false;b.className="banner err";b.innerHTML="<span>●</span><span>The page scripts did not load, most likely an old cached copy. Hard refresh with Cmd+Shift+R.</span>";}},4000)</script>
 </body></html>
