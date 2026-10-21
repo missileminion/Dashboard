@@ -8,7 +8,7 @@ export const RULES = {
   readinessZ:     { bad: v => v < -0.5,               text: "Readiness below -0.5 σ (HRV trend below your usual range)" },
   loadRatio:      { bad: v => v > 1.5 || v < 0.6,     text: "Fatigue ÷ fitness above 1.5 or below 0.6" },
   azmWeek:        { bad: v => v < 150,                text: "Under 150 active zone minutes in 7 days" },
-  weeksAt150:     { bad: (v, of) => v < of / 2,       text: "Under half of recent weeks reached 150 minutes" },
+  weeksOnGoal:    { bad: (v, of) => v < of / 2,       text: "Under half of recent weeks reached 5 gym days" },
   workouts:       { bad: v => v <= 4,                 text: "4 or fewer workouts last week (goal 5–6)" },
   runChange:      { bad: v => v < 0,                  text: "Run form below its reference (negative change)" },
   illnessScore:   { bad: v => v >= 0.6,                text: "Body Check reads Low, Mild or Strong (anything but All clear)" },

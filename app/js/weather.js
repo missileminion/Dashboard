@@ -12,6 +12,7 @@ const get = (k, d = null) => { try { return JSON.parse(localStorage.getItem(k)) 
 const put = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 const lerp = (a, b, t) => a + (b - a) * t, smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 const hh = h => String(Math.floor(h)).padStart(2, "0") + ":" + String(Math.round((h % 1) * 60)).padStart(2, "0");
+const feel0 = c => c.apparent_temperature;
 const minutesOf = iso => +iso.slice(11, 13) * 60 + +iso.slice(14, 16);
 
 export function initWeather(root) {
@@ -70,11 +71,13 @@ export function initWeather(root) {
   }
   const periodText = ps => ps.map(p => `${hh(p.start)}–${hh(p.end)} <span class="basis">up to ${p.peak}%${p.mm >= 0.5 ? `, ${n3(p.mm)} mm` : ""}</span>`).join(" · ");
 
+  const altFn = d => { const off = d.utc_offset_seconds || 0, base = Date.parse(d.daily.time[1] + "T00:00:00Z") - off * 1000; return hr => sunPos(new Date(base + hr * 3600e3), city.lat, city.lon).alt; };
+  const wear = f => f <= 2 ? "tights, gloves, a warm jacket and a hat" : f <= 8 ? "tights or leggings, a long sleeve and a light jacket" : f <= 13 ? "shorts or tights with a long sleeve" : f <= 19 ? "shorts and a t-shirt" : f <= 25 ? "shorts and a light singlet, and a cap in the sun" : "the lightest kit you own, a cap, and water with you; slow the pace";
+
   /* ---------- one timeline for the day: sky, sun height, rain, temperature today and yesterday ---------- */
   function timeline(d, ti, yi, nowHour) {
     const h = d.hourly, W = 560, H = 250, L = 34, R = 12, top = 28, bot = 34, plotH = H - top - bot, x = hr => L + (hr / 24) * (W - L - R);
-    const off = d.utc_offset_seconds || 0, base = Date.parse(d.daily.time[1] + "T00:00:00Z") - off * 1000;
-    const alt = hr => sunPos(new Date(base + hr * 3600e3), city.lat, city.lon).alt;
+    const alt = altFn(d);
     const tt = ti.map(i => h.temperature_2m[i]), yt = yi.map(i => h.temperature_2m[i]);
     const lo = Math.min(...tt, ...yt) - 1.5, hi = Math.max(...tt, ...yt) + 1.5, yT = v => top + (1 - (v - lo) / (hi - lo)) * plotH;
     const yS = a => top + (1 - (Math.max(-12, Math.min(70, a)) + 12) / 82) * plotH;   // sun height -12 to 70 degrees across the plot
@@ -165,11 +168,25 @@ export function initWeather(root) {
       if (!best || sc < best.sc) best = { sc, t, feel: h.apparent_temperature[i], rain: h.precipitation_probability[i] ?? 0 };
     });
     const runDay = best ? (best.t.slice(0, 10) === today ? "today" : new Date(best.t).toLocaleDateString("en-US", { weekday: "long" })) : "";
+
+    // "Plan around it": the things you act on today. Everything here comes from the same forecast and the sun's position.
+    const altN = altFn(d), at = (from, to, cond) => { for (let m = from; m <= to; m += 5) if (cond(altN(m / 60))) return m / 60; return null; };
+    const noon = 13, golden = [at(noon * 60, 1439, a => a <= 6), at(noon * 60, 1439, a => a <= 0)], sunsetH = minutesOf(dl.sunset[1]) / 60;
+    const uvHours = ti.filter(i => (h.uv_index[i] ?? 0) >= 3).map(i => ti.indexOf(i)), left = onToday && nowHour < sunsetH ? sunsetH - nowHour : 0;
+    const row = (l, v, hint = "") => `<div class="wx-drow wx-prow"><span>${l}</span><span>${v}${hint ? ` <span class="basis">${hint}</span>` : ""}</span></div>`;
+    const strip = ti.slice(onToday ? nowK : 0, (onToday ? nowK : 0) + 10).map(i => { const k = ti.indexOf(i); return `<div class="wx-h"><span class="basis">${String(k).padStart(2, "0")}</span><b class="num">${T(h.temperature_2m[i])}°</b><span class="basis ${wet(h, i) ? "wx-wet" : ""}">${h.precipitation_probability[i] ?? 0}%</span></div>`; }).join("");
+    const plan = `<div class="wx-plan"><div class="basis" style="margin-bottom:2px">Plan around it</div>
+      ${row("Best time to run", best ? `<b>${best.t.slice(0, 10) === today ? "today" : new Date(best.t).toLocaleDateString("en-US", { weekday: "long" })} ${best.t.slice(11, 16)}</b>` : "no daylight hour left", best ? `feels like ${T(best.feel)}°, ${best.rain}% rain` : "")}
+      ${best ? row("What to wear", `<b>${wear(best.feel)}</b>`) : ""}
+      ${row("Daylight left", left > 0 ? `<b>${Math.floor(left)}h ${String(Math.round((left % 1) * 60)).padStart(2, "0")}m</b>` : `<span class="basis">the sun is down</span>`, `sunset ${hh(sunsetH)}`)}
+      ${golden[0] != null && golden[1] != null ? row("Golden hour", `<b>${hh(golden[0])}–${hh(golden[1])}</b>`, "soft light, good for a walk or a run") : ""}
+      ${uvHours.length ? row("Sun protection", `<b>${hh(uvHours[0])}–${hh(uvHours.at(-1) + 1)}</b>`, `UV 3 or more, peaks at ${Math.round(dl.uv_index_max[1])}`) : row("Sun protection", `<span class="basis">UV stays low today</span>`)}
+      <div class="wx-hours">${strip}</div></div>`;
     body.innerHTML = `<div class="wx-grid"><div>
         <div class="num" style="font-size:44px;font-weight:600;letter-spacing:-.03em;line-height:1">${T(c.temperature_2m)}°<small style="font-size:16px;color:var(--tx2);font-weight:400;margin-left:6px">${esc(WMO(c.weather_code))}</small></div>
         <div class="wx-sum">${esc(summary(d, yi, nowK, todayRain))}</div>
         ${deviations(d, yi, nowK)}
-        <div class="basis" style="margin-top:var(--s3)">Best time to run ${best ? `<b style="color:var(--tx)">${runDay} at ${best.t.slice(11, 16)}</b>, feels like ${T(best.feel)}°, ${best.rain}% rain` : "— no daylight hour left in the next two days"}</div>
+        ${plan}
       </div>
       <div><div class="wx-chart">${timeline(d, ti, yi, nowHour)}</div>
         <div class="wx-leg"><span><i style="background:var(--tx)"></i>Today</span><span><i style="background:var(--tx2);opacity:.8"></i>Yesterday</span><span><i style="background:#ffc060"></i>Sun height</span><span><i style="background:rgba(110,175,255,.6)"></i>Rain</span></div>
@@ -181,6 +198,8 @@ export function initWeather(root) {
           return `<div class="row" style="grid-template-columns:62px 1fr auto 74px auto;gap:var(--s3);padding:6px 0"><span>${k === 0 ? "Today" : dayLabel(day).split(",")[0]}</span><span class="basis">${esc(WMO(dl.weather_code[i]))}</span><span class="basis">${dl.precipitation_probability_max[i]}%</span><span class="num wx-dv${flat ? " flat" : ""}" style="text-align:right">${flat ? "same" : (dh > 0 ? "▲ " : "▼ ") + n3(Math.abs(dh)) + "°"}</span><span class="num">${T(dl.temperature_2m_max[i])}° <span class="basis">${T(dl.temperature_2m_min[i])}°</span></span></div>`;
         }).join("")}<div class="basis" style="margin-top:4px">The change beside each day's high is against the day before it.</div></div>
       </div></div>`;
+    const brief = { city: city.name, feelsNow: Math.round(feel0(c)), highToday: dl.temperature_2m_max[1], deltaHigh: dl.temperature_2m_max[1] - dl.temperature_2m_max[0], feelsMax: Math.max(...ti.map(i => h.apparent_temperature[i])), uvMax: dl.uv_index_max[1], rain: todayRain.map(p => ({ start: p.start, end: p.end, peak: p.peak })), rainTomorrow: tomRain.length > 0, bestRun: best ? { day: best.t.slice(0, 10) === today ? "today" : "tomorrow", time: best.t.slice(11, 16), feel: Math.round(best.feel), rain: best.rain } : null };
+    const bj = JSON.stringify(brief); if (bj !== JSON.stringify(window.wxBrief)) { window.wxBrief = brief; dispatchEvent(new CustomEvent("wx:ready")); }
     window.skyWeather = { cloud: c.cloud_cover ?? 0 };   // clouds dim the sun glow in the background
     dispatchEvent(new CustomEvent("sky:refresh"));
   }

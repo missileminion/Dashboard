@@ -181,6 +181,7 @@ function renderRuns() {
   $("paceNote").textContent = rf.skipped ? `${rf.skipped} run${rf.skipped > 1 ? "s" : ""} left out (no heart rate)` : "";
 }
 let gymLogApi = null, gymToken = 0;
+addEventListener("wx:ready", () => { if (days.length) render(); });   // the weather arrived: the Status report can use it
 addEventListener("gymlog:change", () => {   // logged sets also make that day a gym day; refresh everything that depends on it
   A.gymLog.days = new Set((gymLogApi?.entries || []).map(e => e.date)); if (days.length) render();
 });
@@ -220,10 +221,11 @@ function renderGym() {
   lastRun($("lastGym"), sel, null, { gym: true });
   if (sel) { const my = ++gymToken; (async () => { let hr = []; try { hr = DEMO ? demoGymHr(sel) : await loadRunHr(sel); } catch (e) { } if (my === gymToken) lastRun($("lastGym"), sel, hr, { gym: true }); })(); }
 }
-function weeksTile() {
-  const mon = monday(today), weeks = [...Array(12)].map((_, i) => addDays(mon, -7 * (i + 1)));   // completed weeks only
-  const res = weeks.map(w => { const d = [...Array(7)].map((_, i) => addDays(w, i)); const have = d.filter(x => get(x, "azm") != null).length; return have >= 4 ? sum(d.map(x => get(x, "azm"))) >= WEEK_AZM : null; }).filter(v => v != null);
-  const hit = res.filter(Boolean).length; return tile("Weeks at 150 min", res.length ? hit : null, `of last ${res.length || 12}`, "", "", "", res.length > 0 && bad("weeksAt150", hit, res.length));
+function weeksTile() {   // completed weeks in which you reached your gym goal (5 or more gym days). Active zone minutes are not used: lifting barely raises heart rate into the zones.
+  const mon = monday(today), weeks = [...Array(12)].map((_, i) => addDays(mon, -7 * (i + 1)));
+  const res = weeks.map(w => A.gymDaysInWeek(byDate, w, addDays)).filter(v => v != null);
+  const hit = res.filter(v => v >= A.TARGET.gymPerWeek).length;
+  return tile("Weeks on goal", res.length ? hit : null, res.length ? `of last ${res.length}` : "", `<div class="basis">${res.length ? "5+ gym days in a week" : "builds up as weeks finish"}</div>`, "", "weeksGoal", res.length >= 3 && bad("weeksOnGoal", hit, res.length));
 }
 function renderWeakLink(nights) {
   const recent = nights.slice(-14), sc = recent.map(A.nightScores).filter(Boolean), st = recent.map(A.nightStats).filter(Boolean), enough = st.length >= 5;
@@ -367,7 +369,7 @@ function reportSig(lastNight) {
 function renderMorning({ signs, rd, lb, sq, lastNight, sf, bed }) {
   const st = lastNight ? A.nightStats(lastNight) : null;
   const call = A.trainingCall({ rd, signs, lastQuality: sq?.score ?? null, lastTst: st?.tst ?? null, ratio: lb?.ratio ?? null });
-  const rep = buildReport({ byDate, days, today, addDays, signs, rd, lb, sq, lastNight, sf, bed, call });
+  const rep = buildReport({ byDate, days, today, addDays, signs, rd, lb, sq, lastNight, sf, bed, call, gymEntries: gymLogApi?.entries || [], wx: window.wxBrief || null, now: new Date() });
   // when did it last change, and why: stored so it survives a reload
   const sig = reportSig(lastNight); let state = null;
   try { state = JSON.parse(localStorage.getItem("report.state") || "null"); } catch {}
