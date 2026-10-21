@@ -299,7 +299,7 @@ document.addEventListener("click", e => {
   if (!b) { if (!e.target.closest(".pop")) pop.hidden = true; return; }
   if (!pop.hidden && pop.dataset.k === b.dataset.i && pop._b === b) { pop.hidden = true; return; }
   pop.innerHTML = INFO[b.dataset.i] || ""; pop.dataset.k = b.dataset.i; pop._b = b; pop.hidden = false;
-  const r = b.getBoundingClientRect(); pop.style.top = r.bottom + scrollY + 6 + "px"; pop.style.left = Math.max(8, Math.min(innerWidth - 376, r.right + scrollX - 360)) + "px";
+  const r = b.getBoundingClientRect(); pop.style.top = r.bottom + scrollY + 6 + "px"; const pw = Math.min(360, innerWidth - 24); pop.style.left = Math.max(12, Math.min(innerWidth - pw - 12, r.right + scrollX - pw)) + "px";
 });
 document.addEventListener("click", e => {   // "Copy my signal values": a small text block to paste into chat when tuning the illness thresholds
   const b = e.target.closest("#copyIll"); if (!b) return;

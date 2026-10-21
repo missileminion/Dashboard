@@ -206,3 +206,38 @@ body.theme-glass{--t-work:#9DB8FF;--t-brk:#7EE8C0;--t-extra:#FFC46B;--t-over:#FF
 .gl-syncbody{display:flex;flex-direction:column;gap:var(--s2);margin-top:var(--s2)}
 .gl-syncbody input{width:100%;min-height:40px;background:var(--raised);color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:6px 12px;font:13.5px var(--sans)}
 #glSyncForm{display:flex;flex-direction:column;gap:var(--s2)}
+
+/* ---------- phone layout (Samsung S24 is about 412 px wide) ---------- */
+.i::after{content:"";position:absolute;inset:-12px}   /* bigger touch target for the small info buttons */
+@media (max-width:700px){
+  body{padding:var(--s3) var(--s3) calc(88px + env(safe-area-inset-bottom))}
+  /* navigation moves to a bar at the bottom, where a thumb reaches it */
+  .bar{flex-wrap:wrap;gap:var(--s2);margin-bottom:var(--s2)}
+  .bar .seg.tabs{position:fixed;left:var(--s3);right:var(--s3);bottom:calc(10px + env(safe-area-inset-bottom));z-index:70;margin:0;border-radius:16px;
+    background:rgba(13,16,21,.82);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);border:1px solid var(--edge);box-shadow:0 10px 36px rgba(0,0,0,.45);overflow:hidden}
+  .bar .seg.tabs button{flex:1;padding:14px 4px;font-size:14px;min-height:48px}
+  .bar h1{display:none}
+  .bar .meta{flex:1;font-size:11.5px;min-width:0}
+  .demo{font-size:10px;padding:2px 6px}
+  .btn,.seg button{min-height:40px}
+  h2{margin-top:var(--s4)}
+  .card{padding:var(--s3)}
+  .val{font-size:20px}
+  .hero .main .val{font-size:26px}
+  .pop{width:min(360px,calc(100vw - 24px))}
+  .skybar{display:none}   /* the demo time scrubber is for the laptop */
+  #lastRun [style*="repeat(4,1fr)"],#lastGym [style*="repeat(4,1fr)"]{grid-template-columns:1fr 1fr!important;gap:var(--s3) var(--s4)!important}
+  /* wide tables scroll sideways instead of squashing */
+  #runs,#gymRecent,#gymLifts,#weeklyReview{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  #runs>.row,#gymRecent>.row,#gymLifts>.row{min-width:470px}
+  .grid>*,.stack>*,.sbody>*,.card{min-width:0;max-width:100%}
+  #hyp,#chartWrap{overflow-x:auto;max-width:100%}
+  #hyp svg,#chartWrap svg{min-width:640px}
+  .wx-search,.wx-search input{width:100%} .wx-bar{padding-right:0} .wx-city{flex:1 0 100%}
+  .wx-res{min-width:0;width:100%}
+  .tm-card{padding:var(--s4) var(--s3) var(--s4)} .tm-pill{padding:14px 28px}
+  .tm-tot{gap:var(--s4)}
+  .gl-card{padding:var(--s3)} .gl-wheel div.sel{font-size:56px}
+  .tk-head{gap:var(--s2)}
+}
+@media (max-width:420px){ .g4,.g5{grid-template-columns:1fr 1fr} .hero{gap:var(--s2)} .rgwrap{gap:var(--s4)} }
