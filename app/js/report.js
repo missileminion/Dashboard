@@ -11,6 +11,7 @@ const list = a => a.length < 2 ? a.join("") : a.slice(0, -1).join(", ") + " and 
 
 export function buildReport(c) {
   const { byDate, days, today, addDays, signs, rd, lb, sq, lastNight, sf, bed, call } = c;
+  if (!days.length) return { paras: ["Connect Google Health to see your status report. It writes itself from your sleep, recovery, training and gym data."] };
   const st = lastNight ? A.nightStats(lastNight) : null, T = byDate[today] || {};
   const base = k => A.ewState(d => byDate[d]?.[k], addDays(today, -1), addDays);
   const hrvB = base("hrv"), rhrB = base("restingHr");
