@@ -10,7 +10,7 @@
 // Body context uses fat-free mass index (FFMI = lean mass / height squared, height-normalised); about 25 is the usual natural upper limit.
 // This is a guide fitted to your own data, not a promise; sleep, food, deloads and plateaus move real numbers around it.
 const PKEY = "profile.v1";
-export const PROFILE = { heightCm: 183, weightKg: 70, bodyFat: 0.15, startWeightKg: 56, startBodyFat: 0.13, startAge: 19, age: 22.8, ageOn: "2026-10-21" };   // editable on the Bodybuilding journey card, kept in this browser
+export const PROFILE = { heightCm: 183, weightKg: 70, bodyFat: 0.15, startWeightKg: 65, startBodyFat: 0.13, startAge: 19, age: 22.8, ageOn: "2026-10-21" };   // editable on the Bodybuilding journey card, kept in this browser
 try { Object.assign(PROFILE, JSON.parse(localStorage.getItem(PKEY) || "{}")); } catch {}
 export function saveProfile(next) { Object.assign(PROFILE, next); try { localStorage.setItem(PKEY, JSON.stringify(PROFILE)); } catch {} }
 const TAU = 21, STEP_LEGS = 5, STEP_OTHER = 2.5;
@@ -87,14 +87,16 @@ export function potential(p = PROFILE) {
   const h = p.heightCm / 100, adj = 6.1 * (1.8 - h), lbmOf = f => (f - adj) * h * h, ffmiOf = l => l / (h * h) + adj;
   const now = p.weightKg * (1 - p.bodyFat), start = p.startWeightKg * (1 - p.startBodyFat), real = lbmOf(FFMI_REAL), ceil = lbmOf(FFMI_CEIL);
   const age = p.age + (Date.now() - new Date(p.ageOn + "T12:00").getTime()) / (365.25 * 864e5), elapsed = Math.max(0, age - p.startAge);
-  // your own pace: the half-life that carries start lean mass to today's lean mass, bounded to 1..8 years; with under half a year of history we fall back to a typical 1 year
+  // your own pace: the half-life that carries start lean mass to today's lean mass, bounded to 1..20 years; with under half a year of history we fall back to a typical 1 year
   const gap0 = real - start, gapNow = real - now;
   let hl = 1, fitted = false;
-  if (elapsed >= 0.5 && gap0 > 0.5 && gapNow > 0.2 && gapNow < gap0) { hl = Math.min(8, Math.max(1, elapsed * Math.LN2 / Math.log(gap0 / gapNow))); fitted = true; }
-  const at = t => (gap0 > 0 ? real - gap0 * Math.pow(2, -t / hl) : now);   // t = years since the start
-  const fromNow = t => at(elapsed + t);
-  const yearsTo = f => { const target = lbmOf(f); if (target <= now) return 0; if (target >= real - 0.02 * gap0 || gap0 <= 0) return null; return -hl * Math.log2((real - target) / gap0) - elapsed; };
-  return { h, now, start, age, elapsed, hl, fitted, ffmi: ffmiOf(now), startFfmi: ffmiOf(start), real, ceil, at, fromNow, yearsTo, lbmOf, ffmiOf, shareReal: now / real, shareCeil: now / ceil };
+  if (elapsed >= 0.5 && gap0 > 0.5 && gapNow > 0.2 && gapNow < gap0) { hl = Math.min(20, Math.max(1, elapsed * Math.LN2 / Math.log(gap0 / gapNow))); fitted = true; }
+  // forward, the pace is your fitted one but never slower than a 4 year half-life: a flat stretch in the past says little about what consistent training does next
+  const hlF = Math.min(hl, 4), room = Math.max(0, real - now);
+  const past = t => (gap0 > 0 ? real - gap0 * Math.pow(2, -t / hl) : now);   // t = years since the start
+  const fromNow = t => real - room * Math.pow(2, -t / hlF), at = t => (t <= elapsed || room <= 0 ? (t <= elapsed ? past(t) : now) : fromNow(t - elapsed));
+  const yearsTo = f => { const target = lbmOf(f); if (target <= now) return 0; if (target >= real - 0.02 * room || room <= 0) return null; return -hlF * Math.log2((real - target) / room); };
+  return { h, now, start, hlF, age, elapsed, hl, fitted, ffmi: ffmiOf(now), startFfmi: ffmiOf(start), real, ceil, at, fromNow, yearsTo, lbmOf, ffmiOf, shareReal: now / real, shareCeil: now / ceil };
 }
 export function potentialHTML(p = PROFILE) {
   const P = potential(p), W = 600, H = 250, L = 46, R = 112, top = 14, bot = 34, plotW = W - L - R, plotH = H - top - bot, tMax = P.elapsed + 10;
@@ -102,18 +104,18 @@ export function potentialHTML(p = PROFILE) {
   const trace = (t0, t1) => Array.from({ length: 41 }, (_, i) => { const t = t0 + (t1 - t0) * i / 40; return `${i ? "L" : "M"}${x(t).toFixed(1)},${y(P.at(t)).toFixed(1)}`; }).join(" ");
   const ageAt = t => P.age - P.elapsed + t;
   let s = `<svg viewBox="0 0 ${W} ${H}" class="jr-svg" role="img" aria-label="Lean mass since you started and projected against the natural ceiling">
-    <defs><linearGradient id="bbBand" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#ffc060" stop-opacity=".05"/><stop offset="1" stop-color="#ffc060" stop-opacity=".22"/></linearGradient><radialGradient id="bbGlow"><stop offset="0" stop-color="#ffd27a" stop-opacity=".9"/><stop offset="1" stop-color="#ff9a62" stop-opacity="0"/></radialGradient></defs>`;
+    <defs><linearGradient id="bbBand" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#ffc060" stop-opacity=".03"/><stop offset="1" stop-color="#ffc060" stop-opacity=".12"/></linearGradient></defs>`;
   for (let i = 0; i <= 4; i++) { const v = lo + (hi - lo) * i / 4; s += `<line x1="${L}" x2="${L + plotW}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid-minor)"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="var(--tx2)">${Math.round(v)}</text>`; }
   for (let a = Math.ceil(ageAt(0)); a <= ageAt(tMax); a += 2) { const t = a - ageAt(0); s += `<text x="${x(t)}" y="${H - 14}" text-anchor="middle" font-size="11" fill="var(--tx2)">${a}</text><line x1="${x(t)}" x2="${x(t)}" y1="${top + plotH}" y2="${top + plotH + 4}" stroke="var(--tx3)"/>`; }
   s += `<text x="${L + plotW}" y="${H - 1}" text-anchor="end" font-size="10.5" fill="var(--tx3)">age</text>
     <rect x="${L}" y="${y(P.ceil)}" width="${plotW}" height="${y(P.real) - y(P.ceil)}" fill="url(#bbBand)"/>
-    <line x1="${L}" x2="${L + plotW}" y1="${y(P.ceil)}" y2="${y(P.ceil)}" stroke="#ffd884" stroke-opacity=".6" stroke-dasharray="3 4"/><line x1="${L}" x2="${L + plotW}" y1="${y(P.real)}" y2="${y(P.real)}" stroke="#ffd884" stroke-opacity=".45" stroke-dasharray="3 4"/>
+    <line x1="${L}" x2="${L + plotW}" y1="${y(P.ceil)}" y2="${y(P.ceil)}" stroke="#ffd884" stroke-opacity=".35" stroke-width=".8" stroke-dasharray="2 4"/><line x1="${L}" x2="${L + plotW}" y1="${y(P.real)}" y2="${y(P.real)}" stroke="#ffd884" stroke-opacity=".3" stroke-width=".8" stroke-dasharray="2 4"/>
     <text x="${L + plotW + 6}" y="${y(P.ceil) + 4}" font-size="11" fill="#ffd884">ceiling ${Math.round(P.ceil)} kg</text><text x="${L + plotW + 6}" y="${y(P.real) + 4}" font-size="11" fill="#ffd884" opacity=".85">realistic ${Math.round(P.real)} kg</text>
-    <path d="${trace(0, P.elapsed)}" fill="none" stroke="#ffc060" stroke-opacity=".5" stroke-width="2.8" stroke-linecap="round"/><path d="${trace(P.elapsed, tMax)}" fill="none" stroke="#ffc060" stroke-width="2.8" stroke-linecap="round" stroke-dasharray="1 6"/>`;
-  for (const f of [20, 21, 22]) { const d = P.yearsTo(f), t = d == null ? null : d + P.elapsed; if (t != null && d > 0 && t <= tMax) s += `<g><circle cx="${x(t)}" cy="${y(P.lbmOf(f))}" r="4" fill="#0e1118" stroke="#ffd884" stroke-width="1.8"/><text x="${x(t)}" y="${y(P.lbmOf(f)) + 17}" text-anchor="middle" font-size="10.5" fill="#ffd884">FFMI ${f}</text></g>`; }
+    <path d="${trace(0, P.elapsed)}" fill="none" stroke="#ffc060" stroke-opacity=".7" stroke-width="1.5"/><path d="${trace(P.elapsed, tMax)}" fill="none" stroke="#ffc060" stroke-width="1.5" stroke-dasharray="1.5 4"/>`;
+  for (const f of [20, 21, 22]) { const d = P.yearsTo(f), t = d == null ? null : d + P.elapsed; if (t != null && d > 0 && t <= tMax) s += `<g><circle cx="${x(t)}" cy="${y(P.lbmOf(f))}" r="2.5" fill="#0e1118" stroke="#ffd884" stroke-width="1"/><text x="${x(t)}" y="${y(P.lbmOf(f)) + 15}" text-anchor="middle" font-size="10" fill="var(--tx2)">FFMI ${f}</text></g>`; }
   const xn = x(P.elapsed), yn = y(P.now);
-  s += `<circle cx="${x(0)}" cy="${y(P.start)}" r="5" fill="#0e1118" stroke="#ffc060" stroke-width="2"/><text x="${x(0) + 9}" y="${y(P.start) + 16}" font-size="11" fill="var(--tx2)">start, ${p.startAge}</text>
-    <circle cx="${xn}" cy="${yn}" r="17" fill="url(#bbGlow)"/><circle cx="${xn}" cy="${yn}" r="6" fill="#fff3d0" stroke="#ffc060" stroke-width="2"/><text x="${xn + 12}" y="${yn - 12}" font-size="11.5" fill="var(--tx)" font-weight="600">you, ${P.age.toFixed(1)}</text></svg>`;
+  s += `<circle cx="${x(0)}" cy="${y(P.start)}" r="3" fill="#0e1118" stroke="#ffc060" stroke-width="1.2"/><text x="${x(0) + 9}" y="${y(P.start) + 16}" font-size="11" fill="var(--tx2)">start, ${p.startAge}</text>
+    <circle cx="${xn}" cy="${yn}" r="4" fill="#ffc060"/><text x="${xn + 12}" y="${yn - 10}" font-size="11" fill="var(--tx)">you, ${P.age.toFixed(1)}</text></svg>`;
   // the ladder: where an FFMI of this size sits among untrained, trained, advanced and elite natural lifters
   const lo2 = 16, hi2 = 26, pos = f => Math.max(0, Math.min(100, ((f - lo2) / (hi2 - lo2)) * 100)), zones = [["just starting", 16, 18], ["trained", 18, 20.5], ["well trained", 20.5, 22.5], ["advanced", 22.5, 24], ["elite natural", 24, 26]];
   const ladder = `<div class="bb-ladder"><div class="bb-track">${zones.map(([n, a, b]) => `<span style="left:${pos(a)}%;width:${pos(b) - pos(a)}%"><em>${n}</em></span>`).join("")}<i class="bb-mark" style="left:${pos(P.ffmi)}%"></i></div><div class="bb-scale">${[16, 18, 20, 22, 24, 26].map(v => `<span style="left:${pos(v)}%">${v}</span>`).join("")}</div></div>`;
@@ -124,8 +126,8 @@ export function potentialHTML(p = PROFILE) {
     ${ladder}
     <div class="bb-lead">You carry <b>${P.now.toFixed(1)} kg</b> of lean mass, an FFMI of <b>${P.ffmi.toFixed(1)}</b>, up from ${P.start.toFixed(1)} kg (FFMI ${P.startFfmi.toFixed(1)}) when you started at ${p.startAge}. That is <b>${Math.round(P.shareReal * 100)}%</b> of a realistic natural limit (FFMI 22.5) and <b>${Math.round(P.shareCeil * 100)}%</b> of the absolute ceiling (25).</div>
     <div class="jr-chart">${s}</div>
-    <div class="wx-leg"><span><i style="background:#ffc060;opacity:.5"></i>Your path so far (fitted)</span><span><i style="background:#ffc060"></i>Where it heads at your pace</span><span><i style="background:#ffd884;opacity:.6"></i>Realistic limit to ceiling</span></div>
-    <div class="jr-stats"><div><div class="basis">So far</div><div class="num jr-big">+${gained.toFixed(1)} kg<small> lean</small></div><div class="basis">${perYr == null ? "no history yet" : `about ${perYr.toFixed(1)} kg a year over ${P.elapsed.toFixed(1)} years. ${P.fitted ? `That fits a half-life of ${P.hl.toFixed(1)} years, ${P.hl > 2 ? "slower than the typical 1 year of a beginner who trains hard and eats enough, so there is likely headroom" : "close to the typical pace"}` : ""}`}</div></div>
+    <div class="wx-leg"><span><i style="background:#ffc060;opacity:.7"></i>Your path so far (fitted)</span><span><i style="background:#ffc060"></i>Where it heads at your pace</span><span><i style="background:#ffd884;opacity:.6"></i>Realistic limit to ceiling</span></div>
+    <div class="jr-stats"><div><div class="basis">So far</div><div class="num jr-big">+${gained.toFixed(1)} kg<small> lean</small></div><div class="basis">${perYr == null ? "no history yet" : `about ${perYr.toFixed(1)} kg a year over ${P.elapsed.toFixed(1)} years. ${P.fitted ? `That fits a half-life of ${P.hl.toFixed(1)} years, ${P.hl > 2 ? `slower than the typical 1 year of a beginner who trains hard and eats enough. Going forward I assume ${P.hlF.toFixed(1)} years, not a flatter line` : "close to the typical pace"}` : ""}`}</div></div>
       <div><div class="basis">Next year</div><div class="num jr-big">+${nxt.toFixed(1)} kg<small> lean</small></div><div class="basis">about ${nxt / 12 < 0.1 ? "under 0.1" : (nxt / 12).toFixed(2)} kg a month if you keep your pace</div></div>
       <div><div class="basis">FFMI 20</div><div class="num jr-big">${reach(20)}</div><div class="basis">FFMI 22 ${reach(22)}</div></div>
       <div><div class="basis">At the realistic limit</div><div class="num jr-big">${P.real.toFixed(0)} kg lean<small></small></div><div class="basis">about ${target.toFixed(0)} kg body weight at 10% body fat</div></div></div>`;

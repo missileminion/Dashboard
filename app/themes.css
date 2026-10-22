@@ -315,12 +315,12 @@ body.theme-glass .card[data-k=tasks]{background:linear-gradient(155deg,rgba(255,
 /* ---------- bodybuilding journey ---------- */
 .bb-inputs{display:grid;grid-template-columns:repeat(3,minmax(0,150px));gap:var(--s3);margin-bottom:var(--s4)}
 .bb-f{display:flex;align-items:center;gap:6px;margin-top:3px} .bb-f b{font-weight:400;color:var(--tx2);font-size:12px}
-.bb-f input{width:100%;min-height:38px;background:var(--raised);color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:4px 10px;font:14px var(--mono)}
+.bb-f input{width:100%;min-height:34px;background:transparent;color:var(--tx);border:0;border-bottom:1px solid var(--line);border-radius:0;padding:4px 2px;font:14px var(--mono)}
 .bb-ladder{margin:0 2px var(--s4)}
-.bb-track{position:relative;height:30px;border-radius:15px;background:linear-gradient(90deg,rgba(255,192,96,.06),rgba(255,192,96,.32));border:1px solid var(--line);overflow:hidden}
+.bb-track{position:relative;height:22px;border-radius:11px;background:linear-gradient(90deg,rgba(255,192,96,.03),rgba(255,192,96,.14));border:1px solid var(--line);overflow:hidden}
 .bb-track>span{position:absolute;top:0;bottom:0;border-left:1px solid var(--line);display:flex;align-items:center;justify-content:center;overflow:hidden}
 .bb-track>span:first-child{border-left:0} .bb-track em{font-style:normal;font-size:10.5px;color:var(--tx2);white-space:nowrap;padding:0 4px}
-.bb-mark{position:absolute;top:-3px;bottom:-3px;width:5px;margin-left:-2.5px;border-radius:3px;background:#fff3d0;box-shadow:0 0 0 2px rgba(255,192,96,.7),0 0 14px rgba(255,208,120,.8)}
+.bb-mark{position:absolute;top:-2px;bottom:-2px;width:2px;margin-left:-1px;background:var(--tx)}
 .bb-scale{position:relative;height:16px;margin-top:3px} .bb-scale span{position:absolute;transform:translateX(-50%);font-size:11px;color:var(--tx3)}
 .bb-lead{margin:0 0 var(--s3);line-height:1.55;color:var(--rep);max-width:80ch} .bb-lead b{color:var(--tx)}
 @media (max-width:700px){.bb-inputs{grid-template-columns:repeat(3,1fr);gap:var(--s2)} .bb-track em{font-size:9px;padding:0 1px}}
