@@ -263,7 +263,7 @@ async function status(errors = []) {
   $("signin").hidden = !signedOut;
   if (errors.length) banner(`<span>●</span><span>Some data failed to load: ${esc(errors.join("; "))}. Showing cached data.</span><button class="btn" style="margin-left:auto" id="bRetry">Retry</button>`, "err");
   else if (signedOut && !days.length) banner(`<span>Connect Google Health (read-only) to load your data.</span><button class="btn" style="margin-left:auto" id="bSign">Sign in with Google</button>`);
-  else if (signedOut) banner(`<span>●</span><span>Session expired. Click anywhere to reconnect. Showing cached data.</span><button class="btn" style="margin-left:auto" id="bSign">Sign in</button>`, "err");
+  else if (signedOut) banner(`<span>●</span><span>Signed out (Google sign-in lasts about an hour). Tap Sign in to load fresh data. Showing the last data saved on this device.</span><button class="btn" style="margin-left:auto" id="bSign">Sign in</button>`, "err");
   else if (ago != null && ago > 180) banner(`<span>▲</span><span>Last synced ${(ago / 60).toFixed(1)} h ago. The band syncs when the Google Health app is opened on your phone.</span>`, "warn");
   else banner("");
   $("bSign") && ($("bSign").onclick = () => refresh(true)); $("bRetry") && ($("bRetry").onclick = () => refresh(false));
@@ -280,7 +280,9 @@ async function load() {
 
 async function refresh(interactive) {
   if (DEMO || busy || needsId()) return; busy = true; let errors = [];
-  try { await getToken({ interactive }); signedOut = false; }
+  // Google opens its sign-in window even for a "quiet" request, and a phone shows that as a full-screen page that can loop. So a background refresh only runs
+  // while the saved token is still valid; once it has expired, one tap on Sign in is needed.
+  try { if (!interactive && !hasToken()) throw new Error("sign-in needed"); await getToken({ interactive }); signedOut = false; }
   catch (e) { signedOut = true; }
   if (!signedOut) { try { $("synced").textContent = "Syncing…"; const r = await sync(t => ($("synced").textContent = "Fetching " + t + "…")); errors = r.errors; } catch (e) { if (e.auth) signedOut = true; else { errors = ["sync: " + e.message]; console.error(e); } } }
   busy = false;
@@ -319,13 +321,10 @@ signedOut = !DEMO;
 try { await load(); } catch (e) { failures.push("page: " + e.message); showFailures(); console.error(e); }
 await status();
 if (!DEMO) {
-  // browsers block a sign-in window that nobody clicked for, so when the quiet attempt fails the first click anywhere reconnects
-  const arm = () => { const once = () => { document.removeEventListener("pointerdown", once, true); if (signedOut) refresh(true); }; document.addEventListener("pointerdown", once, true); };
-  const start = async () => { await refresh(false); if (signedOut) arm(); };
-  if (hasToken()) start();                                    // a saved token is still valid: no waiting for Google
-  else { const wait = setInterval(() => { if (window.google) { clearInterval(wait); start(); } }, 100); }
-  setInterval(async () => { await refresh(false); if (signedOut) arm(); }, 10 * 60 * 1000);
-  document.addEventListener("visibilitychange", async () => { if (document.hidden) return; const at = await getMeta("lastSyncedAt"); if (!at || Date.now() - at > 5 * 60 * 1000) { await refresh(false); if (signedOut) arm(); } });
+  const sync0 = async () => { if (!document.hidden && hasToken()) await refresh(false); };
+  if (hasToken()) refresh(false);                             // a saved token is still valid: sync straight away
+  setInterval(sync0, 10 * 60 * 1000);                          // later syncs only while the token is valid (it lasts about an hour)
+  document.addEventListener("visibilitychange", async () => { if (document.hidden) return; const at = await getMeta("lastSyncedAt"); if (hasToken() && (!at || Date.now() - at > 5 * 60 * 1000)) await refresh(false); else status(); });
   setInterval(() => status(), 60 * 1000);
 }
 

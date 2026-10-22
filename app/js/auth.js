@@ -26,6 +26,7 @@ function ensureClient() {
 // interactive=false asks for a token silently (works once consent was given); true shows the Google pop-up.
 export function getToken({ interactive = false } = {}) {
   if (hasToken()) return Promise.resolve(token);
+  if (!interactive) return Promise.reject(new Error("sign-in needed"));   // never open Google's window without a tap
   if (pending) return pending.promise;
   let resolve, reject;
   const promise = new Promise((a, b) => { resolve = a; reject = b; });
