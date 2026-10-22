@@ -1,4 +1,4 @@
-// Body weight log: one number per day, kept in this browser. The latest value feeds the strength journey.
+// Body weight log: one number per day, kept in this browser. Entry lives on the Gym log page; the Health page only displays the trend. The latest value feeds the strength journey.
 import { esc, ymd, addDays } from "./util.js";
 const KEY = "weightlog.v1";
 export const loadWeights = () => { try { const a = JSON.parse(localStorage.getItem(KEY) || "[]"); return Array.isArray(a) ? a.filter(e => e && e.date && isFinite(e.kg)).sort((x, y) => x.date.localeCompare(y.date)) : []; } catch { return []; } };
@@ -24,11 +24,17 @@ export function weightHTML(today) {
     svg += `<path d="${pts.map((e, i) => `${i ? "L" : "M"}${x(e).toFixed(1)},${y(e.kg).toFixed(1)}`).join(" ")}" fill="none" stroke="#ffc060" stroke-width="1.5"/>`;
     svg += pts.map(e => `<circle cx="${x(e).toFixed(1)}" cy="${y(e.kg).toFixed(1)}" r="2.4" fill="#ffc060"><title>${e.date}: ${e.kg} kg</title></circle>`).join("") + "</svg>";
   }
-  const rows = [...a].reverse().slice(0, 6).map(e => `<div class="wl-row"><span>${e.date}</span><b class="num">${e.kg.toFixed(1)} kg</b><button type="button" class="gl-del" data-d="${esc(e.date)}" aria-label="Delete">×</button></div>`).join("");
-  return `<div class="wl-add"><input id="wlKg" type="number" inputmode="decimal" step="0.1" min="30" max="250" placeholder="kg" value="${last ? last.kg : ""}"><input id="wlDate" type="date" value="${today}" max="${today}"><button type="button" id="wlSave" class="gl-chip on">Log</button></div>
-    ${svg ? `<div class="jr-chart">${svg}</div>` : `<div class="basis" style="padding:var(--s3) 0">${a.length ? "Log a second weigh-in and the line appears." : "Log your weight and it builds a trend here. Same time of day, same conditions, works best."}</div>`}
+  return `${svg ? `<div class="jr-chart">${svg}</div>` : `<div class="basis" style="padding:var(--s3) 0">${a.length ? "Log a second weigh-in on the Gym log page and the line appears." : "Log your weight on the Gym log page and the trend builds here."}</div>`}
     <div class="jr-stats"><div><div class="basis">Latest</div><div class="num jr-big">${last ? last.kg.toFixed(1) : "—"}<small> kg</small></div><div class="basis">${last ? last.date : ""}</div></div>
-      <div><div class="basis">7 days</div><div class="num jr-big">${sg(chg(7))}</div></div><div><div class="basis">30 days</div><div class="num jr-big">${sg(chg(30))}</div></div></div>
+      <div><div class="basis">7 days</div><div class="num jr-big">${sg(chg(7))}</div></div><div><div class="basis">30 days</div><div class="num jr-big">${sg(chg(30))}</div></div></div>`;
+}
+// the entry form for the Gym log page: log a weigh-in, see and delete the recent ones
+export function weightEntryHTML(today) {
+  const a = loadWeights(), last = a[a.length - 1];
+  const rows = [...a].reverse().slice(0, 6).map(e => `<div class="wl-row"><span>${e.date}</span><b class="num">${e.kg.toFixed(1)} kg</b><button type="button" class="gl-del" data-d="${esc(e.date)}" aria-label="Delete">×</button></div>`).join("");
+  return `<div class="lbl">Log body weight</div>
+    <div class="wl-add"><input id="wlKg" type="number" inputmode="decimal" step="0.1" min="30" max="250" placeholder="kg" value="${last ? last.kg : ""}" aria-label="Body weight in kilograms"><input id="wlDate" type="date" value="${today}" max="${today}" aria-label="Date"><button type="button" id="wlSave" class="gl-save">Log</button></div>
+    <div class="basis">Same time of day and conditions, such as first thing after the toilet and before eating, makes the trend cleaner. Logging a date again replaces it.</div>
     ${rows ? `<div class="wl-list">${rows}</div>` : ""}`;
 }
 export function wireWeight(root, today) {

@@ -13,7 +13,7 @@ import { initTimer } from "./timer.js";
 import { initTasks } from "./tasks.js";
 import { initGymLog, e1rm } from "./gymlog.js";
 import { fitLift, journeyHTML, bodyStats } from "./progress.js";
-import { weightHTML, wireWeight, latestWeight } from "./weight.js";
+import { weightHTML, weightEntryHTML, wireWeight, latestWeight } from "./weight.js";
 import { initSky } from "./sky.js";
 import { initWeather } from "./weather.js";
 import { demoDays, demoSleepHr, demoRunHr, demoGymHr } from "./demo.js";
@@ -184,7 +184,8 @@ function renderRuns() {
 }
 let gymLogApi = null, gymToken = 0;
 addEventListener("wx:ready", () => { if (days.length) render(); });   // the weather arrived: the Status report can use it
-addEventListener("weight:change", () => renderGym());
+const renderWeightEntry = () => { $("glogWeight").innerHTML = weightEntryHTML(today); wireWeight($("glogWeight"), today); };
+addEventListener("weight:change", () => { renderWeightEntry(); renderGym(); });
 addEventListener("gymlog:change", () => {   // logged sets also make that day a gym day; refresh everything that depends on it
   A.gymLog.days = new Set((gymLogApi?.entries || []).map(e => e.date)); if (days.length) render();
 });
@@ -227,7 +228,7 @@ function renderGym() {
   $("journeyChips").innerHTML = liftNames.map(n => `<button type="button" class="gl-chip${n === selLift ? " on" : ""}" data-n="${esc(n)}">${esc(n.length > 24 ? n.slice(0, 23) + "…" : n)}</button>`).join("");
   $("journeyChips").onclick = e => { const b = e.target.closest("button[data-n]"); if (b) { selLift = b.dataset.n; renderGym(); } };
   $("gymJourney").innerHTML = selLift ? journeyHTML(fitLift(ents, selLift, today), bodyStats(latestWeight())) : `<div class="basis" style="padding:var(--s3) 0">Log sets in the Gym log tab and your strength curve appears here, with a projection and how often to add weight.</div>`;
-  $("gymWeight").innerHTML = weightHTML(today); wireWeight($("gymWeight"), today);
+  $("gymWeight").innerHTML = weightHTML(today);
   document.querySelectorAll(".gymrow").forEach(el => (el.onclick = () => { selGym = +el.dataset.start; renderGym(); }));
   lastRun($("lastGym"), sel, null, { gym: true });
   if (sel) { const my = ++gymToken; (async () => { let hr = []; try { hr = DEMO ? demoGymHr(sel) : await loadRunHr(sel); } catch (e) { } if (my === gymToken) lastRun($("lastGym"), sel, hr, { gym: true }); })(); }
@@ -406,6 +407,7 @@ const last2 = k => { for (let i = 0; i < 4; i++) { const v = byDate[addDays(toda
   initTimer($("timerRoot"));
   initTasks($("tasksRoot"));
   gymLogApi = initGymLog($("glogRoot"), { demo: DEMO });
+  renderWeightEntry();
   initSky({ demo: DEMO });
   initWeather($("weatherRoot"));
 }
