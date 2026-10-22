@@ -313,3 +313,8 @@ body.theme-glass .card[data-k=tasks]{background:linear-gradient(155deg,rgba(255,
 @media (max-width:700px){.jr-stats{grid-template-columns:1fr}.jr-chart{overflow-x:auto}.jr-svg{min-width:520px}}
 
 /* ---------- bodybuilding journey ---------- */
+
+.wl-add{display:flex;gap:var(--s3);align-items:center;margin-bottom:var(--s3)}
+.wl-add input{min-height:34px;background:transparent;color:var(--tx);border:0;border-bottom:1px solid var(--line);padding:4px 2px;font:14px var(--mono);min-width:0}
+.wl-add #wlKg{width:80px} .wl-add #wlDate{flex:1;color-scheme:dark} .wl-add .gl-chip{border:1px solid var(--line);border-radius:8px;padding:6px 14px}
+.wl-list{margin-top:var(--s3);border-top:1px solid var(--line)} .wl-row{display:flex;align-items:center;gap:var(--s3);padding:6px 0;border-bottom:1px solid var(--line);font-size:13px;color:var(--tx2)} .wl-row b{margin-left:auto;color:var(--tx);font-weight:500} .wl-row .gl-del{flex:none}

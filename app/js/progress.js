@@ -7,20 +7,14 @@
 // The slope today is b / (tau + t) per day, which falls as t grows: that is the diminishing return. Dividing a plate increment by your slope
 // (converted to working weight at your usual reps) gives how many weeks each increase takes. Typical published ranges, for comparison:
 // roughly 1 to 2 percent a week on a big lift in the first months, 0.25 to 0.5 percent a week through the first two years, under 0.25 after that.
-// Body context uses fat-free mass index (FFMI = lean mass / height squared, height-normalised); about 25 is the usual natural upper limit.
+// Body context is your latest logged body weight: the strength journey shows your estimated 1RM as a multiple of it.
 // This is a guide fitted to your own data, not a promise; sleep, food, deloads and plateaus move real numbers around it.
-const PKEY = "profile.v1";
-export const PROFILE = { heightCm: 183, weightKg: 70, bodyFat: 0.15 };   // editable on the Bodybuilding journey card, kept in this browser
-try { Object.assign(PROFILE, JSON.parse(localStorage.getItem(PKEY) || "{}")); } catch {}
-export function saveProfile(next) { Object.assign(PROFILE, next); try { localStorage.setItem(PKEY, JSON.stringify(PROFILE)); } catch {} }
+export const PROFILE = { heightCm: 183 };
 const TAU = 21, STEP_LEGS = 5, STEP_OTHER = 2.5;
 export const e1rm = (w, r) => (r <= 1 ? w : w * (1 + r / 30));
 const median = a => { const s = [...a].sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
 
-export function bodyStats(p = PROFILE) {
-  const h = p.heightCm / 100, lbm = p.weightKg * (1 - p.bodyFat), ffmi = lbm / (h * h), norm = ffmi + 6.1 * (1.8 - h);
-  return { lbm, ffmi, norm, share: norm / 25, kgToCeiling: (25 - 6.1 * (1.8 - h)) * h * h - lbm };
-}
+export const bodyStats = kg => ({ kg });
 
 export function fitLift(entries, name, today) {
   const rows = entries.filter(e => e.exercise === name && e.reps >= 1 && e.reps <= 12);
@@ -73,5 +67,5 @@ export function journeyHTML(m, body) {
       <div><div class="basis">Add weight</div><div class="num jr-big">+${m.step} lb<small> ${every}</small></div><div class="basis">at about ${m.reps} reps. Add it when you hit the top of the rep range on every set</div></div>
       <div><div class="basis">In 12 weeks</div><div class="num jr-big">${m.plateau ? "—" : "~" + Math.round(proj(m.tNow + 84)) + " lb"}<small> est. 1RM</small></div><div class="basis">${m.plateau ? "" : `${pct12 >= 0 ? "+" : ""}${fmt1(pct12)}% on the curve, against +${fmt1(ideal12)}% at 1% a week`}</div></div>
     </div>
-    <div class="basis jr-body">Your build: ${PROFILE.heightCm} cm, ${PROFILE.weightKg} kg, ${Math.round(PROFILE.bodyFat * 100)}% body fat, so about ${body.lbm.toFixed(1)} kg of lean mass and an FFMI near ${body.norm.toFixed(1)}. That is roughly ${Math.round(body.share * 100)}% of the usual natural ceiling (25), so there is real room to keep adding strength, but the rate is expected to keep slowing.</div>`;
+    ${body.kg ? `<div class="basis jr-body">At ${PROFILE.heightCm} cm and ${body.kg.toFixed(1)} kg, your estimated one-rep max on this lift is about <b>${(m.fit(m.tNow) / 2.2046 / body.kg).toFixed(2)}x your body weight</b>. That ratio is a fair way to compare lifts and to see strength rising faster than weight. Log your weight below to keep it current.</div>` : `<div class="basis jr-body">Log your body weight below and this shows your estimated one-rep max as a multiple of it.</div>`}`;
 }
