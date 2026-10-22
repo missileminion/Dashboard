@@ -12,7 +12,7 @@ import { buildReport } from "./report.js";
 import { initTimer } from "./timer.js";
 import { initTasks } from "./tasks.js";
 import { initGymLog, e1rm } from "./gymlog.js";
-import { fitLift, journeyHTML, bodyStats, potentialHTML, saveProfile, PROFILE } from "./progress.js";
+import { fitLift, journeyHTML, bodyStats, potential, potentialHTML, saveProfile, PROFILE } from "./progress.js";
 import { initSky } from "./sky.js";
 import { initWeather } from "./weather.js";
 import { demoDays, demoSleepHr, demoRunHr, demoGymHr } from "./demo.js";
@@ -229,7 +229,7 @@ function renderGym() {
   $("gymPotential").innerHTML = potentialHTML(PROFILE);
   $("gymPotential").querySelectorAll(".bb-inputs input").forEach(inp => (inp.onchange = () => {
     const v = parseFloat(inp.value); if (!isFinite(v)) return;
-    const k = inp.dataset.k; saveProfile({ [k]: /^(bodyFat|startBodyFat)$/.test(k) ? v / 100 : v, ...(k === "age" ? { ageOn: today } : {}) }); renderGym();
+    const k = inp.dataset.k; saveProfile({ [k]: /^(bodyFat|startBodyFat)$/.test(k) ? v / 100 : v, ...(k === "age" || k === "weightKg" || k === "bodyFat" ? { age: potential(PROFILE).age, ageOn: today, ...(k === "age" ? { age: v } : {}) } : {}) }); renderGym();
   }));
   document.querySelectorAll(".gymrow").forEach(el => (el.onclick = () => { selGym = +el.dataset.start; renderGym(); }));
   lastRun($("lastGym"), sel, null, { gym: true });
