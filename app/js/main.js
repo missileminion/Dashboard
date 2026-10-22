@@ -260,10 +260,10 @@ async function status(errors = []) {
   if (dev) $("device").textContent = dev;
   const ago = at ? (Date.now() - at) / 60000 : null;
   $("synced").textContent = at ? `Synced ${ago < 1 ? "just now" : ago < 90 ? Math.round(ago) + " min ago" : (ago / 60).toFixed(1) + " h ago"}` : "Never synced";
-  $("signin").hidden = !signedOut;
+  $("signin").hidden = true;   // the banner carries the Sign in button
   if (errors.length) banner(`<span>●</span><span>Some data failed to load: ${esc(errors.join("; "))}. Showing cached data.</span><button class="btn" style="margin-left:auto" id="bRetry">Retry</button>`, "err");
-  else if (signedOut && !days.length) banner(`<span>Connect Google Health (read-only) to load your data.</span><button class="btn" style="margin-left:auto" id="bSign">Sign in with Google</button>`);
-  else if (signedOut) banner(`<span>●</span><span>Signed out (Google sign-in lasts about an hour). Tap Sign in to load fresh data. Showing the last data saved on this device.</span><button class="btn" style="margin-left:auto" id="bSign">Sign in</button>`, "err");
+  else if (signedOut && !days.length) banner(`<i class="dot"></i><b>Connect Google Health</b><span class="sub">read-only</span><button class="btn go" id="bSign">Sign in</button>`, "signin");
+  else if (signedOut) banner(`<i class="dot"></i><b>Signed out</b><span class="sub">showing saved data</span><button class="btn go" id="bSign">Sign in</button>`, "signin");
   else if (ago != null && ago > 180) banner(`<span>▲</span><span>Last synced ${(ago / 60).toFixed(1)} h ago. The band syncs when the Google Health app is opened on your phone.</span>`, "warn");
   else banner("");
   $("bSign") && ($("bSign").onclick = () => refresh(true)); $("bRetry") && ($("bRetry").onclick = () => refresh(false));
