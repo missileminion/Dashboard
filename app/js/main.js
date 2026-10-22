@@ -225,7 +225,7 @@ function renderGym() {
   const counts = {}; ents.forEach(e => { counts[e.exercise] = (counts[e.exercise] || 0) + 1; });
   const liftNames = Object.keys(counts).sort((a, b) => counts[b] - counts[a]).slice(0, 8);
   if (!liftNames.includes(selLift)) selLift = liftNames[0] || null;
-  $("journeyChips").innerHTML = liftNames.map(n => `<button type="button" class="gl-chip${n === selLift ? " on" : ""}" data-n="${esc(n)}">${esc(n.length > 24 ? n.slice(0, 23) + "…" : n)}</button>`).join("");
+  $("journeyChips").innerHTML = liftNames.map(n => `<button type="button" class="gl-chip${n === selLift ? " on" : ""}" data-n="${esc(n)}">${esc(n)}</button>`).join("");
   $("journeyChips").onclick = e => { const b = e.target.closest("button[data-n]"); if (b) { selLift = b.dataset.n; renderGym(); } };
   $("gymJourney").innerHTML = selLift ? journeyHTML(fitLift(ents, selLift, today), bodyStats(latestWeight())) : `<div class="basis" style="padding:var(--s3) 0">Log sets in the Gym log tab and your strength curve appears here, with a projection and how often to add weight.</div>`;
   $("gymWeight").innerHTML = weightHTML(today);

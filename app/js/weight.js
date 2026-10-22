@@ -9,6 +9,7 @@ export function delWeight(date) { save(loadWeights().filter(e => e.date !== date
 
 export function weightHTML(today) {
   const a = loadWeights(), last = a[a.length - 1];
+  if (!a.length) return `<div class="basis">No weigh-ins yet. Log your weight on the Gym log page and the trend builds here.</div>`;
   const at = d => { const p = a.filter(e => e.date <= d); return p.length ? p[p.length - 1] : null; };
   const chg = n => { const o = at(addDays(today, -n)); return last && o && o.date !== last.date ? last.kg - o.kg : null; };
   const sg = v => (v == null ? "—" : (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(1) + " kg");
@@ -24,10 +25,13 @@ export function weightHTML(today) {
     svg += `<path d="${pts.map((e, i) => `${i ? "L" : "M"}${x(e).toFixed(1)},${y(e.kg).toFixed(1)}`).join(" ")}" fill="none" stroke="#ffc060" stroke-width="1.5"/>`;
     svg += pts.map(e => `<circle cx="${x(e).toFixed(1)}" cy="${y(e.kg).toFixed(1)}" r="2.4" fill="#ffc060"><title>${e.date}: ${e.kg} kg</title></circle>`).join("") + "</svg>";
   }
-  return `${svg ? `<div class="jr-chart">${svg}</div>` : `<div class="basis" style="padding:var(--s3) 0">${a.length ? "Log a second weigh-in on the Gym log page and the line appears." : "Log your weight on the Gym log page and the trend builds here."}</div>`}
-    <div class="jr-stats"><div><div class="basis">Latest</div><div class="num jr-big">${last ? last.kg.toFixed(1) : "—"}<small> kg</small></div><div class="basis">${last ? last.date : ""}</div></div>
-      <div><div class="basis">7 days</div><div class="num jr-big">${sg(chg(7))}</div></div><div><div class="basis">30 days</div><div class="num jr-big">${sg(chg(30))}</div></div></div>`;
+  const stat = (l, v, sub = "") => `<div><div class="basis">${l}</div><div class="num jr-big">${v}</div>${sub ? `<div class="basis">${sub}</div>` : ""}</div>`;
+  const stats = [stat("Latest", `${last.kg.toFixed(1)}<small> kg</small>`, last.date)];
+  if (chg(7) != null) stats.push(stat("7 days", sg(chg(7))));
+  if (chg(30) != null) stats.push(stat("30 days", sg(chg(30))));
+  return `${svg ? `<div class="jr-chart">${svg}</div>` : ""}<div class="jr-stats wl-stats" style="${svg ? "" : "border-top:0;padding-top:0;margin-top:0;"}grid-template-columns:repeat(${stats.length},1fr)">${stats.join("")}</div>${svg ? "" : `<div class="basis" style="margin-top:var(--s3)">Log a second weigh-in on the Gym log page and the line appears.</div>`}`;
 }
+
 // the entry form for the Gym log page: log a weigh-in, see and delete the recent ones
 export function weightEntryHTML(today) {
   const a = loadWeights(), last = a[a.length - 1];
