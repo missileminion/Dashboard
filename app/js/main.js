@@ -12,7 +12,7 @@ import { buildReport } from "./report.js";
 import { initTimer } from "./timer.js";
 import { initTasks } from "./tasks.js";
 import { initGymLog, e1rm } from "./gymlog.js";
-import { fitLift, journeyHTML, bodyStats, potential, potentialHTML, saveProfile, PROFILE } from "./progress.js";
+import { fitLift, journeyHTML, bodyStats, PROFILE } from "./progress.js";
 import { initSky } from "./sky.js";
 import { initWeather } from "./weather.js";
 import { demoDays, demoSleepHr, demoRunHr, demoGymHr } from "./demo.js";
@@ -225,12 +225,6 @@ function renderGym() {
   $("journeyChips").innerHTML = liftNames.map(n => `<button type="button" class="gl-chip${n === selLift ? " on" : ""}" data-n="${esc(n)}">${esc(n.length > 24 ? n.slice(0, 23) + "…" : n)}</button>`).join("");
   $("journeyChips").onclick = e => { const b = e.target.closest("button[data-n]"); if (b) { selLift = b.dataset.n; renderGym(); } };
   $("gymJourney").innerHTML = selLift ? journeyHTML(fitLift(ents, selLift, today), bodyStats()) : `<div class="basis" style="padding:var(--s3) 0">Log sets in the Gym log tab and your strength curve appears here, with a projection and how often to add weight.</div>`;
-  // the bodybuilding journey: lean mass against the natural limit, with you marked on it. The four numbers are editable and kept in this browser.
-  $("gymPotential").innerHTML = potentialHTML(PROFILE);
-  $("gymPotential").querySelectorAll(".bb-inputs input").forEach(inp => (inp.onchange = () => {
-    const v = parseFloat(inp.value); if (!isFinite(v)) return;
-    const k = inp.dataset.k; saveProfile({ [k]: /^(bodyFat|startBodyFat)$/.test(k) ? v / 100 : v, ...(k === "age" || k === "weightKg" || k === "bodyFat" ? { age: potential(PROFILE).age, ageOn: today, ...(k === "age" ? { age: v } : {}) } : {}) }); renderGym();
-  }));
   document.querySelectorAll(".gymrow").forEach(el => (el.onclick = () => { selGym = +el.dataset.start; renderGym(); }));
   lastRun($("lastGym"), sel, null, { gym: true });
   if (sel) { const my = ++gymToken; (async () => { let hr = []; try { hr = DEMO ? demoGymHr(sel) : await loadRunHr(sel); } catch (e) { } if (my === gymToken) lastRun($("lastGym"), sel, hr, { gym: true }); })(); }
