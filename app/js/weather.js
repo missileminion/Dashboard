@@ -5,6 +5,7 @@
 import { esc, dayLabel, n3 } from "./util.js";
 import { red } from "./standards.js";
 import { sunPos } from "./sky.js";
+import { moonWatch } from "./moon.js";
 
 const CITY = "weather.city", UNIT = "weather.unit", CACHE = "weather.cache", VERSION = 2;
 const WMO = c => c === 0 ? "Clear" : c === 1 ? "Mostly clear" : c === 2 ? "Partly cloudy" : c === 3 ? "Overcast" : c === 45 || c === 48 ? "Fog" : c >= 51 && c <= 57 ? "Drizzle" : c >= 61 && c <= 67 ? "Rain" : c >= 71 && c <= 77 ? "Snow" : c >= 80 && c <= 82 ? "Rain showers" : c === 85 || c === 86 ? "Snow showers" : c >= 95 ? "Thunderstorm" : "—";
@@ -183,8 +184,8 @@ export function initWeather(root) {
       ${uvHours.length ? row("Sun protection", `<b>${hh(uvHours[0])}–${hh(uvHours.at(-1) + 1)}</b>`, `UV 3 or more, peaks at ${Math.round(dl.uv_index_max[1])}`) : row("Sun protection", `<span class="basis">UV stays low today</span>`)}
       <div class="wx-hours">${strip}</div></div>`;
     body.innerHTML = `<div class="wx-grid"><div>
-        <div class="num" style="font-size:44px;font-weight:600;letter-spacing:-.03em;line-height:1">${T(c.temperature_2m)}°<small style="font-size:16px;color:var(--tx2);font-weight:400;margin-left:6px">${esc(WMO(c.weather_code))}</small></div>
-        <div class="wx-sum">${esc(summary(d, yi, nowK, todayRain))}</div>
+        <div class="wx-top"><div><div class="num" style="font-size:44px;font-weight:600;letter-spacing:-.03em;line-height:1">${T(c.temperature_2m)}°<small style="font-size:16px;color:var(--tx2);font-weight:400;margin-left:6px">${esc(WMO(c.weather_code))}</small></div>
+        <div class="wx-sum">${esc(summary(d, yi, nowK, todayRain))}</div></div>${moonWatch()}</div>
         ${deviations(d, yi, nowK)}
         ${plan}
       </div>
