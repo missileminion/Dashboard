@@ -12,7 +12,7 @@ import { buildReport } from "./report.js";
 import { initTimer } from "./timer.js";
 import { initTasks } from "./tasks.js";
 import { initGymLog, e1rm } from "./gymlog.js";
-import { fitLift, journeyHTML, bodyStats } from "./progress.js";
+import { fitLift, fitGroup, journeyHTML, bodyStats, GROUPS, groupOf } from "./progress.js";
 import { weightHTML, weightEntryHTML, wireWeight, latestWeight } from "./weight.js";
 import { initSky } from "./sky.js";
 import { initWeather } from "./weather.js";
@@ -20,7 +20,7 @@ import { demoDays, demoSleepHr, demoRunHr, demoGymHr } from "./demo.js";
 
 const DEMO = location.port === "8082" || new URLSearchParams(location.search).has("demo");      // demo data on 8082, your real data on 8081
 if (DEMO) A.gymTracking.start = "2000-01-01";   // the demo has gym history; real tracking starts fresh (see analytics.js)
-let days = [], byDate = {}, today = ymd(new Date()), selNight = -1, view = "lanes", selRun = null, selGym = null, selLift = null, busy = false, signedOut = false;
+let days = [], byDate = {}, today = ymd(new Date()), selNight = -1, view = "lanes", selRun = null, selGym = null, selLift = null, selGroup = null, busy = false, signedOut = false;
 const WEEK_AZM = 150;
 
 // ---- data access ----
@@ -221,13 +221,17 @@ function renderGym() {
   const lcols = "1fr 110px 80px 80px";
   $("gymLifts").innerHTML = lifts.length ? `<div class="row hd" style="grid-template-columns:${lcols}"><span>Lift</span><span>Last set</span><span style="text-align:right">Est. 1RM</span><span style="text-align:right">vs 4 wks</span></div>` + lifts.map(l => `<div class="row num" style="grid-template-columns:${lcols}"><span style="font-family:var(--sans)">${esc(l.name)}</span><span>${l.last.weight} lb × ${l.last.reps}</span><span style="text-align:right">${Math.round(l.now)} lb</span><span class="${l.change != null ? red("liftChange", l.change) : ""}" style="text-align:right">${l.change == null ? "—" : (l.change >= 0 ? "+" : "−") + n3(Math.abs(l.change)) + "%"}</span></div>`).join("") + `<div class="basis" style="margin-top:var(--s2)">Estimated 1RM = weight × (1 + reps ÷ 30). Change needs a set from 4 to 8 weeks ago.</div>`
     : `<div class="basis" style="padding:var(--s4) 0">No sets logged yet. Log a set in the Gym log tab and progress per lift shows up here.</div>`;
-  // strength journey: a logarithmic curve fitted to the chosen lift, with a projection and how often to add weight
-  const counts = {}; ents.forEach(e => { counts[e.exercise] = (counts[e.exercise] || 0) + 1; });
-  const liftNames = Object.keys(counts).sort((a, b) => counts[b] - counts[a]).slice(0, 8);
-  if (!liftNames.includes(selLift)) selLift = liftNames[0] || null;
-  $("journeyChips").innerHTML = liftNames.map(n => `<button type="button" class="gl-chip${n === selLift ? " on" : ""}" data-n="${esc(n)}">${esc(n)}</button>`).join("");
-  $("journeyChips").onclick = e => { const b = e.target.closest("button[data-n]"); if (b) { selLift = b.dataset.n; renderGym(); } };
-  $("gymJourney").innerHTML = selLift ? journeyHTML(fitLift(ents, selLift, today), bodyStats(latestWeight())) : `<div class="basis" style="padding:var(--s3) 0">Log sets in the Gym log tab and your strength curve appears here, with a projection and how often to add weight.</div>`;
+  // strength journey: Legs, Push or Pull as one curve; tap a lift in the list for its own curve
+  if (!GROUPS.includes(selGroup)) selGroup = GROUPS.find(g => ents.some(e => groupOf(e) === g)) || GROUPS[0];
+  $("journeyChips").innerHTML = GROUPS.map(g => `<button type="button" class="gl-chip${g === selGroup ? " on" : ""}" data-g="${g}">${g}</button>`).join("");
+  $("journeyChips").onclick = e => { const b = e.target.closest("button[data-g]"); if (b) { selGroup = b.dataset.g; selLift = null; renderGym(); } };
+  const jr = $("gymJourney");
+  jr.innerHTML = selLift
+    ? `<button type="button" class="jr-back" id="jrBack">‹ ${selGroup}</button><div class="jr-lifttitle">${esc(selLift)}</div>` + journeyHTML(fitLift(ents, selLift, today), bodyStats(latestWeight()))
+    : journeyHTML(fitGroup(ents, selGroup, today), bodyStats(latestWeight()));
+  const pick = el => { selLift = el.dataset.n; renderGym(); };
+  jr.querySelectorAll(".jr-lift").forEach(el => { el.onclick = () => pick(el); el.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(el); } }; });
+  if ($("jrBack")) $("jrBack").onclick = () => { selLift = null; renderGym(); };
   $("gymWeight").innerHTML = weightHTML(today);
   document.querySelectorAll(".gymrow").forEach(el => (el.onclick = () => { selGym = +el.dataset.start; renderGym(); }));
   lastRun($("lastGym"), sel, null, { gym: true });

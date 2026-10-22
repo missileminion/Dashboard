@@ -319,3 +319,6 @@ body.theme-glass .card[data-k=tasks]{background:linear-gradient(155deg,rgba(255,
 .gl-weight{margin-top:var(--s4);padding:var(--s4)} .gl-weight .lbl{margin-bottom:var(--s3)} #glog .wl-add #wlKg{width:110px} #glog .wl-add #wlDate{flex:1;min-width:0;color-scheme:dark;min-height:48px;background:var(--raised);border:1px solid var(--line);border-radius:10px;padding:8px 14px} .wl-add .gl-save{width:auto;flex:none;padding:0 22px;min-height:48px}
 .wl-list{margin-top:var(--s3);border-top:1px solid var(--line)} .wl-row{display:flex;align-items:center;gap:var(--s3);padding:6px 0;border-bottom:1px solid var(--line);font-size:13px;color:var(--tx2)} .wl-row b{margin-left:auto;color:var(--tx);font-weight:500} .wl-row .gl-del{flex:none}
 .wl-add .gl-save{margin-top:0;font-size:16px}
+
+.jr-back{background:none;border:0;color:var(--tx2);font:600 13px var(--sans);padding:6px 0;cursor:pointer;min-height:36px} .jr-lifttitle{font-weight:600;margin:0 0 var(--s2)}
+.jr-lift:hover,.jr-lift:focus-visible{background:var(--raised);outline:0}
