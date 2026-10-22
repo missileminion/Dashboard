@@ -229,7 +229,7 @@ function renderGym() {
   $("gymPotential").innerHTML = potentialHTML(PROFILE);
   $("gymPotential").querySelectorAll(".bb-inputs input").forEach(inp => (inp.onchange = () => {
     const v = parseFloat(inp.value); if (!isFinite(v)) return;
-    saveProfile({ [inp.dataset.k]: inp.dataset.k === "bodyFat" ? v / 100 : v }); renderGym();
+    const k = inp.dataset.k; saveProfile({ [k]: /^(bodyFat|startBodyFat)$/.test(k) ? v / 100 : v, ...(k === "age" ? { ageOn: today } : {}) }); renderGym();
   }));
   document.querySelectorAll(".gymrow").forEach(el => (el.onclick = () => { selGym = +el.dataset.start; renderGym(); }));
   lastRun($("lastGym"), sel, null, { gym: true });

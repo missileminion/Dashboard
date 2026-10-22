@@ -324,3 +324,4 @@ body.theme-glass .card[data-k=tasks]{background:linear-gradient(155deg,rgba(255,
 .bb-scale{position:relative;height:16px;margin-top:3px} .bb-scale span{position:absolute;transform:translateX(-50%);font-size:11px;color:var(--tx3)}
 .bb-lead{margin:0 0 var(--s3);line-height:1.55;color:var(--rep);max-width:80ch} .bb-lead b{color:var(--tx)}
 @media (max-width:700px){.bb-inputs{grid-template-columns:repeat(3,1fr);gap:var(--s2)} .bb-track em{font-size:9px;padding:0 1px}}
+#gymPotential .jr-stats{grid-template-columns:repeat(2,1fr)} @media (max-width:700px){#gymPotential .jr-stats{grid-template-columns:1fr}}
