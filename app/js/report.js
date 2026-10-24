@@ -81,6 +81,7 @@ export function buildReport(c) {
   issues.sort((a, b) => b.sev - a.sev);
 
   if (g7 != null && g7 >= 5) good.push(pick(["you are on pace in the gym", "the gym habit is holding"], 2));
+  if (lateBy <= 20 && lateBy >= -75) good.unshift(lateBy <= 0 ? `you were asleep by ${clock(st.onsetMin)}, ahead of your ${clock(idealBed)} target` : `you were asleep by ${clock(st.onsetMin)}, right on your ${clock(idealBed)} target`);
   if (reg && reg.onsetSd <= 30) good.push("your bedtimes have been steady");
   if (dH != null && dH >= 5 && (dR == null || dR <= 1)) good.push("HRV is above your usual");
   if (q >= 80 && deficit <= 20) good.push("last night's sleep was both long enough and good quality");
