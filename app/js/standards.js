@@ -4,7 +4,7 @@
 export const RULES = {
   sleepQuality:   { bad: v => v < 60,                 text: "Sleep quality score under 60" },
   sleepTime:      { bad: v => v < 460,                text: "Average sleep under your 7 h 40 m need (minutes)" },
-  sleepDebtHours: { bad: v => v > 3.5,                text: "More than 3.5 h short over 7 nights (about 30 min a night)" },
+  sleepDebtHours: { bad: v => v > 3.5,                text: "More than 3.5 h of sleep debt (about 30 min short a night for a week)" },
   readinessZ:     { bad: v => v < -0.5,               text: "Readiness below -0.5 σ (HRV trend below your usual range)" },
   loadRatio:      { bad: v => v > 1.5 || v < 0.6,     text: "Fatigue ÷ fitness above 1.5 or below 0.6" },
   azmWeek:        { bad: v => v < 150,                text: "Under 150 active zone minutes in 7 days" },

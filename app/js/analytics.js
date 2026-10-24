@@ -36,12 +36,23 @@ export function nightScores(d) {
 
 // ---------- sleep debt ----------
 // (1) 7-day shortfall in hours: sum of max(0, N - T) over the latest 7 complete days; days without data are left out and counted.
-// Sleep debt: over 7 nights, each night adds what it fell short of the need and gives back what it exceeded it by (a surplus counts up to 90 min a night, since
-// recovery sleep repays debt but not without limit). The total never goes below zero.
+// Sleep debt in hours, built night by night over the last 28 nights (oldest first):
+//   a night short of your need ADDS the shortfall:                    D += need - slept
+//   a night longer than your need REPAYS only part of its surplus:    D -= 0.5 * min(surplus, 120 min), never below zero
+//   and between nights the debt fades:                                D *= 0.93, a half-life of about 9 nights
+// Why it is built this way: sleep loss accumulates across nights (Van Dongen 2003; Belenky 2003), recovery sleep repays it only partly and over several nights
+// (Banks 2010; Kitamura 2016: a weekend of catch-up did not restore performance), and the deepest recovery sleep is front-loaded (Klerman & Dijk 2005), hence the
+// surplus cap. The 0.5 efficiency, the 120 min cap and the 0.93 fade are judgement calls drawn from those findings, not published constants.
+const DEBT = { eff: 0.5, cap: 120, keep: 0.93, nights: 28 };
 export function shortfall7(byDate, endDate, addDays, N = TARGET.needMin) {
-  let sum = 0, have = 0;
-  for (let i = 0; i < 7; i++) { const r = byDate[addDays(endDate, -i)]; if (r?.sleepMin == null) continue; have++; sum += Math.max(-90, N - (r.sleepMin + (r.napMin || 0))); }
-  return { hours: Math.max(0, sum) / 60, nights: have };
+  let D = 0, have = 0;
+  for (let i = DEBT.nights - 1; i >= 0; i--) {
+    const r = byDate[addDays(endDate, -i)]; D *= DEBT.keep; if (r?.sleepMin == null) continue;
+    if (i < 14) have++;
+    const x = N - (r.sleepMin + (r.napMin || 0));
+    D = x > 0 ? D + x : Math.max(0, D - DEBT.eff * Math.min(-x, DEBT.cap));
+  }
+  return { hours: D / 60, nights: have };
 }
 // (2) Unified Model of Performance debt state: dD/dt = (L - D)/tau, L = +1 awake, -2 asleep, tau = 168 h. Exact update per interval.
 const TAU = 168 * 3600;

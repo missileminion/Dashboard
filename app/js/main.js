@@ -56,7 +56,7 @@ function render() {
   sf = A.shortfall7(byDate, endD, addDays); sfPrev = A.shortfall7(byDate, addDays(endD, -1), addDays); debt = A.debtIndex(days, Date.now() / 1000, addDays, ymd), bed = A.bedtime(sf.hours);
   debtTile = () => sf.nights < 3 ? slot("Sleep debt", "Needs 3+ nights", "debt") :
     sf.hours < 0.1 ? tile("Sleep debt", "None", "", `<div class="basis">on target this week</div>${debtChange()}`, "", "debt") :
-    tile("Sleep debt", hm(sf.hours * 60), "behind", `<div class="basis">over the last 7 nights</div>${debtChange()}`, "", "debt", bad("sleepDebtHours", sf.hours));
+    tile("Sleep debt", hm(sf.hours * 60), "behind", `<div class="basis">over recent nights, the last week counts most</div>${debtChange()}`, "", "debt", bad("sleepDebtHours", sf.hours));
   const debtChange = () => { if (sfPrev.nights < 3) return ""; const d = (sf.hours - sfPrev.hours) * 60; return Math.abs(d) < 2 ? `<div class="basis">same as yesterday</div>` : `<div class="basis" style="${d > 0 ? "color:var(--worse)" : ""}">${d > 0 ? "▲ " : "▼ "}${hm(Math.abs(d))} since yesterday</div>`; };
   });
   step("Readiness and load", () => {

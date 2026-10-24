@@ -69,7 +69,7 @@ export function buildReport(c) {
   }
   if (signs.composite != null && signs.status !== "All clear =)") add(1.8 + (signs.status === "Strong" ? 1 : signs.status === "Mild" ? .5 : 0), `Body check reads ${signs.status.toLowerCase()}: ${list(up.map(p => names[p.key])) || "small shifts across several signals"} ${signs.ctx ? "do not match what your recent training and sleep explain" : "are off your normal"}. That can be illness, alcohol or stress, and the band cannot tell which.`);
   else if (drift.length) add(.7, `${cap(list(drift.map(p => names[p.key])))} ${drift.length > 1 ? "are" : "is"} drifting from your normal${signs.ctx ? ", beyond what your training explains" : ""}. Not a problem yet, but it is the first thing to move when you are getting ill or run down.`);
-  if (sf.nights >= 3 && sf.hours > 1.5) add(Math.min(2.4, sf.hours / 1.6), `You are carrying about ${hrs(sf.hours)} of sleep debt over the last ${sf.nights} nights${sf.hours > 3.5 ? ", which is large enough to dull training and mood" : ""}.`);
+  if (sf.nights >= 3 && sf.hours > 1.5) add(Math.min(2.4, sf.hours / 1.6), `You are carrying about ${hrs(sf.hours)} of sleep debt lately${sf.hours > 3.5 ? ", which is large enough to dull training and mood" : ""}.`);
   const onTarget = lateBy <= 20 && lateBy >= -75;
   if (reg && reg.onsetSd > 60) add(onTarget ? .5 : 1.0, onTarget ? "Your bedtimes have varied a lot over the last two weeks, but last night was right on target, so keep repeating it." : "Your bedtimes have been all over the place lately, and an irregular schedule makes every night worse than the hours suggest.");
   if (Math.abs(wakeOff) > 45 && wakeOff > 0 && lateBy <= 40) add(.9, `You woke ${Math.round(wakeOff)} minutes later than your ${clock(wakeT)} target.`);
