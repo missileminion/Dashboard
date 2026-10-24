@@ -36,10 +36,12 @@ export function nightScores(d) {
 
 // ---------- sleep debt ----------
 // (1) 7-day shortfall in hours: sum of max(0, N - T) over the latest 7 complete days; days without data are left out and counted.
+// Sleep debt: over 7 nights, each night adds what it fell short of the need and gives back what it exceeded it by (a surplus counts up to 90 min a night, since
+// recovery sleep repays debt but not without limit). The total never goes below zero.
 export function shortfall7(byDate, endDate, addDays, N = TARGET.needMin) {
   let sum = 0, have = 0;
-  for (let i = 0; i < 7; i++) { const r = byDate[addDays(endDate, -i)]; if (r?.sleepMin == null) continue; have++; sum += Math.max(0, N - (r.sleepMin + (r.napMin || 0))); }
-  return { hours: sum / 60, nights: have };
+  for (let i = 0; i < 7; i++) { const r = byDate[addDays(endDate, -i)]; if (r?.sleepMin == null) continue; have++; sum += Math.max(-90, N - (r.sleepMin + (r.napMin || 0))); }
+  return { hours: Math.max(0, sum) / 60, nights: have };
 }
 // (2) Unified Model of Performance debt state: dD/dt = (L - D)/tau, L = +1 awake, -2 asleep, tau = 168 h. Exact update per interval.
 const TAU = 168 * 3600;

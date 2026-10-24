@@ -38,7 +38,7 @@ function render() {
   failures.length = 0;
   // values shared by several cards; each block below fills them in, and a failure leaves a safe default
   let nights = [], hrv7 = null, hrv30 = [], hrvSd = null, hrvMean = null, hrvIn = null, hrvPos = 50, last = () => null;
-  let sf = { hours: 0, nights: 0 }, debt = { index: 0, missingNights: 0 }, bed = { minutes: 0, extra: 0 }, debtTile = () => slot("Sleep debt", "Unavailable");
+  let sf = { hours: 0, nights: 0 }, sfPrev = { hours: 0, nights: 0 }, debt = { index: 0, missingNights: 0 }, bed = { minutes: 0, extra: 0 }, debtTile = () => slot("Sleep debt", "Unavailable");
   let rd = { z: null, status: "Unavailable" }, lb = null, st7 = null, st7p = null, lastNight = null, sq = null, sqTile = slot("Sleep quality", "Unavailable");
   let a7 = null, a7p = null, gymLast = 0, signs = { composite: null, status: "Insufficient data", parts: [] };
   const step = (name, fn) => { try { fn(); } catch (e) { failures.push(`${name}: ${e.message}`); console.error(name, e); } };
@@ -52,10 +52,12 @@ function render() {
   });
   step("Sleep debt", () => {
   // sleep debt: two separate outputs, never merged
-  sf = A.shortfall7(byDate, addDays(today, -1), addDays), debt = A.debtIndex(days, Date.now() / 1000, addDays, ymd), bed = A.bedtime(sf.hours);
+  const endD = [today, addDays(today, -1)].find(d => byDate[d]?.sleepMin != null) || addDays(today, -1);   // last night is filed under today once you have woken up
+  sf = A.shortfall7(byDate, endD, addDays); sfPrev = A.shortfall7(byDate, addDays(endD, -1), addDays); debt = A.debtIndex(days, Date.now() / 1000, addDays, ymd), bed = A.bedtime(sf.hours);
   debtTile = () => sf.nights < 3 ? slot("Sleep debt", "Needs 3+ nights", "debt") :
-    sf.hours < 0.1 ? tile("Sleep debt", "None", "", `<div class="basis">on target this week</div>`, "", "debt") :
-    tile("Sleep debt", hm(sf.hours * 60), "behind", `<div class="basis">over the last 7 nights</div>`, "", "debt", bad("sleepDebtHours", sf.hours));
+    sf.hours < 0.1 ? tile("Sleep debt", "None", "", `<div class="basis">on target this week</div>${debtChange()}`, "", "debt") :
+    tile("Sleep debt", hm(sf.hours * 60), "behind", `<div class="basis">over the last 7 nights</div>${debtChange()}`, "", "debt", bad("sleepDebtHours", sf.hours));
+  const debtChange = () => { if (sfPrev.nights < 3) return ""; const d = (sf.hours - sfPrev.hours) * 60; return Math.abs(d) < 2 ? `<div class="basis">same as yesterday</div>` : `<div class="basis" style="${d > 0 ? "color:var(--worse)" : ""}">${d > 0 ? "▲ " : "▼ "}${hm(Math.abs(d))} since yesterday</div>`; };
   });
   step("Readiness and load", () => {
   rd = A.readiness(byDate, today, addDays), lb = A.banister(d => get(d, "azm"), today, addDays);
@@ -101,7 +103,7 @@ function render() {
   step("Body Check", () => earlyOrb($("orb"), signs, A.earlySigns(byDate, addDays(today, -1), addDays)));
   step("Today", () => renderToday(signs, rd, lb, sq, lastNight));
   step("Weekly review", () => renderReview());
-  step("Morning report", () => renderMorning({ signs, rd, lb, sq, lastNight, sf, bed }));
+  step("Morning report", () => renderMorning({ signs, rd, lb, sq, lastNight, sf, sfPrev, bed }));
   step("Vitals", () => {
     const vrow = (k, name, unit, dec) => { const l = last(k); if (!l) return vital(name, null, unit, null, dec); const base = vals(series(k, 31, addDays(l.d, -1))); const m = mean(base), s = sd(base); return vital(name, l.v, unit, s == null ? null : [m - s, m + s], dec, l.d === today ? "" : ` · from ${dayLabel(l.d)}`); };
     $("vitals").innerHTML = vrow("restingHr", "Resting HR", "bpm", 0) + vrow("hrv", "HRV", "ms", 0) + vrow("breathing", "Breathing", "br/min", 1) + vrow("spo2", "SpO2", "%", 1) + vrow("skinTempDelta", "Skin temp Δ", "°C", 2);
@@ -381,10 +383,10 @@ function reportSig(lastNight) {
   const T = byDate[today] || {}, r1 = v => (v == null ? null : Math.round(v * 10) / 10);
   return { sleep: lastNight ? [lastNight.date, lastNight.sleepMin] : null, recovery: [r1(T.restingHr), r1(T.hrv), r1(T.breathing), r1(T.spo2), r1(T.skinTemp)], workouts: (T.workouts || []).map(w => w.start) };
 }
-function renderMorning({ signs, rd, lb, sq, lastNight, sf, bed }) {
+function renderMorning({ signs, rd, lb, sq, lastNight, sf, sfPrev, bed }) {
   const st = lastNight ? A.nightStats(lastNight) : null;
   const call = A.trainingCall({ rd, signs, lastQuality: sq?.score ?? null, lastTst: st?.tst ?? null, ratio: lb?.ratio ?? null });
-  const rep = buildReport({ byDate, days, today, addDays, signs, rd, lb, sq, lastNight, sf, bed, call, gymEntries: gymLogApi?.entries || [], wx: window.wxBrief || null, now: new Date() });
+  const rep = buildReport({ byDate, days, today, addDays, signs, rd, lb, sq, lastNight, sf, sfPrev, bed, call, gymEntries: gymLogApi?.entries || [], wx: window.wxBrief || null, now: new Date() });
   // when did it last change, and why: stored so it survives a reload
   const sig = reportSig(lastNight); let state = null;
   try { state = JSON.parse(localStorage.getItem("report.state") || "null"); } catch {}
