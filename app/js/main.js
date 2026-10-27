@@ -352,7 +352,7 @@ function renderToday(signs, rd, lb, sq, lastNight) {
   const st = lastNight ? A.nightStats(lastNight) : null;
   const t = A.trainingCall({ rd, signs, lastQuality: sq?.score ?? null, lastTst: st?.tst ?? null, ratio: lb?.ratio ?? null });
   $("todayCall").innerHTML = !t ? `<div class="basis" style="padding:var(--s2) 0">Not enough data yet</div>` :
-    `<div class="num ${red("trainingCall", t.call)}" style="font-size:34px;font-weight:600;letter-spacing:-.02em;margin:2px 0 6px">${t.call}</div>` + t.reasons.map(r => `<div class="basis">${r}</div>`).join("") + (dsc ? `<div class="basis" style="margin-top:var(--s3)">Daily score <span class="num ${red("dailyScore", dsc.score)}" style="font-size:16px;font-weight:600">${Math.round(dsc.score)}</span></div>` : "");
+    `<div class="num ${red("trainingCall", t.call)}" style="font-size:34px;font-weight:600;letter-spacing:-.02em;margin:2px 0 6px">${t.call}</div>` + t.reasons.map(r => `<div class="basis">${r}</div>`).join("") + `<div class="basis">Planned today: ${A.plannedFor(today)}</div>` + (dsc ? `<div class="basis" style="margin-top:var(--s3)">Daily score <span class="num ${red("dailyScore", dsc.score)}" style="font-size:16px;font-weight:600">${Math.round(dsc.score)}</span></div>` : "");
 }
 function renderReview() {
   const dayWin = (end, n) => [...Array(n)].map((_, i) => addDays(end, -(n - 1 - i)));

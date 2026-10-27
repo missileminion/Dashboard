@@ -190,7 +190,7 @@ function zCtx(metric, model, byDate, t, addDays) {
 // (the best early signals); several signals rising together adds a bonus, because agreement matters more than any one number.
 // Recalibrated 2026-10-20: it read Low on a day with no symptoms. The spread floors were too tight (a 0.15 °C skin-temperature wobble counted as 1.2 standard deviations),
 // so the floors are wider and the labels need a bigger, more consistent shift.
-export const ILLNESS = { low: 0.6, mild: 1.2, strong: 2.0, elevatedAt: 1.0, convergence: 0.2, recent: [0.5, 0.3, 0.2] };
+export const ILLNESS = { specificAt: 0.8, cardiacOnlyAt: 2.2, low: 0.6, mild: 1.2, strong: 2.0, elevatedAt: 1.0, convergence: 0.2, recent: [0.5, 0.3, 0.2] };
 export function earlySigns(byDate, today, addDays) {
   const per = CORE.map(c => {
     const model = ctxModel(c, byDate, today, addDays), zs = [0, 1, 2].map(i => zCtx(c, model, byDate, addDays(today, -i), addDays));   // today, yesterday, the day before
@@ -200,9 +200,21 @@ export function earlySigns(byDate, today, addDays) {
   const have = per.filter(p => p.z != null);
   if (have.length < 3) return { status: "Insufficient data", composite: null, parts: per, elevated: 0, n: have.length, ctx: false };
   const wsum = have.reduce((s, p) => s + p.w, 0), wmean = have.reduce((s, p) => s + p.w * p.z, 0) / wsum;
-  const elevated = have.filter(p => p.z >= ILLNESS.elevatedAt).length, composite = wmean + ILLNESS.convergence * Math.max(0, elevated - 1);
-  return { status: composite >= ILLNESS.strong ? "Strong" : composite >= ILLNESS.mild ? "Mild" : composite >= ILLNESS.low ? "Low" : "All clear =)", composite, parts: per, elevated, n: have.length, ctx: have.every(p => p.ctx) };
+  const elevated = have.filter(p => p.z >= ILLNESS.elevatedAt).length;
+  let composite = wmean + ILLNESS.convergence * Math.max(0, elevated - 1);
+  // Illness leaves a signature in breathing rate and skin temperature as well as in heart rate and HRV; hard training, alcohol and short sleep move only the last two.
+  // So when breathing and skin temperature are both normal, heart rate and HRV alone must be far off (2.2 spreads on average) before this reads as a sign of illness.
+  const spec = have.filter(p => p.key === "breathing" || p.key === "skinTemp"), card = have.filter(p => p.key === "restingHr" || p.key === "hrv");
+  const cardiacOnly = spec.length > 0 && card.length > 0 && spec.every(p => p.z < ILLNESS.specificAt) && card.reduce((a, p) => a + p.z, 0) / card.length < ILLNESS.cardiacOnlyAt;
+  const strain = cardiacOnly && composite >= ILLNESS.low && card.every(p => p.z >= 1);
+  if (cardiacOnly) composite = Math.min(composite, ILLNESS.low - 0.01);
+  return { strain, status: composite >= ILLNESS.strong ? "Strong" : composite >= ILLNESS.mild ? "Mild" : composite >= ILLNESS.low ? "Low" : "All clear =)", composite, parts: per, elevated, n: have.length, ctx: have.every(p => p.ctx) };
 }
+
+// ---------- weekly plan ----------
+// Your fixed week, Sunday first: Mon legs, Tue push, Wed run, Thu pull, Fri legs, Sat push, Sun pull.
+export const WEEK_PLAN = ["Pull", "Legs", "Push", "Run", "Pull", "Legs", "Push"];
+export const plannedFor = dateStr => WEEK_PLAN[new Date(dateStr + "T12:00:00").getDay()];
 
 // ---------- gym ----------
 // Days with sets in the gym log also count as gym days (the log is filled in by hand, the band may miss a session).

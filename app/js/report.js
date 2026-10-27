@@ -42,7 +42,7 @@ export function buildReport(c) {
   // the gym split: what the log says you did last, so today's session is named
   const logDays = {}; gymEntries.forEach(e => { (logDays[e.date] ||= {})[e.day] = (logDays[e.date][e.day] || 0) + 1; });
   const lastLogDate = Object.keys(logDays).filter(d => d <= today).sort().at(-1), lastSplit = lastLogDate ? Object.entries(logDays[lastLogDate]).sort((a, b) => b[1] - a[1])[0][0] : null;
-  const nextSplit = lastSplit && SPLIT.includes(lastSplit) ? SPLIT[(SPLIT.indexOf(lastSplit) + 1) % 3] : null;
+  const planned = A.plannedFor(today), plannedRun = planned === "Run", nextSplit = SPLIT.includes(planned) ? planned : null;   // your fixed weekly plan, not a guess from the log
   const gymToday = (T.workouts || []).some(A.isGym) || A.gymLog.days.has(today), runToday = (T.workouts || []).some(w => /RUN/i.test(w.type || ""));
   const trainedToday = gymToday || runToday;
   const lastGymBand = allWork.filter(w => A.isGym(w)).map(w => w.date).sort().at(-1), lastGymDate = [lastLogDate, lastGymBand].filter(Boolean).sort().at(-1);
@@ -99,12 +99,12 @@ export function buildReport(c) {
   /* ---------- 2. what to do: training, then sleep, then the rest, shaped by the call, the weather and the time of day ---------- */
   const act = [], rainText = r => `${String(r.start).padStart(2, "0")}:00 to ${String(r.end).padStart(2, "0")}:00`;
   const hot = wx && wx.feelsMax >= 30, rainNow = wx?.rain?.find(r => r.end > hourNow && r.peak >= 50);
-  const session = nextSplit ? `your ${nextSplit.toLowerCase()} day` : "your gym session";
+  const session = plannedRun ? "your run" : nextSplit ? `your ${nextSplit.toLowerCase()} day` : "your gym session";
   if (phase === "night") act.push("It is late, so the plan for today is simply to wind down: screens away, lights low, and get to bed.");
   else if (trainedToday) act.push(`You have already trained today (${list([gymToday ? "the gym" : null, runToday ? "a run" : null].filter(Boolean))}), so the job now is recovery: eat a proper meal with protein, drink water, and keep the evening easy so tonight's sleep does the repair.`);
   else if (call?.call === "Rest") act.push(`Take today as a rest day. ${pick(["A 20 to 30 minute walk and some stretching is plenty.", "Easy movement only: a walk, mobility work, maybe a swim.", "Keep it to a short walk and an early night."], 6)}${nextSplit ? ` Your ${nextSplit.toLowerCase()} day can wait until you are back to normal.` : ""}`);
-  else if (call?.call === "Steady") act.push(`Train, but keep it controlled: ${session} at your normal working weights, leaving one or two reps in the tank on every set and skipping any all-out efforts.${daysSinceRun != null && daysSinceRun >= 3 ? " If you run instead, make it an easy, conversational pace." : ""}`);
-  else act.push(`You can push today: ${session} is a good place to chase a top set${daysSinceGym != null && daysSinceGym >= 3 ? ", and it has been a few days since you last lifted" : ""}.${daysSinceRun != null && daysSinceRun >= 3 ? " A run fits too, as it has been " + daysSinceRun + " days." : ""}`);
+  else if (call?.call === "Steady") act.push(`Train, but keep it controlled: ${session} ${plannedRun ? "at an easy, conversational pace, no hard efforts." : "at your normal working weights, leaving one or two reps in the tank on every set and skipping any all-out efforts."}`);
+  else act.push(`You can push today: ${session} is a good place to chase a top set${daysSinceGym != null && daysSinceGym >= 3 ? ", and it has been a few days since you last lifted" : ""}.`);
   if (!trainedToday && phase !== "night" && wx && call?.call !== "Rest") {
     if (hot) act.push(`It gets hot (up to ${wx.feelsMax}° feels-like), so train early or after the heat and take water.`);
     else if (rainNow) act.push(`Rain is expected from ${rainText(rainNow)}, so fit the session in before then or go indoors.`);
