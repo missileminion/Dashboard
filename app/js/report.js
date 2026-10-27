@@ -50,80 +50,63 @@ export function buildReport(c) {
   const lastRunDate = allWork.filter(w => /RUN/i.test(w.type || "")).map(w => w.date).sort().at(-1), daysSinceRun = lastRunDate ? Math.round((new Date(today) - new Date(lastRunDate)) / 864e5) : null;
   const phase = hourNow < 11 ? "morning" : hourNow < 17 ? "day" : hourNow < 21 ? "evening" : "night";
 
-  /* ---------- 1. what stands out: each problem scored, with its likely cause ---------- */
+  /* ---------- 1. what is different today: only the things that moved, with the number and the likely cause ---------- */
+  // No routine advice and no restating of the plan: the report earns its place by telling you what you would not have noticed.
   const issues = [], good = [];
   const add = (sev, text) => sev > 0.45 && issues.push({ sev, text });
   if (deficit > 20) {
-    const cause = lateBy > 40 ? ` The main reason is a late start: you fell asleep around ${clock(st.onsetMin)} when the plan is ${clock(idealBed)}.`
-      : st.waso > 40 ? ` It was also broken up, with about ${Math.round(st.waso)} minutes awake in the night.` : wakeOff < -40 ? " You woke well before your alarm window." : "";
-    add(Math.min(3, deficit / 55), `You slept ${hrs(tst / 60)}, ${deficit >= 60 ? hrs(deficit / 60) : Math.round(deficit) + " minutes"} short of what you need.${cause}`);
+    const cause = lateBy > 40 ? `, asleep only at ${clock(st.onsetMin)}` : st.waso > 40 ? `, with ${Math.round(st.waso)} min awake in the night` : wakeOff < -40 ? ", woken early" : "";
+    add(Math.min(3, deficit / 55), `You slept ${hrs(tst / 60)}, ${deficit >= 60 ? hrs(deficit / 60) : Math.round(deficit) + " min"} under your need${cause}.`);
   }
-  if (q < 65) add(1 + (65 - q) / 18, deficit > 20
-    ? pick([`The quality was ${q < 50 ? "poor" : "mediocre"} too, so the hours you did get restored less than they should have.`, `And the sleep you got was ${q < 50 ? "poor" : "mediocre"}, which makes the shortfall count for more.`], 1)
-    : pick([`Sleep quality was ${q < 50 ? "poor" : "so-so"} even though the night was long enough, which usually points to what happened before bed or in the room.`, `The sleep itself was ${q < 50 ? "poor" : "mediocre"}, so the hours alone will not have restored you fully.`], 1));
-  if (deep != null && deep < 0.1 && q >= 65) add(1.0, "Deep sleep was thin, the part that does most of the physical repair. Alcohol, a late meal or a very late workout are the usual causes.");
+  if (q < 65) add(1 + (65 - q) / 18, deficit > 20 ? `Quality was ${q < 50 ? "poor" : "mediocre"} as well (${Math.round(q)}).` : `Sleep quality was ${Math.round(q)} despite enough hours.`);
+  if (deep != null && deep < 0.1 && q >= 65) add(1.0, `Deep sleep was only ${Math.round(deep * 100)}% of the night.`);
   if (rd.z != null && rd.z < -0.5) {
-    const bits = [dH != null && dH <= -5 ? "HRV is lower than usual" : null, dR != null && dR >= 2 ? "resting heart rate is higher" : null].filter(Boolean);
-    const why = hardYesterday ? `, which fits yesterday's hard training (${Math.round(yMin)} minutes of work)` : deficit > 30 ? ", which fits the short night" : ", and nothing in your recent training explains it";
-    add(1.2 + Math.min(1.3, -rd.z - 0.5), `Your recovery is below your usual${bits.length ? `: ${list(bits)}` : ""}${why}.`);
+    const bits = [dH != null && dH <= -5 ? `HRV ${Math.round(Math.abs(dH))}% under your usual` : null, dR != null && dR >= 2 ? `resting heart rate ${dR.toFixed(0)} bpm over` : null].filter(Boolean);
+    const why = hardYesterday ? `, after ${Math.round(yMin)} min of training yesterday` : deficit > 30 ? ", after the short night" : ", with no training to explain it";
+    add(1.2 + Math.min(1.3, -rd.z - 0.5), `Recovery is down${bits.length ? `: ${list(bits)}` : ""}${why}.`);
   }
-  if (signs.composite != null && signs.status !== "All clear =)") add(1.8 + (signs.status === "Strong" ? 1 : signs.status === "Mild" ? .5 : 0), `Body check reads ${signs.status.toLowerCase()}: ${list(up.map(p => names[p.key])) || "small shifts across several signals"} ${signs.ctx ? "do not match what your recent training and sleep explain" : "are off your normal"}. That can be illness, alcohol or stress, and the band cannot tell which.`);
-  else if (drift.length) add(.7, `${cap(list(drift.map(p => names[p.key])))} ${drift.length > 1 ? "are" : "is"} drifting from your normal${signs.ctx ? ", beyond what your training explains" : ""}. Not a problem yet, but it is the first thing to move when you are getting ill or run down.`);
-  if (sf.nights >= 3 && sf.hours > 1.5) add(Math.min(2.4, sf.hours / 1.6), `You are carrying about ${hrs(sf.hours)} of sleep debt lately${sf.hours > 3.5 ? ", which is large enough to dull training and mood" : ""}.`);
+  if (signs.composite != null && signs.status !== "All clear =)") add(1.8 + (signs.status === "Strong" ? 1 : signs.status === "Mild" ? .5 : 0), `Body check reads ${signs.status.toLowerCase()}: ${list(up.map(p => names[p.key])) || "small shifts across several signals"} off what your training and sleep explain.`);
+  else if (signs.strain) add(.7, "Heart rate and HRV are off while breathing and skin temperature are normal, which points to strain, not illness.");
+  else if (drift.length) add(.7, `${cap(list(drift.map(p => names[p.key])))} ${drift.length > 1 ? "are" : "is"} creeping up.`);
+  if (sf.nights >= 3 && sf.hours > 1.5) add(Math.min(2.4, sf.hours / 1.6), `Sleep debt is ${hrs(sf.hours)}${sfPrev && sfPrev.nights >= 3 && Math.abs(sfPrev.hours - sf.hours) >= 0.2 ? `, ${sf.hours < sfPrev.hours ? "down" : "up"} ${hrs(Math.abs(sfPrev.hours - sf.hours))} since yesterday` : ""}.`);
   const onTarget = lateBy <= 20 && lateBy >= -75;
-  if (reg && reg.onsetSd > 60) add(onTarget ? .5 : 1.0, onTarget ? "Your bedtimes have varied a lot over the last two weeks, but last night was right on target, so keep repeating it." : "Your bedtimes have been all over the place lately, and an irregular schedule makes every night worse than the hours suggest.");
-  if (Math.abs(wakeOff) > 45 && wakeOff > 0 && lateBy <= 40) add(.9, `You woke ${Math.round(wakeOff)} minutes later than your ${clock(wakeT)} target.`);
+  if (reg && reg.onsetSd > 60 && !onTarget) add(1.0, `Bedtimes have swung by about ${Math.round(reg.onsetSd)} min over two weeks.`);
+  if (Math.abs(wakeOff) > 45 && wakeOff > 0 && lateBy <= 40) add(.9, `You woke ${Math.round(wakeOff)} min after your ${clock(wakeT)} target.`);
   const sleepTrend = wkChange("sleepMin"), hrvTrend = wkChange("hrv"), rhrTrend = wkChange("restingHr");
   const worse = [sleepTrend != null && sleepTrend <= -5 ? "sleep time" : null, hrvTrend != null && hrvTrend <= -5 ? "HRV" : null, rhrTrend != null && rhrTrend >= 5 ? "resting heart rate" : null].filter(Boolean);
-  if (worse.length) add(.9 + (worse.length - 1) * .3, `Over the last week ${list(worse)} ${worse.length > 1 ? "have" : "has"} moved the wrong way compared with the week before.`);
-  if (lb && lb.ratio > 1.5) add(1.5, "Your training load is well above what your body is adapted to, so the next few days should be lighter than they feel like they could be.");
-  else if (lb && lb.ratio < 0.6) add(.8, "Your training load has dropped well below your usual, so you are losing some fitness.");
-  if (g7 != null && g7 <= 3 && !(daysSinceGym === 0)) add(1.0 + (g7 <= 2 ? .4 : 0), `Only ${g7} gym day${g7 === 1 ? "" : "s"} in the last 7${daysSinceGym != null && daysSinceGym >= 2 ? `, and it has been ${daysSinceGym} days since the last session` : ""}.`);
+  if (worse.length) add(.9 + (worse.length - 1) * .3, `${cap(list(worse))} ${worse.length > 1 ? "have" : "has"} slipped against the week before.`);
+  if (lb && lb.ratio > 1.5) add(1.5, "Training load is well above what you are adapted to.");
+  else if (lb && lb.ratio < 0.6) add(.8, "Training load has dropped well below your usual.");
+  if (g7 != null && g7 <= 3 && !(daysSinceGym === 0)) add(1.0 + (g7 <= 2 ? .4 : 0), `Only ${g7} gym day${g7 === 1 ? "" : "s"} in the last 7.`);
   issues.sort((a, b) => b.sev - a.sev);
 
+  // one good thing, and only when it is news
   const debtDrop = sfPrev && sfPrev.nights >= 3 ? sfPrev.hours - sf.hours : 0;
-  if (debtDrop >= 0.33) good.unshift(`your sleep debt fell by ${hrs(debtDrop)} since yesterday`);
-  if (g7 != null && g7 >= 5) good.push(pick(["you are on pace in the gym", "the gym habit is holding"], 2));
-  if (lateBy <= 20 && lateBy >= -75) good.unshift(lateBy <= 0 ? `you were asleep by ${clock(st.onsetMin)}, ahead of your ${clock(idealBed)} target` : `you were asleep by ${clock(st.onsetMin)}, right on your ${clock(idealBed)} target`);
-  if (reg && reg.onsetSd <= 30) good.push("your bedtimes have been steady");
-  if (dH != null && dH >= 5 && (dR == null || dR <= 1)) good.push("HRV is above your usual");
-  if (q >= 80 && deficit <= 20) good.push("last night's sleep was both long enough and good quality");
-  if (rd.z != null && rd.z >= 0.5) good.push("recovery is better than your usual");
-  if (signs.status === "All clear =)" && !drift.length) good.push("your body-check signals are all steady");
-  const top = issues.slice(0, 3), p1 = [];
-  if (!top.length) p1.push(pick(["Nothing needs fixing this morning.", "You are in good shape today.", "No red flags in this morning's numbers."], 3));
-  else { p1.push(top[0].text); if (top[1]) p1.push(pick(["On top of that, ", "Also, ", "Related to that, "], 4) + lower(top[1].text)); if (top[2]) p1.push(pick(["And ", "One more thing: "], 5) + lower(top[2].text)); }
-  if (good.length) p1.push((top.length ? "On the plus side, " : "") + list(good.slice(0, 2)) + ".");
-  const para1 = p1.map((s, i) => (i === p1.length - 1 && good.length ? cap(s) : s)).join(" ");
+  if (debtDrop >= 0.5 && !(sf.nights >= 3 && sf.hours > 1.5)) good.push(`sleep debt fell by ${hrs(debtDrop)}`);
+  if (onTarget && deficit <= 20 && q >= 75 && !issues.some(i => /bed|asleep/i.test(i.text))) good.push(`you were asleep by ${clock(st.onsetMin)}, on your ${clock(idealBed)} target`);
+  if (rd.z != null && rd.z >= 0.8) good.push("recovery is well above your usual");
+  const top = issues.slice(0, 2), p1 = top.map(i => i.text);
+  if (!top.length) p1.push("Nothing stands out today.");
+  if (good.length) p1.push(cap(good[0]) + ".");
+  const para1 = p1.join(" ");
 
-  /* ---------- 2. what to do: training, then sleep, then the rest, shaped by the call, the weather and the time of day ---------- */
+  /* ---------- 2. what to change: only departures from your plan ---------- */
   const act = [], rainText = r => `${String(r.start).padStart(2, "0")}:00 to ${String(r.end).padStart(2, "0")}:00`;
   const hot = wx && wx.feelsMax >= 30, rainNow = wx?.rain?.find(r => r.end > hourNow && r.peak >= 50);
-  const session = plannedRun ? "your run" : nextSplit ? `your ${nextSplit.toLowerCase()} day` : "your gym session";
-  if (phase === "night") act.push("It is late, so the plan for today is simply to wind down: screens away, lights low, and get to bed.");
-  else if (trainedToday) act.push(`You have already trained today (${list([gymToday ? "the gym" : null, runToday ? "a run" : null].filter(Boolean))}), so the job now is recovery: eat a proper meal with protein, drink water, and keep the evening easy so tonight's sleep does the repair.`);
-  else if (call?.call === "Rest") act.push(`Take today as a rest day. ${pick(["A 20 to 30 minute walk and some stretching is plenty.", "Easy movement only: a walk, mobility work, maybe a swim.", "Keep it to a short walk and an early night."], 6)}${nextSplit ? ` Your ${nextSplit.toLowerCase()} day can wait until you are back to normal.` : ""}`);
-  else if (call?.call === "Steady") act.push(`Train, but keep it controlled: ${session} ${plannedRun ? "at an easy, conversational pace, no hard efforts." : "at your normal working weights, leaving one or two reps in the tank on every set and skipping any all-out efforts."}`);
-  else act.push(`You can push today: ${session} is a good place to chase a top set${daysSinceGym != null && daysSinceGym >= 3 ? ", and it has been a few days since you last lifted" : ""}.`);
-  if (!trainedToday && phase !== "night" && wx && call?.call !== "Rest") {
-    if (hot) act.push(`It gets hot (up to ${wx.feelsMax}° feels-like), so train early or after the heat and take water.`);
-    else if (rainNow) act.push(`Rain is expected from ${rainText(rainNow)}, so fit the session in before then or go indoors.`);
-    else if (wx.bestRun && call?.call !== "Rest" && (daysSinceRun == null || daysSinceRun >= 2)) act.push(`If you run, the best window is ${wx.bestRun.day} at ${wx.bestRun.time} (about ${wx.bestRun.feel}°, ${wx.bestRun.rain}% chance of rain).`);
+  const session = plannedRun ? "run" : nextSplit ? nextSplit.toLowerCase() + " day" : "session";
+  if (!trainedToday && phase !== "night") {
+    if (call?.call === "Rest") act.push(`Skip today's ${session} and move easy; it can wait.`);
+    else if (call?.call === "Steady") act.push(`${cap(session)} as planned, ${plannedRun ? "easy pace only" : "a rep or two short of failure"}.`);
+    else if (plannedRun || nextSplit) act.push(`${cap(session)} as planned.`);
+    if (plannedRun && wx) {
+      if (hot) act.push(`Heat reaches ${wx.feelsMax}° feels-like, so run early or late.`);
+      else if (rainNow) act.push(`Rain ${rainText(rainNow)}, so run outside that window.`);
+      else if (wx.bestRun) act.push(`Best window: ${wx.bestRun.day} ${wx.bestRun.time}, about ${wx.bestRun.feel}°.`);
+    }
   }
-  // sleep: one specific tip chosen for what actually went wrong, then tonight's bedtime
-  let tip = null;
-  if (lateBy > 40) tip = pick(["Getting outside in bright light within an hour of waking, and putting screens away 45 minutes before bed, pulls bedtime earlier over a few days.", "Set a hard phone-down time about 45 minutes before bed; late scrolling is the most common reason bedtime slips."], 7);
-  else if (st.waso > 40 || q < 65) tip = pick(["Keep the room cool and dark, and have the last coffee at least 8 hours before bed.", "Try no alcohol tonight and a lighter, earlier dinner; both cut restlessness and give deep sleep back."], 8);
-  else if (deep != null && deep < 0.1) tip = "Finish hard training a few hours before bed and skip alcohol tonight to give deep sleep a chance.";
-  else if (reg && reg.onsetSd > 60) tip = `Pick one bedtime, ${clock(bed.minutes)}, and hold it even on weekends for a week.`;
-  const nights = sf.hours > 1.5 ? Math.max(2, Math.min(7, Math.ceil(sf.hours / .75))) : 0;
-  if (phase !== "night" || !tip) {
-    const bedLine = nights && !(phase === "night") ? `Be in bed by ${clock(bed.minutes)} tonight${bed.extra ? ", which includes some catch-up" : ""}; repeat that for about ${nights} nights and the ${hrs(sf.hours)} of debt is gone.` : `Aim to be in bed by ${clock(bed.minutes)} tonight.`;
-    act.push(tip ? `${tip} ${bedLine}` : bedLine);
-  } else act.push(`${tip} Aim for ${clock(bed.minutes)} tomorrow night.`);
-  if (rd.z != null && rd.z < -0.5 && !trainedToday && call?.call !== "Rest") act.push("Eat enough and drink water today; recovery is the weak spot, so food and fluids matter more than usual.");
-  if (signs.status !== "All clear =)" && signs.composite != null) act.push("If you also feel run down or scratchy, treat that as a reason to back off for a day instead of pushing through.");
-  if (!byDate[today]) act.push("Nothing from the band is recorded for today yet; sync it from the Google Health app for a fuller read.");
+  const usual = (((wakeT - ideal) % 1440) + 1440) % 1440, early = ((usual - bed.minutes + 720) % 1440 + 1440) % 1440 - 720;   // minutes earlier than your usual bedtime
+  if (early >= 15) act.push(`Bed by ${clock(bed.minutes)}, ${Math.round(early)} min earlier than usual, to pay down the debt.`);
+  if (!byDate[today]) act.push("Nothing from the band is recorded for today yet; sync it for a fuller read.");
   const para2 = act.join(" ");
   return { paras: [para1, para2].filter(Boolean).map(p => p.replace(/\s+/g, " ")) };
 }
