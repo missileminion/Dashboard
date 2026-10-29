@@ -13,12 +13,12 @@ export const pad = n => String(n).padStart(2, "0");
 export const dayLabel = d => new Date(d + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", day: "numeric", month: "short" });
 
 // Tile helpers. A delta only shows when both values exist; colour never stands alone (arrow + words + unit).
-export function delta(now, then, unit, higherIsBetter, basis, dec = 0) {
+export function delta(now, then, unit, higherIsBetter, basis, dec = 0, fmt = n3) {
   if (now == null || then == null) return `<div class="basis">${basis}: not enough data</div>`;
   const d = now - then, up = d >= 0, flat = Math.abs(d) < Math.pow(10, -dec) / 2;
   const good = higherIsBetter === null || flat ? null : up === higherIsBetter;
   const cls = good === null ? "neutral" : good ? "better" : "worse";
-  return `<div class="d ${cls}">${flat ? "■ no change" : `${up ? "▲" : "▼"} ${n3(Math.abs(d))} ${unit}`}</div><div class="basis">${basis}</div>`;
+  return `<div class="d ${cls}">${flat ? "■ no change" : `${up ? "▲" : "▼"} ${fmt(Math.abs(d))} ${unit}`}</div><div class="basis">${basis}</div>`;
 }
 const ibtn = k => (k ? `<span class="i" data-i="${k}" role="button" tabindex="0" aria-label="More information">i</span>` : "");
 export const info = ibtn;

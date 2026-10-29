@@ -21,6 +21,7 @@ import { demoDays, demoSleepHr, demoRunHr, demoGymHr } from "./demo.js";
 const DEMO = location.port === "8082" || new URLSearchParams(location.search).has("demo");      // demo data on 8082, your real data on 8081
 if (DEMO) A.gymTracking.start = "2000-01-01";   // the demo has gym history; real tracking starts fresh (see analytics.js)
 let days = [], byDate = {}, today = ymd(new Date()), selNight = -1, view = "lanes", selRun = null, selGym = null, selLift = null, selGroup = null, busy = false, signedOut = false;
+const km2 = v => v.toFixed(2).padStart(5, "0");
 const WEEK_AZM = 150;
 
 // ---- data access ----
@@ -74,21 +75,21 @@ function render() {
   });
   step("Sleep numbers", () => {
   // sleep
-  st7 = mean(win("sleepMin", 7)), st7p = mean(win("sleepMin", 7, 7)), lastNight = nights[nights.length - 1], sq = lastNight ? A.sleepQuality(lastNight, days) : null;
+  st7 = mean(win("sleepMin", 14)), st7p = mean(win("sleepMin", 14, 14)), lastNight = nights[nights.length - 1], sq = lastNight ? A.sleepQuality(lastNight, days) : null;
   sqTile = sq == null ? slot("Sleep quality", "Needs a night with stage data", "sleepQuality") :
     tile("Sleep quality", Math.round(sq.score), "/ 100", `<div class="basis">last night</div>`, "", "sleepQuality", bad("sleepQuality", sq.score));
   });
   step("Sleep tiles", () => {
   $("sleepKpi").innerHTML = sqTile +
-    tile("Sleep time", st7 == null ? null : hm(st7), "", delta(st7, st7p, "min", true, "7-night avg vs prior 7"), "", "", bad("sleepTime", st7)) +
+    tile("Sleep time", st7 == null ? null : hm(st7), "", delta(st7, st7p, "min", true, "14-night avg vs prior 14"), "", "", bad("sleepTime", st7)) +
     tile("Bedtime tonight", clock(bed.minutes), "", bed.extra ? `<div class="basis">includes ${bed.extra} min catch-up</div>` : "", "", "bedtime");
   });
   step("Sleep chart", () => drawSleepCard(nights));
   step("Sleep quality", () => renderQuality(nights));
   step("Sleep Month", () => sleepMonth($("sleepMonth"), byDate, days, today));
   step("Load numbers", () => {
-  // load (full days only: today is still in progress)
-  a7 = sum(win("azm", 7, 1)), a7p = sum(win("azm", 7, 8));
+  // load: the last 7 days including today so far, against the 7 before, the same windows as the weekly review and the runs card
+  a7 = sum(win("azm", 7, 0)), a7p = sum(win("azm", 7, 7));
   gymLast = A.gymDaysInWeek(byDate, monday(addDays(today, -7)), addDays);
   });
   step("Load", () => {
@@ -156,15 +157,17 @@ function weekTile() {
   if (tot == null) return tile("This week", null, "/ 150 min", "");
   return `<div class="card"><div class="lbl">Active zone min this week</div><div class="val">${Math.round(tot)}<small>/ ${WEEK_AZM} min</small></div><div class="range" style="height:6px;margin:6px 0 0"><i style="left:0;width:${Math.min(100, tot / WEEK_AZM * 100)}%;background:var(--accent)"></i></div></div>`;
 }
+// every run with the local date it started on; the Runs card and the weekly review both read this, so their totals always agree
+const allRuns = () => days.flatMap(d => (d.workouts || []).filter(w => /RUN/i.test(w.type || "")).map(w => ({ ...w, date: new Date(w.start + w.offset * 1000).toISOString().slice(0, 10) }))).sort((a, b) => b.start - a.start);
 let runToken = 0;
 function renderRuns() {
-  const runs = days.flatMap(d => (d.workouts || []).filter(w => /RUN/i.test(w.type || "")).map(w => ({ ...w, date: new Date(w.start + w.offset * 1000).toISOString().slice(0, 10) }))).sort((a, b) => b.start - a.start);
+  const runs = allRuns();
   const within = (a, b) => runs.filter(r => r.date > addDays(today, -b) && r.date <= addDays(today, -a));
   const d7 = sum(within(0, 7).map(r => r.distanceM)), d7p = sum(within(7, 14).map(r => r.distanceM)), rf = A.runForm(runs);
   const latest = rf.runs[rf.runs.length - 1];
   $("runKpi").innerHTML =
-    tile("Distance", d7 == null ? (runs.length ? "0.0" : null) : n3(d7 / 1000), "km / 7d", delta(d7 == null ? (runs.length ? 0 : null) : d7 / 1000, d7p == null ? (runs.length ? 0 : null) : d7p / 1000, "km", true, "vs prior 7 days", 1)) +
-    tile("Runs", runs.length ? within(0, 7).length : null, "/ 7d", delta(runs.length ? within(0, 7).length : null, runs.length ? within(7, 14).length : null, "", true, "vs prior 7 days")) +
+    tile("Distance", d7 == null ? (runs.length ? "0.00" : null) : km2(d7 / 1000), "km / 7d", delta(d7 == null ? (runs.length ? 0 : null) : d7 / 1000, d7p == null ? (runs.length ? 0 : null) : d7p / 1000, "km", true, "vs prior 7 days", 2, km2)) +
+    tile("Runs", runs.length ? within(0, 7).length : null, "/ 7d", delta(runs.length ? within(0, 7).length : null, runs.length ? within(7, 14).length : null, "", true, "vs prior 7 days", 0, v => String(Math.round(v)))) +
     tile("Latest run form", latest?.P == null ? null : (latest.P >= 0 ? "+" : "−") + n3(latest.P), "% vs baseline", `<div class="basis">${latest ? latest.E.toFixed(3) + " m per heartbeat" : "Needs runs with heart rate"}</div>`, "", "", latest?.P != null && bad("runChange", latest.P)) +
     tile("Momentum", rf.momentum == null ? null : (rf.momentum >= 0 ? "+" : "−") + n3(rf.momentum), "% / week", `<div class="basis">${rf.note}</div>`, "", "", rf.momentum != null && bad("runChange", rf.momentum));
   const vo = [...series("vo2max", 60)].reverse().find(x => x.v != null), vo30 = mean(series("vo2max", 12, addDays(today, -25)).map(x => x.v)), voPct = vo && vo30 ? 100 * (vo.v / vo30 - 1) : null;
@@ -172,7 +175,7 @@ function renderRuns() {
   const E = r => rf.runs.find(x => x.start === r.start);
   const sel = runs.find(r => r.start === selRun) || runs[0];
   $("runs").innerHTML = runs.length ? `<div class="row hd" style="grid-template-columns:80px 1fr 1fr 1fr 70px 70px"><span>Date</span><span>Distance</span><span>Time</span><span>Pace</span><span style="text-align:right">Avg HR</span><span style="text-align:right">Form</span></div>` +
-    runs.slice(0, 10).map(r => { const e = E(r); return `<div class="row num runrow" data-start="${r.start}" style="grid-template-columns:80px 1fr 1fr 1fr 70px 70px;cursor:pointer;${sel && r.start === sel.start ? "background:var(--raised)" : ""}"><span>${dayLabel(r.date).replace(/^\w+, /, "")}</span><span>${r.distanceM == null ? "—" : n3(r.distanceM / 1000) + " km"}</span><span>${r.seconds ? mmss(r.seconds) : "—"}</span><span>${r.paceSecPerKm ? mmss(r.paceSecPerKm) + " /km" : "—"}</span><span style="text-align:right">${r.avgHr ? r.avgHr : "—"}</span><span style="text-align:right">${e?.P == null ? "—" : (e.P >= 0 ? "+" : "−") + n3(e.P) + "%"}</span></div>`; }).join("") + `<div class="basis" style="margin-top:var(--s2)">Click a run to open it above.</div>` :
+    runs.slice(0, 10).map(r => { const e = E(r); return `<div class="row num runrow" data-start="${r.start}" style="grid-template-columns:80px 1fr 1fr 1fr 70px 70px;cursor:pointer;${sel && r.start === sel.start ? "background:var(--raised)" : ""}"><span>${dayLabel(r.date).replace(/^\w+, /, "")}</span><span>${r.distanceM == null ? "—" : km2(r.distanceM / 1000) + " km"}</span><span>${r.seconds ? mmss(r.seconds) : "—"}</span><span>${r.paceSecPerKm ? mmss(r.paceSecPerKm) + " /km" : "—"}</span><span style="text-align:right">${r.avgHr ? r.avgHr : "—"}</span><span style="text-align:right">${e?.P == null ? "—" : (e.P >= 0 ? "+" : "−") + n3(e.P) + "%"}</span></div>`; }).join("") + `<div class="basis" style="margin-top:var(--s2)">Click a run to open it above.</div>` :
     `<div class="basis" style="padding:var(--s4) 0">No runs in the last 90 days.</div>`;
   document.querySelectorAll(".runrow").forEach(el => (el.onclick = () => { selRun = +el.dataset.start; renderRuns(); }));
   // last run: shown at once, heart-rate trace added when it arrives
@@ -356,25 +359,25 @@ function renderToday(signs, rd, lb, sq, lastNight) {
 }
 function renderReview() {
   const dayWin = (end, n) => [...Array(n)].map((_, i) => addDays(end, -(n - 1 - i)));
-  const sleepNow = dayWin(today, 7), sleepPrev = dayWin(addDays(today, -7), 7), actNow = dayWin(addDays(today, -1), 7), actPrev = dayWin(addDays(today, -8), 7);
+  const sleepNow = dayWin(today, 7), sleepPrev = dayWin(addDays(today, -7), 7), actNow = dayWin(today, 7), actPrev = dayWin(addDays(today, -7), 7);
   const q = ds => mean(ds.map(d => (byDate[d]?.sleepStages?.length ? A.sleepQuality(byDate[d], days)?.score : null)));
   const avgOf = (ds, k) => mean(ds.map(d => get(d, k)));
   const sumOf = (ds, k) => sum(ds.map(d => get(d, k)));
   const gym = ds => A.gymDaysInWindow(byDate, ds[ds.length - 1], 7, addDays);
-  const km = ds => { const v = ds.flatMap(d => (byDate[d]?.workouts || []).filter(w => /RUN/i.test(w.type || "")).map(w => w.distanceM)).filter(x => x != null); return ds.some(d => byDate[d]) ? v.reduce((a, b) => a + b, 0) / 1000 : null; };
+  const km = ds => { const set = new Set(ds), r = allRuns().filter(x => set.has(x.date)); return ds.some(d => byDate[d]) ? r.reduce((s, x) => s + (x.distanceM || 0), 0) / 1000 : null; };
   const rows = [
     ["Sleep quality", q(sleepNow), q(sleepPrev), "", true, v => Math.round(v), "sleepQuality"],
     ["Sleep time", avgOf(sleepNow, "sleepMin"), avgOf(sleepPrev, "sleepMin"), "", true, hm, "sleepTime"],
     ["HRV", avgOf(sleepNow, "hrv"), avgOf(sleepPrev, "hrv"), " ms", true, v => Math.round(v)],
     ["Resting heart rate", avgOf(sleepNow, "restingHr"), avgOf(sleepPrev, "restingHr"), " bpm", false, v => v.toFixed(1)],
     ["Active zone minutes", sumOf(actNow, "azm"), sumOf(actPrev, "azm"), " min", true, v => Math.round(v)],
-    ["Workouts", gym(actNow), gym(actPrev), " days", true, v => v],
-    ["Run distance", km(actNow), km(actPrev), " km", true, v => v.toFixed(1)]
+    ["Workouts", gym(actNow), gym(actPrev), "", true, v => `${v} ${v === 1 ? "day" : "days"}`],
+    ["Run distance", km(actNow), km(actPrev), " km", true, km2]
   ].map(([name, now, prev, unit, hb, fmt, rule]) => { const pct = now != null && prev ? 100 * (now / prev - 1) : null; return { name, now, unit, hb, fmt, rule, pct }; });
   const scored = rows.filter(r => r.pct != null).map(r => ({ ...r, s: r.hb ? r.pct : -r.pct }));
   const best = scored.length ? scored.reduce((a, b) => (b.s > a.s ? b : a)) : null, worst = scored.length ? scored.reduce((a, b) => (b.s < a.s ? b : a)) : null;
   $("weeklyReview").innerHTML = (best ? `<div class="basis" style="margin-bottom:var(--s2)">Best: <span style="color:var(--tx)">${best.name}</span>${worst && worst.s < -5 ? ` · Watch: <span class="worse">${worst.name}</span>` : ""}</div>` : "") +
-    rows.map(r => `<div class="row" style="grid-template-columns:1fr auto 78px;padding:4px 0"><span>${r.name}</span><span class="num ${r.rule && r.now != null ? red(r.rule, r.now) : ""}">${r.now == null ? "—" : r.fmt(r.now) + r.unit}</span><span class="num chg ${r.pct != null ? red("weekChange", r.pct, r.hb) : ""}"><span>${r.pct == null ? "" : r.pct >= 0 ? "▲" : "▼"}</span><span>${r.pct == null ? "—" : n3(Math.abs(r.pct)) + "%"}</span></span></div>`).join("");
+    rows.map(r => `<div class="row" style="grid-template-columns:1fr auto 78px;padding:4px 0"><span>${r.name}</span><span class="num ${r.rule && r.now != null ? red(r.rule, r.now) : ""}">${r.now == null ? "—" : r.fmt(r.now) + r.unit}</span><span class="num chg ${r.pct != null ? red("weekChange", r.pct, r.hb) : ""}"><span>${r.pct == null || Math.abs(r.pct) < 0.05 ? "" : r.pct >= 0 ? "▲" : "▼"}</span><span>${r.pct == null ? "—" : Math.abs(r.pct) < 0.05 ? "same" : n3(Math.abs(r.pct)) + "%"}</span></span></div>`).join("");
 }
 
 // ---- morning report: plain rules turn the numbers above into a few sentences (no AI, nothing leaves this page) ----
