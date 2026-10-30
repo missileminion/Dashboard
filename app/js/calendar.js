@@ -203,7 +203,6 @@ export function initCalendar(root, { demo = false } = {}) {
   // the change is for this one or for this and all following events.
   let drag = null, justDragged = false;
   const SNAP = 15, fmtRange = (s, e) => `${hhmm(s)}–${hhmm(e)}`;
-  function cancelDrag() { if (!drag) return; document.body.classList.remove("cal-dragging"); drag = null; draw(); }
   function askScope(title) {
     return new Promise(res => {
       const m = document.createElement("div"); m.className = "cal-modal";
@@ -230,32 +229,36 @@ export function initCalendar(root, { demo = false } = {}) {
     const el = e.target.closest(".cal-ev:not(.ad)"); if (!el || e.pointerType === "touch" || e.button !== 0 || editing || busy) return;
     const ev = events.find(x => x.id === el.dataset.id); if (!ev || ev.writable === false) return;
     const cols = [...root.querySelectorAll(".cal-col")]; if (!cols.length) return;
-    drag = { el, ev, mode: e.target.closest("[data-rz]") ? "resize" : "move", x0: e.clientX, y0: e.clientY, h0: el.offsetHeight, top0: el.offsetTop, cols, idx0: cols.indexOf(el.parentNode), moved: false, dMin: 0, shift: 0 };
-    try { el.setPointerCapture(e.pointerId); } catch {}
+    e.preventDefault();
+    drag = { el, ev, mode: e.target.closest("[data-rz]") ? "resize" : "move", x0: e.clientX, y0: e.clientY, rect: el.getBoundingClientRect(), cols, colX: cols.map(c => c.getBoundingClientRect().left), idx0: cols.indexOf(el.parentNode), moved: false, dMin: 0, shift: 0, ghost: null };
   });
-  root.addEventListener("pointermove", e => {
+  // The block you drag is a floating copy outside the scrolling grid (so the page can never jump or shake while you drag); the original stays put, faded.
+  document.addEventListener("pointermove", e => {
     if (!drag) return; const dy = e.clientY - drag.y0, dx = e.clientX - drag.x0;
     if (!drag.moved && Math.hypot(dx, dy) < 5) return;
-    if (!drag.moved) { drag.moved = true; drag.el.classList.add("dragging"); document.body.classList.add("cal-dragging"); }
-    let dMin = Math.round(dy / HR * 60 / SNAP) * SNAP; if (drag.mode === "move") dMin = Math.max(dMin, -drag.top0 / HR * 60); drag.dMin = dMin;
-    if (drag.mode === "resize") { drag.el.style.height = Math.max(HR / 4, drag.h0 + dMin / 60 * HR) + "px"; const sp = drag.el.querySelector("span"); if (sp) sp.textContent = fmtRange(drag.ev.s, new Date(+drag.ev.e + dMin * 6e4)); return; }
-    const hit = drag.cols.findIndex(c => { const r = c.getBoundingClientRect(); return e.clientX >= r.left && e.clientX < r.right; });
-    if (hit >= 0) drag.shift = hit - drag.idx0;
+    if (!drag.moved) {
+      drag.moved = true; document.body.classList.add("cal-dragging"); const g = drag.el.cloneNode(true); g.classList.add("ghost"); g.removeAttribute("data-id");
+      Object.assign(g.style, { left: drag.rect.left + "px", top: drag.rect.top + "px", width: drag.rect.width + "px", height: drag.rect.height + "px", right: "auto", bottom: "auto" });
+      document.body.appendChild(g); drag.ghost = g; drag.el.classList.add("lifted");
+    }
+    const g = drag.ghost, dMin = Math.round(dy / HR * 60 / SNAP) * SNAP; drag.dMin = dMin;
+    if (drag.mode === "resize") { g.style.height = Math.max(HR / 4, drag.rect.height + dMin / 60 * HR) + "px"; const sp = g.querySelector("span"); if (sp) sp.textContent = fmtRange(drag.ev.s, new Date(+drag.ev.e + dMin * 6e4)); return; }
+    const hit = drag.colX.findIndex((x, i) => e.clientX >= x && e.clientX < x + drag.cols[i].getBoundingClientRect().width); if (hit >= 0) drag.shift = hit - drag.idx0;
     drag.cols.forEach((c, i) => c.classList.toggle("drop", i === drag.idx0 + drag.shift));
-    drag.el.style.transform = `translate(${(drag.cols[drag.idx0 + drag.shift].getBoundingClientRect().left - drag.cols[drag.idx0].getBoundingClientRect().left)}px, ${dMin / 60 * HR}px)`;
-    const s = new Date(drag.ev.s); s.setDate(s.getDate() + drag.shift); s.setMinutes(s.getMinutes() + dMin); const sp = drag.el.querySelector("span"); if (sp) sp.textContent = fmtRange(s, new Date(+s + (drag.ev.e - drag.ev.s)));
+    g.style.transform = `translate(${drag.colX[drag.idx0 + drag.shift] - drag.colX[drag.idx0]}px, ${dMin / 60 * HR}px)`;
+    const s = new Date(drag.ev.s); s.setDate(s.getDate() + drag.shift); s.setMinutes(s.getMinutes() + dMin); const sp = g.querySelector("span"); if (sp) sp.textContent = fmtRange(s, new Date(+s + (drag.ev.e - drag.ev.s)));
   });
-  root.addEventListener("pointerup", async () => {
-    if (!drag) return; const d = drag; drag = null; document.body.classList.remove("cal-dragging");
-    if (!d.moved) return;
+  const endDrag = () => { const d = drag; drag = null; document.body.classList.remove("cal-dragging"); if (d) { d.ghost && d.ghost.remove(); d.el.classList.remove("lifted"); d.cols.forEach(c => c.classList.remove("drop")); } return d; };
+  document.addEventListener("pointerup", async () => {
+    const d = endDrag(); if (!d || !d.moved) return;
     justDragged = true; setTimeout(() => (justDragged = false), 0);
     let s = new Date(d.ev.s), t = new Date(d.ev.e);
     if (d.mode === "resize") t = new Date(+t + d.dMin * 6e4); else { s.setDate(s.getDate() + d.shift); s.setMinutes(s.getMinutes() + d.dMin); t = new Date(+s + (d.ev.e - d.ev.s)); }
-    if (!(t - s >= SNAP * 6e4) || (+s === +d.ev.s && +t === +d.ev.e)) { draw(); return; }
-    let scope = "this"; if (d.ev.recurring) { scope = await askScope(d.ev.title); if (!scope) { draw(); return; } }
+    if (!(t - s >= SNAP * 6e4) || (+s === +d.ev.s && +t === +d.ev.e)) return;
+    let scope = "this"; if (d.ev.recurring) { scope = await askScope(d.ev.title); if (!scope) return; }
     await applyChange(d.ev, { start: { dateTime: s.toISOString(), timeZone: TZ }, end: { dateTime: t.toISOString(), timeZone: TZ } }, scope);
   });
-  document.addEventListener("keydown", e => { if (e.key === "Escape" && drag) cancelDrag(); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && drag) endDrag(); });
   const paintStatus = () => { const el = root.querySelector(".cal-status"); if (el) el.firstChild.textContent = status + " "; else draw(); };
   addEventListener("resize", () => { if (root.isConnected && root.offsetParent) draw(); });
   document.addEventListener("visibilitychange", () => { if (!document.hidden && root.offsetParent && cfg && !editing) load(); });

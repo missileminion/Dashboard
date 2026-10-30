@@ -49,7 +49,7 @@ function timelineSVG(day, list, scrub, now, loc) {
   let s = `<line x1="${X0}" x2="${X1}" y1="${C.horizon}" y2="${C.horizon}" stroke="#3d4150" stroke-dasharray="1.5 6"/>`;
   for (let m = 0; m <= 1440; m += 5) {   // the path itself, one dot per five minutes; larger and brighter where a task is on
     const a = at(day, m), b = new Date(+a + 5 * 6e4), hit = dayEv.filter(e => e.s < b && e.e > a), up = C.A[m / 5] > 0, past = isToday && +b <= +now;
-    s += `<circle cx="${Xm(m).toFixed(1)}" cy="${C.y(C.A[m / 5]).toFixed(1)}" r="${hit.length ? 4.4 : up ? 1.9 : 1.4}" fill="${hit.length ? (hit.some(heavyEv) ? RED : past ? "#7f8599" : "#fff") : up ? "#cfd3de" : "#3d4150"}"/>`;
+    s += `<circle cx="${Xm(m).toFixed(1)}" cy="${C.y(C.A[m / 5]).toFixed(1)}" r="2.1" fill="${hit.length ? (hit.some(heavyEv) ? RED : past ? "#8a90a4" : "#fff") : up ? "#aeb3c4" : "#454957"}" opacity="${hit.length ? 1 : up ? .72 : .6}"/>`;   // every dot the same size; a task is a brighter colour
   }
   const bed = ((TARGET.wakeMin - TARGET.idealMin) % 1440 + 1440) % 1440, wake = TARGET.wakeMin;   // the sleep window along the bottom
   for (let m = 0; m < 1440; m += 10) if (bed > wake ? m >= bed || m < wake : m >= bed && m < wake) s += `<circle cx="${Xm(m).toFixed(1)}" cy="426" r="1.9" fill="#7c86a8"/>`;
@@ -114,7 +114,7 @@ export function agendaHTML(ctx) {
     <div class="ag-side"><div class="ag-cap" id="agCap"></div><div class="ag-stats" id="agStats"></div></div><div class="ag-week">${days.map(d => chipHTML(d, list, focus, today)).join("")}</div></div>
     <div class="ag-tl" id="agTl"><div class="ag-scroll" id="agScroll">${allDay.length ? `<div class="ag-allday">${allDay.map(e => `<button type="button" class="${heavyEv(e) ? "heavy" : ""}" data-id="${esc(e.id)}"><i style="background:${esc(e.color)}"></i>${esc(e.title)}</button>`).join("")}</div>` : ""}
       <svg class="ag-path" id="agPath" viewBox="0 0 ${VW} ${VH}" aria-label="Your day as tasks along the sun's path"></svg></div></div>
-    <div class="ag-legend">PATH: EACH DOT 5 MIN · <b>BIG WHITE</b> A TASK · <b class="ag-red">RED</b> HEAVY OR NOW · BELOW THE DOTTED LINE IS NIGHT · RING: YOUR WAKING DAY, <b>WHITE</b> BOOKED, DIM FREE · DRAG ALONG THE PATH TO SCRUB</div>
+    <div class="ag-legend">PATH: EACH DOT 5 MIN · <b>BRIGHT WHITE</b> A TASK · <b class="ag-red">RED</b> HEAVY OR NOW · BELOW THE DOTTED LINE IS NIGHT · RING: YOUR WAKING DAY, <b>WHITE</b> BOOKED, DIM FREE · DRAG ALONG THE PATH TO SCRUB</div>
     <div class="ag-list">${rows}</div></div>`;
 }
 
