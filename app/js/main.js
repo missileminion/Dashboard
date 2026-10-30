@@ -13,6 +13,7 @@ import { initTimer } from "./timer.js";
 import { initTasks } from "./tasks.js";
 import { initGymLog, e1rm } from "./gymlog.js";
 import { fitLift, fitGroup, journeyHTML, bodyStats, GROUPS, groupOf } from "./progress.js";
+import { initCalendar } from "./calendar.js";
 import { weightHTML, weightEntryHTML, wireWeight, latestWeight } from "./weight.js";
 import { initSky } from "./sky.js";
 import { initWeather } from "./weather.js";
@@ -409,11 +410,12 @@ const last2 = k => { for (let i = 0; i < 4; i++) { const v = byDate[addDays(toda
 
 // tabs: Health (everything above) and Productivity (focus timer). The timer keeps running while Health is shown.
 {
-  const TABS = ["health", "prod", "gym"], setTab = k => { document.body.dataset.tab = k; document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.t === k)); try { localStorage.setItem("tab", k); } catch {} };
+  const TABS = ["health", "prod", "gym", "cal"], setTab = k => { document.body.dataset.tab = k; document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.t === k)); try { localStorage.setItem("tab", k); } catch {} };
   $("tabs").addEventListener("click", e => { const b = e.target.closest("button"); if (b) setTab(b.dataset.t); });
   let k = "health"; try { k = localStorage.getItem("tab") || k; } catch {}
   setTab(TABS.includes(k) ? k : "health");
   initTimer($("timerRoot"));
+  initCalendar($("calRoot"), { demo: DEMO });
   initTasks($("tasksRoot"));
   gymLogApi = initGymLog($("glogRoot"), { demo: DEMO });
   renderWeightEntry();
