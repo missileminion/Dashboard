@@ -356,3 +356,7 @@ body.theme-glass .card[data-k=tasks]{background:linear-gradient(155deg,rgba(255,
 @media (max-width:700px){.cal-top{gap:var(--s2)} .cal-row{grid-template-columns:84px 1fr}}
 @media (max-width:700px){.cal-row{grid-template-columns:106px 1fr} .cal-row span.num{white-space:nowrap;font-size:12.5px}}
 .cal-secret{display:flex;gap:var(--s2)} .cal-secret input{flex:1;min-width:0}
+
+/* repeating (routine) events sit back so the one-off things stand out */
+.cal-ev.routine{background:color-mix(in srgb,var(--c) 9%,transparent);border-left-width:2px;color:var(--tx2)} .cal-ev.routine b{font-weight:500} .cal-ev.routine span{color:var(--tx3)}
+.cal-row.routine{border-left-color:color-mix(in srgb,var(--c) 45%,transparent);color:var(--tx2)} .cal-row.routine b{font-weight:500}

@@ -8,6 +8,8 @@ const CFG = "cal.cfg", HIDDEN = "cal.hidden", VIEW = "cal.view", CACHE = "cal.ca
 const HR = 44;   // pixels per hour in the week grid
 const get = (k, d = null) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
 const put = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+// Google's event colours (the ones you can pick for a single event), used when an event has its own colour instead of its calendar's
+const EVC = { 1: "#a4bdfc", 2: "#7ae7bf", 3: "#dbadff", 4: "#ff887c", 5: "#fbd75b", 6: "#ffb878", 7: "#46d6db", 8: "#e1e1e1", 9: "#5484ed", 10: "#51b749", 11: "#dc2127" };
 const TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
 const mondayOf = d => { const x = new Date(d + "T12:00:00"); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return ymd(x); };
 const atNoon = s => new Date(s + "T12:00:00");
@@ -15,14 +17,14 @@ const hhmm = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 const fmtDay = (s, o) => atNoon(s).toLocaleDateString("en-US", o);
 
 export function initCalendar(root, { demo = false } = {}) {
-  let cfg = demo ? { demo: true } : get(CFG), cals = get(CALS, []), hidden = new Set(get(HIDDEN, [])), view = get(VIEW, "week"), week = mondayOf(ymd(new Date()));
+  let cfg = demo ? { demo: true } : get(CFG), cals = get(CALS, []), hidden = new Set(get(HIDDEN, [])), view = get(VIEW, "week"), week = addDays(ymd(new Date()), -1);
   let events = [], status = "", busy = false, token = 0, editing = null;
   const today = () => ymd(new Date());
   const narrow = () => root.clientWidth < 760;
 
   /* ---------- the bridge (a fake one in demo mode so you can try creating and editing) ---------- */
   const demoStore = (() => {
-    const mon = mondayOf(ymd(new Date())), at = (d, h, m = 0) => { const x = atNoon(addDays(mon, d)); x.setHours(h, m, 0, 0); return x.toISOString(); };
+    const mon = addDays(ymd(new Date()), -1), at = (d, h, m = 0) => { const x = atNoon(addDays(mon, d)); x.setHours(h, m, 0, 0); return x.toISOString(); };
     let id = 1; const ev = (cal, d, h1, m1, h2, m2, title, loc = "") => ({ id: "d" + id++, cal, summary: title, location: loc, start: { dateTime: at(d, h1, m1) }, end: { dateTime: at(d, h2, m2) } });
     const list = [];
     [0, 2, 4].forEach(d => list.push(ev("classes", d, 9, 0, 10, 30, "Thermodynamics", "Eng Hall 214"), ev("classes", d, 13, 0, 14, 0, "Machine Design lab", "Lab B")));
@@ -45,7 +47,7 @@ export function initCalendar(root, { demo = false } = {}) {
 
   /* ---------- data ---------- */
   const range = () => ({ timeMin: new Date(week + "T00:00:00").toISOString(), timeMax: new Date(addDays(week, 7) + "T00:00:00").toISOString() });
-  const norm = (e, c) => { const allDay = e.allDay; return { id: e.id, cal: c.id, color: c.color, writable: c.writable, title: e.title, allDay, s: allDay ? new Date(e.start + "T00:00:00") : new Date(e.start), e: allDay ? new Date(e.end + "T00:00:00") : new Date(e.end), location: e.location, desc: e.description, recurring: e.recurring }; };
+  const norm = (e, c) => { const allDay = e.allDay; return { id: e.id, cal: c.id, color: EVC[e.colorId] || c.color, writable: c.writable, title: e.title, allDay, s: allDay ? new Date(e.start + "T00:00:00") : new Date(e.start), e: allDay ? new Date(e.end + "T00:00:00") : new Date(e.end), location: e.location, desc: e.description, recurring: e.recurring }; };
   async function load() {
     const my = ++token, key = "w" + week; busy = true; draw();
     try {
@@ -91,9 +93,9 @@ export function initCalendar(root, { demo = false } = {}) {
   function gridHTML() {
     const ds = days(), t = today(), now = new Date();
     const header = `<div class="cal-gh"><span></span>${ds.map(d => `<div class="cal-dh${d === t ? " today" : ""}"><b>${fmtDay(d, { weekday: "short" })} ${atNoon(d).getDate()}</b><em>${plannedFor(d)}</em></div>`).join("")}</div>`;
-    const ad = `<div class="cal-ad"><span>all day</span>${ds.map(d => `<div>${allDayOn(d).map(e => `<button type="button" class="cal-ev ad" data-id="${esc(e.id)}" style="--c:${esc(e.color)}">${esc(e.title)}</button>`).join("")}</div>`).join("")}</div>`;
+    const ad = `<div class="cal-ad"><span>all day</span>${ds.map(d => `<div>${allDayOn(d).map(e => `<button type="button" class="cal-ev ad${e.recurring ? " routine" : ""}" data-id="${esc(e.id)}" style="--c:${esc(e.color)}">${esc(e.title)}</button>`).join("")}</div>`).join("")}</div>`;
     const hours = [...Array(24)].map((_, h) => `<div style="top:${h * HR}px">${h ? pad(h) + ":00" : ""}</div>`).join("");
-    const cols = ds.map(d => `<div class="cal-col${d === t ? " today" : ""}" data-d="${d}" style="height:${24 * HR}px">${segs(d).map(g => { const top = (g.s - new Date(d + "T00:00:00")) / 36e5 * HR, h = Math.max(18, (g.t - g.s) / 36e5 * HR - 2), w = 100 / g.cols; return `<button type="button" class="cal-ev" data-id="${esc(g.e.id)}" style="--c:${esc(g.e.color)};top:${top}px;height:${h}px;left:calc(${g.col * w}% + 1px);width:calc(${w}% - 3px)"><b>${esc(g.e.title)}</b>${h > 34 ? `<span>${timeLabel(g.e)}</span>` : ""}${h > 50 && g.e.location ? `<span>${esc(g.e.location)}</span>` : ""}</button>`; }).join("")}${d === t ? `<i class="cal-now" style="top:${(now.getHours() + now.getMinutes() / 60) * HR}px"></i>` : ""}</div>`).join("");
+    const cols = ds.map(d => `<div class="cal-col${d === t ? " today" : ""}" data-d="${d}" style="height:${24 * HR}px">${segs(d).map(g => { const top = (g.s - new Date(d + "T00:00:00")) / 36e5 * HR, h = Math.max(18, (g.t - g.s) / 36e5 * HR - 2), w = 100 / g.cols; return `<button type="button" class="cal-ev${g.e.recurring ? " routine" : ""}" data-id="${esc(g.e.id)}" style="--c:${esc(g.e.color)};top:${top}px;height:${h}px;left:calc(${g.col * w}% + 1px);width:calc(${w}% - 3px)"><b>${esc(g.e.title)}</b>${h > 34 ? `<span>${timeLabel(g.e)}</span>` : ""}${h > 50 && g.e.location ? `<span>${esc(g.e.location)}</span>` : ""}</button>`; }).join("")}${d === t ? `<i class="cal-now" style="top:${(now.getHours() + now.getMinutes() / 60) * HR}px"></i>` : ""}</div>`).join("");
     return `<div class="cal-grid">${header}${ad}<div class="cal-scroll" id="calScroll"><div class="cal-body"><div class="cal-hours" style="height:${24 * HR}px">${hours}</div>${cols}</div></div></div>`;
   }
   function agendaHTML() {
@@ -101,7 +103,7 @@ export function initCalendar(root, { demo = false } = {}) {
     return `<div class="cal-agenda">${days().map(d => {
       const list = visible().filter(e => (e.allDay ? e.s <= atNoon(d) && e.e > atNoon(d) : e.s < new Date(addDays(d, 1) + "T00:00:00") && e.e > new Date(d + "T00:00:00")));
       return `<div class="cal-day${d === t ? " today" : ""}"><div class="cal-dayh"><b>${fmtDay(d, { weekday: "long", month: "short", day: "numeric" })}</b><em>${plannedFor(d)}</em></div>
-        ${list.length ? list.map(e => `<button type="button" class="cal-row" data-id="${esc(e.id)}" style="--c:${esc(e.color)}"><span class="num">${timeLabel(e)}</span><span><b>${esc(e.title)}</b>${e.location ? `<small>${esc(e.location)}</small>` : ""}</span></button>`).join("") : `<div class="basis cal-none">Nothing scheduled</div>`}</div>`;
+        ${list.length ? list.map(e => `<button type="button" class="cal-row${e.recurring ? " routine" : ""}" data-id="${esc(e.id)}" style="--c:${esc(e.color)}"><span class="num">${timeLabel(e)}</span><span><b>${esc(e.title)}</b>${e.location ? `<small>${esc(e.location)}</small>` : ""}</span></button>`).join("") : `<div class="basis cal-none">Nothing scheduled</div>`}</div>`;
     }).join("")}</div>`;
   }
   function setupHTML() {
@@ -114,7 +116,7 @@ export function initCalendar(root, { demo = false } = {}) {
     if (!demo && !(cfg && cfg.url)) { root.innerHTML = setupHTML(); wireSetup(); return; }
     const keep = root.querySelector("#calScroll")?.scrollTop;
     root.innerHTML = head() + (narrow() || view === "agenda" ? agendaHTML() : gridHTML()) + `<div class="basis cal-foot">${demo ? "Demo calendar. Changes here stay in this page." : ""}${!demo ? `<button type="button" class="cal-link" data-a="disconnect">Disconnect</button>` : ""}</div>`;
-    const sc = root.querySelector("#calScroll"); if (sc) sc.scrollTop = keep ?? (week === mondayOf(today()) ? Math.max(0, (new Date().getHours() - 2) * HR) : 7 * HR);
+    const sc = root.querySelector("#calScroll"); if (sc) sc.scrollTop = keep ?? (week === addDays(today(), -1) ? Math.max(0, (new Date().getHours() - 2) * HR) : 7 * HR);
   }
   function wireSetup() {
     const sec = root.querySelector("#calSecret"), len = root.querySelector("#calLen");
@@ -169,7 +171,7 @@ export function initCalendar(root, { demo = false } = {}) {
     if (b && b.dataset.a) {
       const a = b.dataset.a;
       if (a === "prev" || a === "next") { week = addDays(week, a === "next" ? 7 : -7); load(); }
-      else if (a === "today") { week = mondayOf(today()); load(); }
+      else if (a === "today") { week = addDays(today(), -1); load(); }
       else if (a === "refresh") load();
       else if (a === "new") { const n = new Date(); n.setMinutes(0, 0, 0); n.setHours(n.getHours() + 1); openEditor(null, n); }
       else if (a === "disconnect" && confirm("Disconnect this browser from your calendar? Your calendar itself is untouched.")) { cfg = null; cals = []; events = []; try { ["cal.cfg", CALS, CACHE].forEach(k => localStorage.removeItem(k)); } catch {} draw(); }
