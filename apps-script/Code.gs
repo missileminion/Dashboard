@@ -35,7 +35,7 @@ function list_(calendarId, timeMin, timeMax) {
   const events = []; let pageToken = "";
   do {
     const r = Calendar.Events.list(calendarId, { singleEvents: true, orderBy: "startTime", maxResults: 250, timeMin: timeMin, timeMax: timeMax, pageToken: pageToken || undefined });
-    (r.items || []).forEach(ev => { if (ev.status !== "cancelled") events.push({ id: ev.id, title: ev.summary || "(no title)", start: ev.start.dateTime || ev.start.date, end: ev.end.dateTime || ev.end.date, allDay: !ev.start.dateTime, location: ev.location || "", description: ev.description || "", recurring: !!ev.recurringEventId, colorId: ev.colorId || "", updated: ev.updated }); });
+    (r.items || []).forEach(ev => { if (ev.status !== "cancelled") events.push({ id: ev.id, title: ev.summary || "(no title)", start: ev.start.dateTime || ev.start.date, end: ev.end.dateTime || ev.end.date, allDay: !ev.start.dateTime, location: ev.location || "", description: ev.description || "", recurring: !!ev.recurringEventId, colorId: ev.colorId || "", done: !!(ev.extendedProperties && ev.extendedProperties.private && ev.extendedProperties.private.done === "1"), updated: ev.updated }); });
     pageToken = r.nextPageToken || "";
   } while (pageToken);
   return events;

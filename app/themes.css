@@ -460,3 +460,23 @@ body.theme-glass .card[data-k=tasks]{background:linear-gradient(155deg,rgba(255,
 .ag-dt{font:600 17px/1.3 var(--sans);margin:6px 0 2px;color:#fff} .ag-dl{font-size:13px;color:#aab0c2} .ag-dn{font-size:12.5px;color:#8c91a3;margin-top:5px;line-height:1.5;white-space:pre-line} .ag-dc{display:flex;align-items:center;gap:7px;font:10px var(--mono);letter-spacing:.08em;color:#7a7f90;margin-top:7px;text-transform:uppercase} .ag-dc i{width:7px;height:7px;border-radius:50%}
 .ag-det.past{opacity:.55} .ag-det.heavy .ag-dt{color:#ff6068}
 .ag-info{display:flex;flex-direction:column;gap:12px;padding:2px 2px} .ag-info .ag-stats{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+
+/* ---------- path at three quarters of the page; the tasks card grows left over the path and down; original type size on the path ---------- */
+.ag-main{grid-template-columns:minmax(0,3fr) minmax(300px,1fr)!important}
+.ag-path .ag-ev{font-size:calc(13px / var(--k,1.3))!important;font-weight:600!important;font-family:var(--sans)!important} .ag-path .ag-evt{font-size:calc(10px / var(--k,1.3))!important} .ag-path .ag-hl{font-size:calc(9.5px / var(--k,1.3))!important} .ag-path .ag-sun{font-size:calc(10.5px / var(--k,1.3))!important} .ag-path .ag-now{font-size:calc(10.5px / var(--k,1.3))!important;font-weight:700;paint-order:stroke;stroke:rgba(8,11,22,.7);stroke-width:calc(3px / var(--k,1.3))}
+.ag-right{align-items:stretch}
+.ag-card{position:relative;z-index:6;align-self:flex-end;width:100%;margin-left:0;transition:margin-left .55s cubic-bezier(.3,.7,.2,1),width .55s cubic-bezier(.3,.7,.2,1),box-shadow .45s,background .2s}
+.ag-card.open{margin-left:-320px;width:calc(100% + 320px);box-shadow:0 26px 70px rgba(0,0,0,.55);background:rgba(10,12,22,.92)}
+@media (max-width:1100px){.ag-card.open{margin-left:0;width:100%}}
+.ag-fold{transition:grid-template-rows .55s cubic-bezier(.3,.7,.2,1),opacity .4s}
+.ag-sec{font:9.5px "SF Mono",ui-monospace,Menlo,monospace;letter-spacing:.16em;color:#7a7f90;margin:10px 0 3px} .ag-sec:first-child{margin-top:4px}
+.ag-mini{grid-template-columns:22px 54px minmax(0,1fr)!important}
+.ag-check{width:18px;height:18px;border-radius:50%;border:1.6px solid #6f7384;background:none;padding:0;cursor:pointer;display:grid;place-items:center;transition:.18s;flex:none} .ag-check svg{width:11px;height:11px;fill:none;stroke:transparent;stroke-width:2;stroke-linecap:round;stroke-linejoin:round} .ag-check:hover{border-color:#fff} .ag-check:hover svg{stroke:rgba(255,255,255,.5)}
+.ag-mini.next .ag-check{border-color:#ff2d37} .ag-mini.now .ag-check{border-color:#fff}
+.ag-mini.done .ag-check,.ag-det.done .ag-check{background:#fff;border-color:#fff} .ag-mini.done .ag-check svg{stroke:#0b0e18}
+.ag-mini.done .ag-title{text-decoration:line-through;opacity:.5} .ag-det.done .ag-dt{text-decoration:line-through;opacity:.55}
+.ag-dfoot{display:flex;justify-content:space-between;align-items:center;margin-top:9px}
+.ag-complete{background:none;border:1px solid rgba(255,255,255,.22);color:#fff;border-radius:999px;padding:4px 12px;font:600 9.5px "SF Mono",ui-monospace,Menlo,monospace;letter-spacing:.1em;cursor:pointer;transition:.18s} .ag-complete:hover{background:rgba(255,255,255,.1)} .ag-complete.on{background:#fff;color:#0b0e18;border-color:#fff}
+.ag-dc{margin-top:0!important}
+
+.ag-card .ag-dh{display:block!important} .ag-dh1{display:flex;align-items:baseline;gap:10px;font:11px "SF Mono",ui-monospace,Menlo,monospace;letter-spacing:.12em} .ag-dh1 b{color:#fff;font-weight:600;white-space:nowrap} .ag-dh1 .ag-chev{margin-left:auto} .ag-dh2{font:10px "SF Mono",ui-monospace,Menlo,monospace;letter-spacing:.12em;color:#7a7f90;margin-top:4px}
