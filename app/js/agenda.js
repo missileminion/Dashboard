@@ -1,6 +1,8 @@
-// The Agenda view: a day ring of dots (Nothing-inspired) that also carries the sun's path (daylight, sunrise, sunset, the light each event sits in),
-// your sleep window, and a dot-matrix clock, above a monochrome agenda with one red dot for what is next. Hover or drag around the ring to scrub through
-// the day: the centre reads the time, the light and what is on, and the glow behind the ring follows the sun.
+// The Agenda view. The main thing is your day as a timeline of tasks laid along the sun's real path, drawn in dots (Nothing-inspired).
+// Beside it sits the day budget ring: the same day as a measure of HOW MUCH rather than WHEN. The ring is your waking day from wake-up to bedtime,
+// one dot per slice, white where something is booked and dim where you are free, with a red dot for now and a thin inner arc of daylight.
+// Next to the ring: free time left, booked time left, daylight left and how heavy the day is. Hover or drag along the path to scrub: the clock, the
+// light, the glow behind the path, the ring and the numbers all move to that moment.
 import { sunPos } from "./sky.js";
 import { esc, addDays, pad } from "./util.js";
 import { plannedFor, TARGET } from "./analytics.js";
@@ -12,12 +14,19 @@ const at = (day, m) => { const x = new Date(day + "T00:00:00"); x.setMinutes(m);
 const place = () => { try { const s = JSON.parse(localStorage.getItem("sky.loc")); if (s && s.lat != null) return s; } catch {} try { const c = JSON.parse(localStorage.getItem("weather.city")); if (c) return { lat: c.lat, lon: c.lon }; } catch {} return { lat: 34, lon: -118 }; };
 const alt = (day, m, loc) => sunPos(+at(day, m), loc.lat, loc.lon).alt;
 const light = (day, m, loc) => { const a = alt(day, m, loc), rising = sunPos(+at(day, m), loc.lat, loc.lon).rising; return a < -12 ? "night" : a < -4 ? (rising ? "before dawn" : "after dusk") : a < 4 ? (rising ? "sunrise glow" : "sunset glow") : a < 14 ? (rising ? "soft morning light" : "golden hour") : "full daylight"; };
-// the glow behind the ring: a continuous function of the sun's altitude, never a fixed set of themes
+// the glow behind the path: a continuous function of the sun's altitude, never a fixed set of themes
 const STOPS = [[-18, [6, 8, 18]], [-8, [26, 30, 70]], [-2, [86, 58, 110]], [4, [224, 118, 82]], [14, [92, 150, 214]], [45, [58, 126, 214]]];
 function glow(a) { a = Math.max(-18, Math.min(45, a)); let i = 0; while (i < STOPS.length - 2 && a > STOPS[i + 1][0]) i++; const [a0, c0] = STOPS[i], [a1, c1] = STOPS[i + 1], f = (a - a0) / (a1 - a0); return c0.map((v, k) => Math.round(v + (c1[k] - v) * f)); }
 const heavyEv = e => HEAVY.test(e.title);
 const onDay = (e, day) => (e.allDay ? e.s <= new Date(day + "T12:00:00") && e.e > new Date(day + "T12:00:00") : e.s < new Date(addDays(day, 1) + "T00:00:00") && e.e > new Date(day + "T00:00:00"));
 const hoursOn = (list, day) => list.filter(e => !e.allDay && onDay(e, day)).reduce((s, e) => s + (Math.min(+e.e, +new Date(addDays(day, 1) + "T00:00:00")) - Math.max(+e.s, +new Date(day + "T00:00:00"))) / 36e5, 0);
+const hm = h => { const m = Math.round(h * 60); return m >= 60 ? `${Math.floor(m / 60)}H ${pad(m % 60)}M` : `${m}M`; };
+const factor = t => (HEAVY.test(t) ? 3 : /lab|project|presentation|interview/i.test(t) ? 1.6 : /run|gym|workout/i.test(t) ? 1.2 : 1);
+function load(day, list) {   // how heavy the day is, 0 to 10: hours times a weight for the kind of task, plus a little for back-to-back blocks
+  const evs = list.filter(e => onDay(e, day)).sort((a, b) => (a.allDay ? -1 : 0) - (b.allDay ? -1 : 0) || a.s - b.s); let w = 0;
+  evs.forEach((e, i) => { w += (e.allDay ? 3 : (e.e - e.s) / 36e5) * factor(e.title); const n = evs[i + 1]; if (n && !e.allDay && !n.allDay && n.s - e.e < 15 * 6e4 && n.s - e.e > -1) w += .4; });
+  return Math.min(10, w / 1.15);
+}
 
 function clock(txt, blink) {   // dot-matrix digits as SVG circles
   let x = 0, s = "";
@@ -25,42 +34,58 @@ function clock(txt, blink) {   // dot-matrix digits as SVG circles
   return { vb: `-0.1 -0.1 ${x - 0.8} 7.2`, s };
 }
 
-// the dial, as one string: dots for every quarter hour, sleep window, daylight, now
-function dialSVG(day, list, scrub, now, loc) {
-  const cx = 300, cy = 300, R = 230, dayEv = list.filter(e => !e.allDay && onDay(e, day)), isToday = !!now, nm = now ? mins(now) : -1;
-  const bedMin = ((TARGET.wakeMin - TARGET.idealMin) % 1440 + 1440) % 1440, wake = TARGET.wakeMin, inSleep = t => (bedMin > wake ? t >= bedMin || t < wake : t >= bedMin && t < wake);
-  let s = "", rise = null, set = null, prev = alt(day, 0, loc);
-  for (let m = 5; m <= 1440; m += 5) { const a = alt(day, m % 1440, loc); if (prev < 0 && a >= 0 && rise == null) rise = m; if (prev >= 0 && a < 0 && set == null) set = m; prev = a; }
-  for (let i = 0; i < 96; i++) {
-    const t0 = i * 15, ang = t0 / 1440 * Math.PI * 2 - Math.PI / 2, ca = Math.cos(ang), sa = Math.sin(ang), a = at(day, t0), b = new Date(+a + 15 * 6e4);
-    const hit = dayEv.filter(e => e.s < b && e.e > a), lit = hit.length > 0, red = hit.some(heavyEv), isNow = isToday && nm >= t0 && nm < t0 + 15, sc = scrub != null && scrub >= t0 && scrub < t0 + 15;
-    s += `<circle cx="${(cx + ca * R).toFixed(1)}" cy="${(cy + sa * R).toFixed(1)}" r="${isNow ? 7.5 : lit ? 6.4 : 3.4}" fill="${isNow ? RED : lit ? (red ? RED : (isToday && +b <= +now ? "#7f8599" : "#fff")) : "#2c2f36"}">${isNow ? `<animate attributeName="r" values="6;9.5;6" dur="2.6s" repeatCount="indefinite"/>` : ""}</circle>`;
-    if (sc) s += `<circle cx="${(cx + ca * R).toFixed(1)}" cy="${(cy + sa * R).toFixed(1)}" r="11.5" fill="none" stroke="#fff" stroke-width="1.6"/>`;
-    if (inSleep(t0)) s += `<circle cx="${(cx + ca * (R - 30)).toFixed(1)}" cy="${(cy + sa * (R - 30)).toFixed(1)}" r="1.9" fill="#7c86a8"/>`;
-    if (alt(day, t0 + 7, loc) > 0) s += `<circle cx="${(cx + ca * (R + 26)).toFixed(1)}" cy="${(cy + sa * (R + 26)).toFixed(1)}" r="1.7" fill="#c9cdd8"/>`;
+/* ---------- the timeline: the sun's path as a dotted curve across 24 hours, the tasks laid on it ---------- */
+const VW = 1200, VH = 340, X0 = 34, X1 = 1166, Y0 = 200;
+const Xm = m => X0 + m / 1440 * (X1 - X0);
+const Ym = (day, m, loc) => { const v = alt(day, m % 1440, loc); return Y0 - (v >= 0 ? v * 2.1 : v * .55); };
+function sunTimes(day, loc) { let rise = null, set = null, prev = alt(day, 0, loc); for (let m = 5; m <= 1440; m += 5) { const v = alt(day, m % 1440, loc); if (prev < 0 && v >= 0 && rise == null) rise = m; if (prev >= 0 && v < 0 && set == null) set = m; prev = v; } return { rise, set }; }
+function timelineSVG(day, list, scrub, now, loc) {
+  const dayEv = list.filter(e => !e.allDay && onDay(e, day)).sort((a, b) => a.s - b.s), isToday = !!now, nm = now ? mins(now) : -1, { rise, set } = sunTimes(day, loc);
+  let s = `<line x1="${X0}" x2="${X1}" y1="${Y0}" y2="${Y0}" stroke="#3d4150" stroke-dasharray="1.5 6"/>`;
+  for (let m = 0; m <= 1440; m += 5) {   // the path itself, one dot per five minutes; larger and brighter where a task is on
+    const a = at(day, m), b = new Date(+a + 5 * 6e4), hit = dayEv.filter(e => e.s < b && e.e > a), up = alt(day, m % 1440, loc) > 0, past = isToday && +b <= +now;
+    s += `<circle cx="${Xm(m).toFixed(1)}" cy="${Ym(day, m, loc).toFixed(1)}" r="${hit.length ? 4.4 : up ? 1.9 : 1.4}" fill="${hit.length ? (hit.some(heavyEv) ? RED : past ? "#7f8599" : "#fff") : up ? "#cfd3de" : "#3d4150"}"/>`;
   }
-  [[0, "00"], [6, "06"], [12, "12"], [18, "18"]].forEach(([h, l]) => { const ang = h / 24 * Math.PI * 2 - Math.PI / 2; s += `<text x="${cx + Math.cos(ang) * (R - 54)}" y="${cy + Math.sin(ang) * (R - 54) + 4}" text-anchor="middle" class="ag-hl">${l}</text>`; });
-  const mark = (m, up) => { if (m == null) return; const ang = m / 1440 * Math.PI * 2 - Math.PI / 2, x = cx + Math.cos(ang) * (R + 52), y = cy + Math.sin(ang) * (R + 52); s += `<text x="${x}" y="${y + 4}" text-anchor="middle" class="ag-sun">${up ? "↑" : "↓"} ${pad(Math.floor(m / 60) % 24)}:${pad(m % 60)}</text>`; };
-  mark(rise, true); mark(set, false);
+  const bed = ((TARGET.wakeMin - TARGET.idealMin) % 1440 + 1440) % 1440, wake = TARGET.wakeMin;   // the sleep window along the bottom
+  for (let m = 0; m < 1440; m += 10) if (bed > wake ? m >= bed || m < wake : m >= bed && m < wake) s += `<circle cx="${Xm(m).toFixed(1)}" cy="296" r="1.9" fill="#7c86a8"/>`;
+  s += `<text x="${Xm(wake / 2)}" y="286" text-anchor="middle" class="ag-sun" style="fill:#7c86a8">SLEEP</text><text x="${Xm((bed + 1440) / 2 > 1440 ? bed + 40 : (bed + 1440) / 2)}" y="286" text-anchor="middle" class="ag-sun" style="fill:#7c86a8">SLEEP</text>`;
+  [0, 3, 6, 9, 12, 15, 18, 21, 24].forEach(h => { s += `<text x="${Xm(h * 60)}" y="326" text-anchor="${h === 24 ? "end" : h === 0 ? "start" : "middle"}" class="ag-hl">${pad(h % 24)}</text>`; });
+  [[rise, "↑"], [set, "↓"]].forEach(([m, g]) => { if (m != null) s += `<text x="${Xm(m)}" y="${Y0 + 22}" text-anchor="middle" class="ag-sun">${g} ${pad(Math.floor(m / 60))}:${pad(m % 60)}</text>`; });
+  const lanes = [];   // task titles on leader lines, staggered so they never overlap
+  dayEv.forEach(e => {
+    const startM = e.s < at(day, 0) ? 0 : mins(e.s), x = Xm(startM), w = Math.max(70, e.title.length * 7.3 + 8), lane = lanes.findIndex(r => r < x - 6), ln = lane < 0 ? lanes.length : lane;
+    if (ln > 4) return; lanes[ln] = x + w;
+    const by = Ym(day, startM, loc), ly = Math.max(26, by - 30 - ln * 34), past = isToday && e.e <= now, col = heavyEv(e) ? RED : past ? "#8b90a3" : "#fff", dim = e.recurring && !heavyEv(e);
+    s += `<g class="ag-bead" data-id="${esc(e.id)}"><line x1="${x}" x2="${x}" y1="${ly + 8}" y2="${by - 8}" stroke="${col}" stroke-opacity=".4" stroke-dasharray="1.5 4"/><circle cx="${x}" cy="${by}" r="8.5" fill="none" stroke="${col}" stroke-width="1.6"/>`
+      + `<text x="${x + 5}" y="${ly}" class="ag-ev" fill="${col}" opacity="${dim ? .7 : 1}">${esc(e.title.length > 34 ? e.title.slice(0, 33) + "…" : e.title)}</text><text x="${x + 5}" y="${ly + 13}" class="ag-evt">${hhmm(e.s)}–${hhmm(e.e)}</text><rect x="${x - 10}" y="${ly - 14}" width="${w + 14}" height="${by - ly + 24}" fill="transparent"/></g>`;
+  });
+  const mk = (m, col, r) => `<line x1="${Xm(m)}" x2="${Xm(m)}" y1="${Ym(day, m, loc) + 12}" y2="270" stroke="${col}" stroke-opacity=".4" stroke-dasharray="2 5"/><circle cx="${Xm(m)}" cy="${Ym(day, m, loc)}" r="${r + 7}" fill="none" stroke="${col}" stroke-width="1.8"/><circle cx="${Xm(m)}" cy="${Ym(day, m, loc)}" r="${r}" fill="${col}"/>`;
+  if (isToday) s += mk(nm, RED, 4.5);
+  if (scrub != null) s += mk(scrub + 2.5, "#fff", 4);
   return s;
 }
 
-
-// the sun's real path across the 24 hours as a dotted curve: dots above the horizon are daylight, events sit on it as larger dots, and the scrub marker rides along it
-function pathSVG(day, list, scrub, now, loc) {
-  const W = 640, X0 = 22, X1 = 618, Y0 = 100, X = m => X0 + m / 1440 * (X1 - X0), Y = m => { const v = alt(day, m % 1440, loc); return Y0 - (v >= 0 ? v * 1.5 : v * .8); }, dayEv = list.filter(e => !e.allDay && onDay(e, day)), isToday = !!now, nm = now ? mins(now) : -1;
-  let s = `<line x1="${X0}" x2="${X1}" y1="${Y0}" y2="${Y0}" stroke="#3a3e4a" stroke-dasharray="1.5 5"/>`;
-  for (let m = 0; m <= 1440; m += 6) {
-    const a = at(day, m), b = new Date(+a + 6 * 6e4), hit = dayEv.filter(e => e.s < b && e.e > a), up = alt(day, m % 1440, loc) > 0, red = hit.some(heavyEv), past = isToday && +b <= +now;
-    s += `<circle cx="${X(m).toFixed(1)}" cy="${Y(m).toFixed(1)}" r="${hit.length ? 3.1 : up ? 1.6 : 1.2}" fill="${hit.length ? (red ? RED : past ? "#7f8599" : "#fff") : up ? "#c9cdd8" : "#3a3e4a"}"/>`;
-  }
-  [0, 6, 12, 18, 24].forEach(h => { s += `<text x="${X(h * 60)}" y="180" text-anchor="${h === 24 ? "end" : h === 0 ? "start" : "middle"}" class="ag-hl">${pad(h % 24)}</text>`; });
-  let rise = null, set = null, prev = alt(day, 0, loc); for (let m = 5; m <= 1440; m += 5) { const v = alt(day, m % 1440, loc); if (prev < 0 && v >= 0 && rise == null) rise = m; if (prev >= 0 && v < 0 && set == null) set = m; prev = v; }
-  [[rise, "↑"], [set, "↓"]].forEach(([m, g]) => { if (m != null) s += `<text x="${X(m)}" y="${Y0 + 16}" text-anchor="middle" class="ag-sun">${g} ${pad(Math.floor(m / 60))}:${pad(m % 60)}</text>`; });
-  const mk = (m, col, r) => `<line x1="${X(m)}" x2="${X(m)}" y1="${Y(m) + 8}" y2="162" stroke="${col}" stroke-opacity=".35" stroke-dasharray="2 4"/><circle cx="${X(m)}" cy="${Y(m)}" r="${r + 6}" fill="none" stroke="${col}" stroke-width="1.5"/>`;
-  if (isToday) s += mk(nm, RED, 4);
-  if (scrub != null) s += mk(scrub + 7.5, "#fff", 5);
-  return s;
+/* ---------- the day budget ring: how much of your waking day is booked, free and left ---------- */
+const WAKE = TARGET.wakeMin, BED = (((TARGET.wakeMin - TARGET.idealMin) % 1440) + 1440) % 1440, AWAKE = (BED > WAKE ? BED : BED + 1440) - WAKE, N = 72, SLICE = AWAKE / N;
+function budget(day, list, m, loc) {
+  const dayEv = list.filter(e => !e.allDay && onDay(e, day)), slices = [];
+  for (let i = 0; i < N; i++) { const t0 = WAKE + i * SLICE, a = at(day, 0), s0 = new Date(+a + t0 * 6e4), s1 = new Date(+a + (t0 + SLICE) * 6e4), hit = dayEv.filter(e => e.s < s1 && e.e > s0); slices.push({ t0, booked: hit.length > 0, heavy: hit.some(heavyEv), up: alt(day, (t0 + SLICE / 2) % 1440, loc) > 0 }); }
+  const left = slices.filter(x => x.t0 + SLICE > m), freeLeft = left.filter(x => !x.booked).length * SLICE / 60, bookedLeft = left.filter(x => x.booked).length * SLICE / 60;
+  const { rise, set } = sunTimes(day, loc), dl = set == null ? null : alt(day, m % 1440, loc) > 0 ? set - m : rise != null && m < rise ? -(rise - m) : 0;
+  return { slices, freeLeft, bookedLeft, dl };
+}
+function ringSVG(day, list, scrub, now, loc) {
+  const m = scrub ?? (now ? mins(now) : WAKE), B = budget(day, list, m, loc), cx = 200, cy = 200, R = 160;
+  const nowIdx = m >= WAKE && m < WAKE + AWAKE ? Math.floor((m - WAKE) / SLICE) : -1, track = scrub != null || !!now;
+  let s = "";
+  B.slices.forEach((x, i) => {
+    const ang = i / N * Math.PI * 2 - Math.PI / 2, ca = Math.cos(ang), sa = Math.sin(ang), past = track && x.t0 + SLICE <= m, isNow = track && i === nowIdx;
+    const fill = isNow ? RED : x.booked ? (x.heavy ? RED : past ? "#7f8599" : "#fff") : past ? "#272a33" : "#4d5264";
+    s += `<circle cx="${(cx + ca * R).toFixed(1)}" cy="${(cy + sa * R).toFixed(1)}" r="${isNow ? 7 : x.booked ? 5.6 : 3.1}" fill="${fill}">${isNow && scrub == null ? `<animate attributeName="r" values="5.5;8.5;5.5" dur="2.6s" repeatCount="indefinite"/>` : ""}</circle>`;
+    if (x.up) s += `<circle cx="${(cx + ca * (R - 24)).toFixed(1)}" cy="${(cy + sa * (R - 24)).toFixed(1)}" r="1.5" fill="#c9cdd8"/>`;
+  });
+  s += `<text x="${cx}" y="${cy - R + 34}" text-anchor="middle" class="ag-hl">${pad(Math.floor(WAKE / 60))}:${pad(WAKE % 60)} WAKE</text><text x="${cx}" y="${cy + R - 28}" text-anchor="middle" class="ag-hl">BED ${pad(Math.floor(BED / 60))}:${pad(BED % 60)}</text>`;
+  return { s, B };
 }
 
 function chipHTML(day, list, focus, today) {
@@ -72,45 +97,48 @@ function chipHTML(day, list, focus, today) {
 export function agendaHTML(ctx) {
   const { days, list, focus, today } = ctx, now = new Date();
   const nextEv = list.filter(e => !e.allDay && e.e > now).sort((a, b) => a.s - b.s).find(e => e.s > now);
+  const allDay = list.filter(e => e.allDay && onDay(e, focus));
   const rows = days.map(day => {
     const evs = list.filter(e => onDay(e, day)).sort((a, b) => (a.allDay ? -1 : 0) - (b.allDay ? -1 : 0) || a.s - b.s), d = new Date(day + "T12:00:00"), h = hoursOn(list, day);
     return `<section class="ag-day${day === focus ? " on" : ""}" data-day="${day}"><button type="button" class="ag-dh" data-fd="${day}"><span><b>${d.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase()} ${d.getDate()}</b>${day === today ? ' <i class="ag-red">TODAY</i>' : ""}<em>${plannedFor(day).toUpperCase()}</em></span><span>${h ? h.toFixed(1) + " H" : ""}</span></button>
       ${evs.length ? evs.map(e => { const past = !e.allDay && e.e <= now, cur = !e.allDay && e.s <= now && e.e > now, nx = nextEv && e === nextEv;
         return `<button type="button" class="ag-row${past ? " past" : ""}${cur ? " now" : ""}${nx ? " next" : ""}${e.recurring ? " routine" : ""}${heavyEv(e) ? " heavy" : ""}" data-id="${esc(e.id)}"><i class="ag-dot"></i><span class="ag-time">${e.allDay ? "ALL DAY" : hhmm(e.s) + "–" + hhmm(e.e)}</span><span class="ag-title">${esc(e.title)}${e.location ? `<small>${esc(e.location)}</small>` : ""}</span><i class="ag-cal" style="background:${esc(e.color)}"></i></button>`; }).join("") : `<div class="ag-none">NOTHING SCHEDULED</div>`}</section>`;
   }).join("");
-  return `<div class="ag"><div class="ag-hero"><div class="ag-dialwrap" id="agWrap"><svg class="ag-dial" id="agDial" viewBox="-20 -20 640 640" aria-label="Your day as a ring of dots"></svg>
-    <div class="ag-center"><svg class="ag-clk" id="agClk" aria-hidden="true"></svg><div class="ag-cap" id="agCap"></div></div></div>
-    <svg class="ag-path" id="agPath" viewBox="0 0 640 188" aria-label="The sun's path across the day"></svg>
-    <div class="ag-week">${days.map(d => chipHTML(d, list, focus, today)).join("")}</div>
-    <div class="ag-legend">EACH DOT IS 15 MIN · <b>WHITE</b> SCHEDULED · <b class="ag-red">RED</b> HEAVY OR NEXT · INNER ARC SLEEP · OUTER ARC DAYLIGHT · DRAG ON THE RING OR THE SUN PATH TO SCRUB THE DAY</div></div>
+  return `<div class="ag"><div class="ag-top"><div class="ag-ringbox"><svg class="ag-ring" id="agRing" viewBox="0 0 400 400" aria-label="Your waking day: booked and free time"></svg><div class="ag-center"><svg class="ag-clk" id="agClk" aria-hidden="true"></svg><div class="ag-cl">DAY BUDGET</div></div></div>
+    <div class="ag-side"><div class="ag-cap" id="agCap"></div><div class="ag-stats" id="agStats"></div></div><div class="ag-week">${days.map(d => chipHTML(d, list, focus, today)).join("")}</div></div>
+    <div class="ag-tl" id="agTl"><div class="ag-scroll" id="agScroll">${allDay.length ? `<div class="ag-allday">${allDay.map(e => `<button type="button" class="${heavyEv(e) ? "heavy" : ""}" data-id="${esc(e.id)}"><i style="background:${esc(e.color)}"></i>${esc(e.title)}</button>`).join("")}</div>` : ""}
+      <svg class="ag-path" id="agPath" viewBox="0 0 ${VW} ${VH}" aria-label="Your day as tasks along the sun's path"></svg></div></div>
+    <div class="ag-legend">PATH: EACH DOT 5 MIN · <b>BIG WHITE</b> A TASK · <b class="ag-red">RED</b> HEAVY OR NOW · BELOW THE DOTTED LINE IS NIGHT · RING: YOUR WAKING DAY, <b>WHITE</b> BOOKED, DIM FREE · DRAG ALONG THE PATH TO SCRUB</div>
     <div class="ag-list">${rows}</div></div>`;
 }
 
-// paint and wire the ring (runs after the HTML is in the page)
+// paint and wire (runs after the HTML is in the page)
 export function wireAgenda(root, ctx) {
-  const pathEl = root.querySelector("#agPath"), wrap = root.querySelector("#agWrap"), svg = root.querySelector("#agDial"), clk = root.querySelector("#agClk"), cap = root.querySelector("#agCap"); if (!wrap) return;
+  const tl = root.querySelector("#agTl"), pathEl = root.querySelector("#agPath"), ringEl = root.querySelector("#agRing"), clk = root.querySelector("#agClk"), cap = root.querySelector("#agCap"), stats = root.querySelector("#agStats"), sc = root.querySelector("#agScroll"); if (!tl) return;
   const { focus, list, today } = ctx, loc = place(), isToday = focus === today;
   let scrub = null, timer = null;
   const paint = () => {
     const now = isToday ? new Date() : null, m = scrub ?? (now ? mins(now) : 12 * 60), a = alt(focus, m, loc), [r, g, b] = glow(a);
-    svg.innerHTML = dialSVG(focus, list, scrub, now, loc); pathEl.innerHTML = pathSVG(focus, list, scrub, now, loc);
-    wrap.style.setProperty("--glow", `rgba(${r},${g},${b},${scrub != null ? .62 : .46})`);
-    const dayEv = list.filter(e => !e.allDay && onDay(e, focus)), when = at(focus, m), cur = dayEv.find(e => e.s <= when && e.e > when);
+    pathEl.innerHTML = timelineSVG(focus, list, scrub, now, loc);
+    const R = ringSVG(focus, list, scrub, now, loc); ringEl.innerHTML = R.s;
+    tl.style.setProperty("--glow", `rgba(${r},${g},${b},${scrub != null ? .7 : .52})`);
+    const dayEv = list.filter(e => !e.allDay && onDay(e, focus)), when = at(focus, m), cur = dayEv.find(e => e.s <= when && e.e > when), B = R.B, ld = load(focus, list);
     let txt, line;
     if (scrub != null) { txt = hhmm(when); line = `${light(focus, m, loc).toUpperCase()} · SUN ${a >= 0 ? "+" : "−"}${Math.abs(a).toFixed(0)}°<br>${cur ? `<b>${esc(cur.title)}</b>` : "FREE"}`; }
-    else if (now) { const fut = dayEv.filter(e => e.e > now).sort((x, y) => x.s - y.s), c = fut.find(e => e.s <= now), nx = fut.find(e => e.s > now); txt = hhmm(now); line = c ? `NOW<br><b>${esc(c.title)}</b><br>UNTIL ${hhmm(c.e)}` : nx ? `NEXT IN ${Math.floor((nx.s - now) / 36e5) ? Math.floor((nx.s - now) / 36e5) + "H " : ""}${Math.round(((nx.s - now) / 6e4) % 60)}M<br><b>${esc(nx.title)}</b>` : "NOTHING MORE TODAY"; }
+    else if (now) { const fut = dayEv.filter(e => e.e > now).sort((x, y) => x.s - y.s), c = fut.find(e => e.s <= now), nx = fut.find(e => e.s > now); txt = hhmm(now); line = c ? `NOW · UNTIL ${hhmm(c.e)}<br><b>${esc(c.title)}</b>` : nx ? `NEXT IN ${Math.floor((nx.s - now) / 36e5) ? Math.floor((nx.s - now) / 36e5) + "H " : ""}${Math.round(((nx.s - now) / 6e4) % 60)}M<br><b>${esc(nx.title)}</b>` : "NOTHING MORE TODAY"; }
     else { const d = new Date(focus + "T12:00:00"); txt = String(d.getDate()).padStart(2, "0"); line = `${d.toLocaleDateString("en-US", { weekday: "long", month: "short" }).toUpperCase()}<br><b>${dayEv.length} EVENT${dayEv.length === 1 ? "" : "S"}</b>${dayEv.length ? ` · ${hoursOn(list, focus).toFixed(1)} H` : ""}`; }
     const c = clock(txt, scrub != null || !now || new Date().getSeconds() % 2 === 0); clk.setAttribute("viewBox", c.vb); clk.innerHTML = c.s; cap.innerHTML = line;
+    const dl = B.dl == null ? "—" : B.dl > 0 ? hm(B.dl / 60) : B.dl < 0 ? "IN " + hm(-B.dl / 60) : "OVER";
+    const label = scrub != null || !now ? (scrub != null ? "FROM " + hhmm(when) : "WHOLE DAY") : "LEFT TODAY";
+    const st = (k, v, red) => `<div><span>${k}</span><b${red ? ` class="ag-red"` : ""}>${v}</b></div>`;
+    stats.innerHTML = st("FREE " + label.replace("LEFT TODAY", "LEFT"), hm(B.freeLeft)) + st("BOOKED " + label.replace("LEFT TODAY", "LEFT"), hm(B.bookedLeft)) + st(B.dl != null && B.dl < 0 ? "SUNRISE" : "DAYLIGHT", dl) + st("LOAD", `${ld.toFixed(1)} / 10`, ld >= 7);
   };
-  const minuteAt = e => { const r = svg.getBoundingClientRect(), x = e.clientX - (r.left + r.width / 2), y = e.clientY - (r.top + r.height / 2); if (Math.hypot(x, y) < r.width * .12) return null; let ang = Math.atan2(y, x) + Math.PI / 2; if (ang < 0) ang += Math.PI * 2; return Math.min(1425, Math.floor(ang / (Math.PI * 2) * 96) * 15); };
-  svg.addEventListener("pointermove", e => { if (e.pointerType === "touch" && e.buttons !== 1) return; const m = minuteAt(e); if (m !== scrub) { scrub = m; paint(); } });
-  svg.addEventListener("pointerdown", e => { if (e.pointerType === "touch") { try { svg.setPointerCapture(e.pointerId); } catch {} scrub = minuteAt(e); paint(); } });
-  const pathMin = e => { const r = pathEl.getBoundingClientRect(), f = (e.clientX - r.left) / r.width * 640; return Math.max(0, Math.min(1425, Math.floor((f - 22) / 596 * 96) * 15)); };
-  pathEl.addEventListener("pointermove", e => { if (e.pointerType === "touch" && e.buttons !== 1) return; const m = pathMin(e); if (m !== scrub) { scrub = m; paint(); } });
-  pathEl.addEventListener("pointerdown", e => { if (e.pointerType === "touch") { try { pathEl.setPointerCapture(e.pointerId); } catch {} scrub = pathMin(e); paint(); } });
-  pathEl.addEventListener("pointerleave", () => done()); pathEl.addEventListener("pointerup", e => { if (e.pointerType === "touch") done(); }); pathEl.addEventListener("pointercancel", () => done());
+  const minuteAt = e => { const r = pathEl.getBoundingClientRect(), f = (e.clientX - r.left) / r.width * VW; return Math.max(0, Math.min(1435, Math.round((f - X0) / (X1 - X0) * 288) * 5)); };
+  pathEl.addEventListener("pointermove", e => { if (e.pointerType === "touch" && e.buttons !== 1) return; const m = minuteAt(e); if (m !== scrub) { scrub = m; paint(); } });
+  pathEl.addEventListener("pointerdown", e => { if (e.pointerType === "touch") { try { pathEl.setPointerCapture(e.pointerId); } catch {} scrub = minuteAt(e); paint(); } });
   const done = () => { if (scrub != null) { scrub = null; paint(); } };
-  svg.addEventListener("pointerleave", done); svg.addEventListener("pointerup", e => { if (e.pointerType === "touch") done(); }); svg.addEventListener("pointercancel", done);
+  pathEl.addEventListener("pointerleave", done); pathEl.addEventListener("pointerup", e => { if (e.pointerType === "touch") done(); }); pathEl.addEventListener("pointercancel", done);
   paint();
-  if (isToday) timer = setInterval(() => { if (!wrap.isConnected) return clearInterval(timer); if (scrub == null) paint(); }, 1000);
+  if (isToday && sc && sc.scrollWidth > sc.clientWidth) sc.scrollLeft = Math.max(0, Xm(mins(new Date())) / VW * sc.scrollWidth - sc.clientWidth / 2);   // on a phone, start the path centred on now
+  if (isToday) timer = setInterval(() => { if (!tl.isConnected) return clearInterval(timer); if (scrub == null) paint(); }, 1000);
 }
