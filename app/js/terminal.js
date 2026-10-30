@@ -5,13 +5,14 @@
 import { esc, addDays, ymd } from "./util.js";
 import { loadWeights, setWeight, delWeight } from "./weight.js";
 import { PROGRAM } from "./gymlog.js";
+import { makeCalc } from "./calc.js";
 
 const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const pad = n => String(n).padStart(2, "0"), hhmm = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 const DOW = { sun: 0, sunday: 0, mon: 1, monday: 1, tue: 2, tues: 2, tuesday: 2, wed: 3, wednesday: 3, thu: 4, thur: 4, thurs: 4, thursday: 4, fri: 5, friday: 5, sat: 6, saturday: 6 };
 const MON = { jan: 0, january: 0, feb: 1, february: 1, mar: 2, march: 2, apr: 3, april: 3, may: 4, jun: 5, june: 5, jul: 6, july: 6, aug: 7, august: 7, sep: 8, sept: 8, september: 8, oct: 9, october: 9, nov: 10, november: 10, dec: 11, december: 11 };
 const TABS = { health: "health", home: "health", h: "health", prod: "prod", productivity: "prod", timer: "prod", stickynote: "prod", notes: "prod", gym: "gym", gymlog: "gym", log: "gym", cal: "cal", calendar: "cal", console: "console", terminal: "console" };
-const COMMANDS = ["help", "clc", "weight", "set", "add", "done", "note", "task", "timer", "start", "stop", "pause", "resume", "go", "today", "next", "status", "undo", "rm"];
+const COMMANDS = ["help", "clc", "weight", "set", "add", "done", "note", "task", "timer", "start", "stop", "pause", "resume", "go", "today", "next", "status", "undo", "rm", "plot", "roots", "deriv", "integral", "deg", "rad", "prec"];
 const ALIAS = { clear: "clc", cls: "clc", w: "weight", ev: "add", event: "add", n: "note", t: "task", d: "done", delete: "rm", del: "rm", remove: "rm", "?": "help", sleep: "status" };
 
 // closeness of two words, for "did you mean" and for matching a typed exercise name to the real one
@@ -54,7 +55,7 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
   root.innerHTML = `<div class="tm" id="tm"><div class="tm-log" id="tmLog"></div><div class="tm-line tm-live" id="tmLive"><span class="tm-p">›</span><span id="tmEcho"></span><i class="tm-cur"></i></div></div>
     <input id="tmIn" class="tm-in" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Command line">`;
   const $ = id => root.querySelector("#" + id), log = $("tmLog"), live = $("tmLive"), echo = $("tmEcho"), inp = $("tmIn"), scr = $("tm");
-  let busy = false, booted = false, past = [], pi = -1, pending = null, undos = [];
+  let busy = false, booted = false, past = [], pi = -1, pending = null, undos = []; const calc = makeCalc();
   const bottom = () => { scr.scrollTop = scr.scrollHeight; }, sleep = ms => new Promise(r => setTimeout(r, ms));
 
   // output: commands answer at once; several lines appear one after another, quickly, so it still reads like a terminal
@@ -78,7 +79,7 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
   /* ---------- the commands ---------- */
   const cmds = {
     async help() {
-      await print(["COMMANDS", "", "weight 70.4            log your weight (also: weight 70.4 yesterday)", "set bench 135 8 3      log a gym set: exercise, lb, reps, sets", "add gym thu 5pm        add a calendar event (add lunch tomorrow 12:30 for 45m)", "done rocketry          mark a calendar event complete", "note buy shoes         add a line to Stickynote (task buy shoes adds a checkbox)", "start study now        start a focus session (timer 25 sets the minutes; stop, pause, resume)", "go gym                 jump to a tab: health, prod, gym, cal", "today  next  status    read your day, your next event, last night", "rm set / rm weight     delete the last set or today's weight (asks first)", "undo                   take back the last change", "clc                    clear the screen", "", "Cmd+K opens and closes this from any page. Up arrow recalls, Tab completes."], "tm-dim");
+      await print(["COMMANDS", "", "weight 70.4            log your weight (also: weight 70.4 yesterday)", "set bench 135 8 3      log a gym set: exercise, lb, reps, sets", "add gym thu 5pm        add a calendar event (add lunch tomorrow 12:30 for 45m)", "done rocketry          mark a calendar event complete", "note buy shoes         add a line to Stickynote (task buy shoes adds a checkbox)", "start study now        start a focus session (timer 25 sets the minutes; stop, pause, resume)", "go gym                 jump to a tab: health, prod, gym, cal", "today  next  status    read your day, your next event, last night", "rm set / rm weight     delete the last set or today's weight (asks first)", "undo                   take back the last change", "clc                    clear the screen", "", "MATH  type any expression:  2+2   sqrt(2)   sin(pi/2)   10!   a=5   f(x)=x^2-3x   ans", "plot sin(x), cos(x) from -2pi to 2pi    graph, hover for exact values", "roots x^2-2    deriv x^3 at 2    integral sin(x) from 0 to pi    deg / rad    prec 10", "", "Cmd+K opens and closes this from any page. Up arrow recalls, Tab completes."], "tm-dim");
     },
     async clc() { log.innerHTML = ""; },
     async weight(args) {
@@ -156,6 +157,47 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
     },
   };
 
+  /* ---------- math ---------- */
+  const top = s => { const out = []; let d = 0, cur = ""; for (const ch of s) { if (ch === "(") d++; if (ch === ")") d--; if ((ch === "," || ch === ";") && d === 0) { out.push(cur); cur = ""; } else cur += ch; } if (cur.trim()) out.push(cur); return out.map(x => x.trim()).filter(Boolean); };
+  const num = s => { const v = calc.evaluate(s); if (v.kind !== "val" || !Number.isFinite(v.value)) throw new Error(`"${s}" is not a number`); return v.value; };
+  const range = s => {   // "... from A to B", "... [A, B]" or "... A B" (plain numbers or pi) at the end; defaults to -10 to 10
+    let m = s.match(/^(.*?)\s+from\s+(.+?)\s+to\s+(.+)$/i) || s.match(/^(.*?)\s*\[\s*(.+?)\s*,\s*(.+?)\s*\]\s*$/) || s.match(/^(.*?)\s+(-?[\d.]+(?:e-?\d+)?(?:\s*\*?\s*pi)?)\s+(-?[\d.]+(?:e-?\d+)?(?:\s*\*?\s*pi)?)\s*$/i);
+    if (!m) return { src: s.trim(), a: -10, b: 10 }; const a = num(m[2]), b = num(m[3]); if (!(b > a)) throw new Error("the range needs a smaller number first"); return { src: m[1].trim(), a, b };
+  };
+  const out7 = (v, c = calc) => c.fmt(v);
+  async function showValue(r) {
+    if (r.kind === "def") return print(`✓ ${r.text}`);
+    if (r.kind === "set") return print(`${r.name} = ${calc.fmt(r.value)}`);
+    const lines = [`= ${calc.fmt(r.value)}`]; if (Number.isFinite(r.value) && !calc.trustworthy(r.value)) lines.push("  beyond about 1e8 only the first 15 digits can be trusted");
+    return print(lines);
+  }
+  const cleanName = s => (/^[A-Za-z_]\w*$/.test(s) && calc.S.funcs[s] ? `${s}(x)` : s);
+  Object.assign(cmds, {
+    async plot(args) {
+      if (!args.trim()) return err("usage: plot sin(x), x^2/4 from -2pi to 2pi");
+      const { src, a, b } = range(args), fs = top(src).map(cleanName); if (!fs.length || fs.length > 4) return err("plot one to four functions of x, separated by commas.");
+      const P = calc.plot(fs, a, b), box = document.createElement("div"); box.className = "tm-plot";
+      box.innerHTML = `<div class="tm-leg">${P.legend.map(l => `<span><i style="background:${l.c}"></i>${esc(l.q)}</span>`).join("")}</div>${P.svg}<div class="tm-read">move over the graph for exact values</div>`; log.appendChild(box);
+      const svg = box.querySelector("svg"), cross = svg.querySelector(".tm-cross"), read = box.querySelector(".tm-read");
+      svg.addEventListener("pointermove", e => {
+        const r = svg.getBoundingClientRect(), vx = (e.clientX - r.left) / r.width * P.W; if (vx < P.L || vx > P.W - P.R) { cross.style.display = "none"; return; }
+        const x = P.a + (vx - P.L) / (P.W - P.L - P.R) * (P.b - P.a); cross.style.display = ""; cross.querySelector(".v").setAttribute("x1", vx); cross.querySelector(".v").setAttribute("x2", vx);
+        const ys = P.fs.map(o => o.f(x)); ys.forEach((y, k) => { const c = cross.querySelector(".d" + k); if (Number.isFinite(y)) { c.setAttribute("cx", vx); c.setAttribute("cy", P.Y(y)); c.style.display = ""; } else c.style.display = "none"; });
+        read.textContent = `x = ${calc.fmt(x, 7)}    ` + ys.map((y, k) => `${fs.length > 1 ? "f" + (k + 1) : "y"} = ${calc.fmt(y, 7)}`).join("    ");
+      });
+      svg.addEventListener("pointerleave", () => { cross.style.display = "none"; });
+      bottom();
+      const lines = P.fs.map((o, k) => { const r = calc.roots(o.f, a, b).slice(0, 8); return r.length ? `roots${fs.length > 1 ? " of " + fs[k] : ""}: ${r.map(v => calc.fmt(v)).join(", ")}` : null; }).filter(Boolean);
+      if (lines.length) await print(lines, "tm-dim");
+    },
+    async roots(args) { const { src, a, b } = range(args); if (!src) return err("usage: roots x^2-2 [from -5 to 5]"); const f = calc.fnOf(cleanName(src)), r = calc.roots(f.f, a, b); await print(r.length ? r.map(v => `x = ${calc.fmt(v)}`) : `no roots between ${calc.fmt(a)} and ${calc.fmt(b)}`); },
+    async deriv(args) { const m = args.match(/^(.*?)\s+at\s+(.+)$/i); if (!m) return err("usage: deriv x^3 at 2"); const f = calc.fnOf(cleanName(m[1].trim())), a = num(m[2]); await print(`d/dx at x = ${calc.fmt(a)}:  ${calc.fmt(calc.deriv(f.f, a))}`); },
+    async integral(args) { const m = args.match(/^(.*?)\s+from\s+(.+?)\s+to\s+(.+)$/i); if (!m) return err("usage: integral sin(x) from 0 to pi"); const f = calc.fnOf(cleanName(m[1].trim())), a = num(m[2]), b = num(m[3]); await print(`∫ from ${calc.fmt(a)} to ${calc.fmt(b)}:  ${calc.fmt(calc.integral(f.f, a, b))}`); },
+    async deg() { calc.S.deg = true; await print("✓ angles in degrees"); },
+    async rad() { calc.S.deg = false; await print("✓ angles in radians"); },
+    async prec(args) { const n = parseInt(args); if (!n) return print(`${calc.S.dp} decimals (the default is 7)`); if (n < 1 || n > 12) return err("choose 1 to 12 decimals."); calc.S.dp = n; await print(`✓ showing ${n} decimals${n > 8 ? "; large numbers lose digits past about 15 in total" : ""}`); },
+  });
+
   /* ---------- reading a line ---------- */
   async function run(line) {
     line = line.trim(); if (!line) return;
@@ -167,8 +209,13 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
       else if (p.type === "choose") { const n = parseInt(line); if (/^\d+$/.test(line) && n >= 1 && n <= p.options.length) { busy = true; try { await p.then(p.options[n - 1]); } catch (e) { await err(e.message || String(e)); } busy = false; return; } if (/^(n|no|cancel)$/i.test(line) || /^\d+$/.test(line)) { await dim("cancelled."); return; } }
     }
     const m = line.match(/^(\S+)\s*(.*)$/), word = m[1].toLowerCase(), rest = m[2];
-    let name = ALIAS[word] || word;
+    const isMath = /^[A-Za-z_]\w*\s*(\([^)]*\))?\s*=[^=]/.test(line);   // a = 5 and f(x) = x^2 are math, not commands
+    let name = isMath ? "=" : (ALIAS[word] || word);
     if (/^start\s+\S/i.test(line) || name === "start") name = "start";
+    if (!COMMANDS.includes(name) && (isMath || /[\d+\-*/^()=!π]|^(pi|e|tau|phi|ans)\b/i.test(line))) {   // not a command: read it as math
+      try { await showValue(calc.evaluate(line)); } catch (e) { await err(e.message || String(e)); }
+      return;
+    }
     if (!COMMANDS.includes(name)) {
       const near = COMMANDS.map(c => ({ c, d: dist(word, c) })).sort((a, b) => a.d - b.d)[0];
       return near && near.d <= 2 ? err(`unknown command "${word}". did you mean "${near.c}"?`) : err(`unknown command "${word}". type help.`);
@@ -182,7 +229,7 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
   async function boot() {
     if (booted) return; booted = true;
     await type("DASH // COMMAND LINE", "tm-head"); await type("─────────────────────────────", "tm-head");
-    await dim("weight 70.4   set bench 135 8 3   add gym thu 5pm   done rocketry   note buy shoes   start study now");
+    await dim("weight 70.4   set bench 135 8 3   add gym thu 5pm   done rocketry   note buy shoes   start study now"); await dim("2+2   sqrt(2)   f(x)=x^2-3x+1   plot sin(x), cos(x)   roots x^2-2   integral sin(x) from 0 to pi");
     await dim("help lists everything. undo takes back the last change. Cmd+K opens this from anywhere."); await print("");
   }
 

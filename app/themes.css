@@ -521,3 +521,7 @@ body[data-tab=console] .hv,body[data-tab=console] .skybar{display:none!important
 
 .tm-ok{color:#fff} .tm-ok::first-letter{color:#fff}
 .tm-line{max-width:110ch}
+
+.tm-plot{margin:12px 0 6px;max-width:860px;border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:10px 10px 6px;background:rgba(255,255,255,.02)} .tm-plotsvg{width:100%;height:auto;display:block;cursor:crosshair} .tm-ax{font:10px "SF Mono",ui-monospace,Menlo,monospace;fill:#7a7f90;text-shadow:none}
+.tm-leg{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:#a9aec0;margin:0 4px 6px;text-shadow:none} .tm-leg span{display:flex;align-items:center;gap:7px} .tm-leg i{width:14px;height:3px;border-radius:2px;display:inline-block}
+.tm-read{font-size:12px;color:#cfd3e0;margin:4px 4px 2px;min-height:1.5em;text-shadow:none;letter-spacing:.03em}
