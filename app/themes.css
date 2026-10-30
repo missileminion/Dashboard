@@ -355,3 +355,4 @@ body.theme-glass .card[data-k=tasks]{background:linear-gradient(155deg,rgba(255,
 .cal-btns{display:flex;gap:var(--s2);align-items:center;margin-top:var(--s2)} .cal-save{background:var(--tx);color:var(--page);border-color:var(--tx)} .cal-del{color:var(--worse)} .cal-err{color:var(--worse);font-size:13px;min-height:16px}
 @media (max-width:700px){.cal-top{gap:var(--s2)} .cal-row{grid-template-columns:84px 1fr}}
 @media (max-width:700px){.cal-row{grid-template-columns:106px 1fr} .cal-row span.num{white-space:nowrap;font-size:12.5px}}
+.cal-secret{display:flex;gap:var(--s2)} .cal-secret input{flex:1;min-width:0}

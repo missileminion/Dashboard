@@ -107,7 +107,7 @@ export function initCalendar(root, { demo = false } = {}) {
   function setupHTML() {
     return `<div class="card cal-setup"><div class="lbl">Connect your Google Calendar</div>
       <div class="basis" style="line-height:1.5;max-width:70ch">Deploy the Apps Script bridge from the <b>apps-script</b> folder, then paste its web app URL and your secret. Both are kept in this browser only.</div>
-      <div class="cal-fields"><input id="calUrl" type="url" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off" spellcheck="false" aria-label="Web app URL"><input id="calSecret" type="password" placeholder="Secret" autocomplete="off" aria-label="Secret"><button type="button" class="btn" id="calConnect">Connect</button></div>
+      <div class="cal-fields"><input id="calUrl" type="url" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off" spellcheck="false" aria-label="Web app URL"><div class="cal-secret"><input id="calSecret" type="password" placeholder="Secret" autocomplete="new-password" aria-label="Secret" spellcheck="false"><button type="button" class="btn" id="calShow">Show</button></div><div class="basis" id="calLen">0 characters</div><button type="button" class="btn" id="calConnect">Connect</button></div>
       <div class="basis cal-status" id="calErr">${esc(status)}</div></div>`;
   }
   function draw() {
@@ -117,12 +117,15 @@ export function initCalendar(root, { demo = false } = {}) {
     const sc = root.querySelector("#calScroll"); if (sc) sc.scrollTop = keep ?? (week === mondayOf(today()) ? Math.max(0, (new Date().getHours() - 2) * HR) : 7 * HR);
   }
   function wireSetup() {
+    const sec = root.querySelector("#calSecret"), len = root.querySelector("#calLen");
+    sec.oninput = () => (len.textContent = `${sec.value.trim().length} characters`);
+    root.querySelector("#calShow").onclick = e => { const show = sec.type === "password"; sec.type = show ? "text" : "password"; e.target.textContent = show ? "Hide" : "Show"; };
     root.querySelector("#calConnect").onclick = async () => {
       const url = root.querySelector("#calUrl").value.trim(), secret = root.querySelector("#calSecret").value.trim(), err = root.querySelector("#calErr");
       if (!/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(url)) { err.textContent = "That does not look like a web app URL. It starts with https://script.google.com/macros/s/ and ends in /exec."; return; }
       if (secret.length < 8) { err.textContent = "Paste the secret you saved in the script properties."; return; }
       err.textContent = "Connecting…"; cfg = { url, secret };
-      try { cals = (await bridge("calendars")).calendars; put(CFG, cfg); put(CALS, cals); status = ""; load(); } catch (e) { cfg = null; err.textContent = "Could not connect: " + e.message; }
+      try { cals = (await bridge("calendars")).calendars; put(CFG, cfg); put(CALS, cals); status = ""; load(); } catch (e) { cfg = null; err.textContent = `Could not connect: ${e.message}${/secret/i.test(e.message) ? ` (sent ${secret.length} characters)` : ""}`; }
     };
   }
 
