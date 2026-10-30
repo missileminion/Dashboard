@@ -1,15 +1,19 @@
 // Stickynote: an Obsidian-style live-preview markdown editor (CodeMirror 6, vendored in app/vendor, no CDN at runtime).
 // One continuous document you can move through freely; markdown symbols are hidden except on the line you are editing,
-// checkboxes are clickable. The file on disk (stickynote.md, written through /api/tasks) is the source of truth; a copy is
-// mirrored in the browser as a backup. It is one undated note.
+// checkboxes are clickable. On your Mac the file on disk (stickynote.md, written through /api/tasks) is kept; with GitHub connected (the same private repo as
+// the gym log) the note also syncs there, so your phone and laptop share it with history. A copy is mirrored in the browser as a backup. It is one undated note.
+// If both devices changed it, nothing is lost: the other device's text is added below a dividing line.
 import { HOSTED } from "./util.js";
+import { gh, ghRead, ghWrite, ghMessage } from "./ghstore.js";
 import { EditorState } from "/vendor/esm/@codemirror/state.js";
 import { EditorView, Decoration, ViewPlugin, WidgetType, keymap, drawSelection, placeholder } from "/vendor/esm/@codemirror/view.js";
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "/vendor/esm/@codemirror/commands.js";
 import { markdown, markdownKeymap, markdownLanguage } from "/vendor/esm/@codemirror/lang-markdown.js";
 import { syntaxTree } from "/vendor/esm/@codemirror/language.js";
 
-const API = "api/tasks", KEY = "stickynote.mirror";
+const API = "api/tasks", KEY = "stickynote.mirror", GHPATH = "stickynote.md", BASE = "stickynote.base", SHA = "stickynote.sha";
+const ls = { get: k => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch {} } };
+const OTHER = "\n\n--- from your other device ---\n";
 const TASK = /^(\s*)[-*] \[( |x|X)\] ?(.*)$/;
 const emptyTask = l => { const m = l.match(TASK); return m && !m[3].trim(); };
 
@@ -117,15 +121,47 @@ export function initTasks(root) {
     settingDoc = false; paintHead();
   }
   function touch() { dirty = true; try { localStorage.setItem(KEY, text()); } catch {} setStatus("Saving…"); clearTimeout(timer); timer = setTimeout(flush, 500); }
+  // ---- GitHub sync of the same note ----
+  let ghInflight = false, ghTimer = null, ghAgain = false;
+  const stamp = () => new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  function ghQueue() { if (!gh.on) return; clearTimeout(ghTimer); ghTimer = setTimeout(ghPush, 2500); }
+  async function ghPush() {
+    if (!gh.on) return; if (ghInflight) { ghAgain = true; return; }
+    ghInflight = true; let txt = text();
+    try {
+      let sha = ls.get(SHA) || null;
+      for (let tries = 0; tries < 2; tries++) {
+        try { sha = await ghWrite(GHPATH, txt, sha, "Update stickynote"); ls.set(SHA, sha); ls.set(BASE, txt); setStatus("Synced to GitHub " + stamp()); break; }
+        catch (e) {
+          if ((e.status === 409 || e.status === 422) && tries === 0) {   // the file changed on GitHub since we last looked: keep both versions
+            const rem = await ghRead(GHPATH); sha = rem?.sha ?? null;
+            if (rem && rem.text !== txt && rem.text !== ls.get(BASE)) { txt = txt.replace(/\s+$/, "") + OTHER + rem.text; setDoc(txt); ls.set(KEY, txt); }
+          } else throw e;
+        }
+      }
+    } catch (e) { setStatus("Saved in this browser. GitHub: " + ghMessage(e), true); ghTimer = setTimeout(ghPush, 30000); }
+    ghInflight = false; if (ghAgain) { ghAgain = false; ghQueue(); }
+  }
+  // bring in the GitHub copy: used on load and when you come back to the page
+  async function ghPull(initial) {
+    if (!gh.on) return false;
+    const rem = await ghRead(GHPATH); if (!rem) { ghQueue(); return false; }
+    const local = initial ? ls.get(KEY) : text(), base = ls.get(BASE);
+    ls.set(SHA, rem.sha);
+    if (rem.text === local) { ls.set(BASE, rem.text); setStatus("Synced to GitHub " + stamp()); return true; }
+    if (!local || local === base) { ls.set(BASE, rem.text); setDoc(rem.text); ls.set(KEY, rem.text); setStatus("Synced to GitHub " + stamp()); return true; }   // only GitHub changed
+    if (base === rem.text) { ghQueue(); return true; }                                                                                                             // only this device changed
+    const merged = local.replace(/\s+$/, "") + OTHER + rem.text; setDoc(merged); ls.set(KEY, merged); ls.set(BASE, rem.text); dirty = true; flush(); return true;      // both changed
+  }
   async function flush(keepalive = false) {
     clearTimeout(timer); if (!dirty) return;
-    if (HOSTED) { dirty = false; return setStatus("Saved in this browser only (the published copy has no file to write)"); }
+    if (HOSTED) { dirty = false; if (gh.on) { ghQueue(); return setStatus("Saved in this browser. Syncing to GitHub…"); } return setStatus("Saved in this browser only. Connect GitHub in the Gym log tab to sync it across devices."); }
     if (inflight) { again = true; return; }
     inflight = true; dirty = false; const txt = text();
     try {
       const r = await fetch(API, { method: "PUT", body: txt, keepalive: keepalive === true && txt.length < 60000, headers: { "Content-Type": "text/markdown" } });
       if (!r.ok) throw new Error(r.status);
-      lastSaved = txt; setStatus("Saved " + new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }));
+      lastSaved = txt; setStatus("Saved " + new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })); ghQueue();
     } catch { dirty = true; setStatus("Not saved to the file (server unreachable). Kept in this browser.", true); timer = setTimeout(flush, 5000); }
     inflight = false; if (again) { again = false; flush(); }
   }
@@ -152,8 +188,9 @@ export function initTasks(root) {
   root.addEventListener("click", e => { if (e.target === $$("tkArea")) view.focus(); });
 
   document.addEventListener("visibilitychange", async () => {
-    if (document.hidden) return flush(true);
-    if (dirty || inflight || view.hasFocus) return;   // pick up edits made in another app (Obsidian, a text editor) when you come back
+    if (document.hidden) { flush(true); if (gh.on) { clearTimeout(ghTimer); ghPush(); } return; }
+    if (dirty || inflight || view.hasFocus) return;
+    if (gh.on) { try { await ghPull(false); } catch (e) { setStatus("Saved in this browser. GitHub: " + ghMessage(e), true); } if (HOSTED) return; }   // pick up edits made in another app (Obsidian, a text editor) when you come back
     try { const r = await fetch(API); if (r.ok) { const t = await r.text(); if (t !== lastSaved && !dirty) { lastSaved = t; setDoc(t); } } } catch {}
   });
   addEventListener("pagehide", () => flush(true));
@@ -161,7 +198,12 @@ export function initTasks(root) {
   (async () => {
     let txt = null, mirror = null;
     try { mirror = localStorage.getItem(KEY); } catch {}
-    if (HOSTED) { if (mirror) setDoc(mirror); return setStatus("Saved in this browser only (the published copy has no file to write)"); }
+    if (HOSTED) {
+      if (mirror) setDoc(mirror);
+      if (!gh.on) return setStatus("Saved in this browser only. Connect GitHub in the Gym log tab to sync it across devices.");
+      try { await ghPull(true); } catch (e) { setStatus("Saved in this browser. GitHub: " + ghMessage(e), true); }
+      return;
+    }
     try {
       const r = await fetch(API); filePath = r.headers.get("X-Path") || "";
       if (r.ok) { txt = await r.text(); lastSaved = txt; setStatus("Loaded"); }
