@@ -483,3 +483,7 @@ body.theme-glass .card[data-k=tasks]{background:linear-gradient(155deg,rgba(255,
 
 .cal-ev.done{opacity:.55} .cal-ev.done b,.cal-ev.ad.done{text-decoration:line-through}
 .ag-path .ag-now{stroke:rgba(8,11,22,.45)!important;stroke-width:calc(1px / var(--k,1.3))!important}
+
+/* the week grid is part of the page, not a scrolling window of its own */
+.cal-scroll{max-height:none!important;overflow:visible!important;scrollbar-gutter:auto!important;overscroll-behavior:auto!important}
+.ag-scroll{overflow-y:hidden}
