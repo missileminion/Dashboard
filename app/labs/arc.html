@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>Day as light</title>
+<link rel="stylesheet" href="labs.css">
+<style>
+ body{overflow:hidden;transition:background .25s} #sky{position:fixed;inset:0;z-index:0}
+ .wrap{position:relative;z-index:2;min-height:100vh;display:flex;flex-direction:column;padding:64px 16px 24px}
+ .top{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
+ h1{margin:0;font-size:clamp(34px,6vw,64px);font-weight:600;letter-spacing:-.03em;line-height:1;font-variant-numeric:tabular-nums}
+ .sub{color:rgba(255,255,255,.75);margin-top:6px} .nav{display:flex;gap:6px}
+ .nav button{min-width:40px;min-height:38px;background:rgba(10,12,18,.35);border:1px solid rgba(255,255,255,.2);border-radius:12px;backdrop-filter:blur(8px);cursor:pointer}
+ svg{width:100%;height:auto;flex:1;max-height:62vh;touch-action:none;cursor:ew-resize;margin-top:12px}
+ .panel{margin-top:8px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+ .card{background:rgba(10,12,18,.38);border:1px solid rgba(255,255,255,.14);border-radius:14px;padding:12px 14px;backdrop-filter:blur(10px)} .card b{display:block;font-size:13px;color:rgba(255,255,255,.65);font-weight:500;margin-bottom:2px} .card div{font-size:18px;font-weight:600}
+ .ev-label{font:600 12px -apple-system,sans-serif;fill:#fff;paint-order:stroke;stroke:rgba(0,0,0,.45);stroke-width:3px} .ev-sub{font:11px -apple-system,sans-serif;fill:rgba(255,255,255,.8);paint-order:stroke;stroke:rgba(0,0,0,.4);stroke-width:3px}
+ .bead{cursor:grab} .bead.drag{cursor:grabbing}
+ .empty{color:rgba(255,255,255,.8);padding:8px 0}
+</style></head>
+<body>
+<canvas id="sky"></canvas>
+<a class="back" href="../index.html" onclick="try{localStorage.setItem('tab','cal')}catch(e){}">‹ Calendar</a>
+<div class="wrap">
+  <div class="top"><div><h1 id="clock">--:--</h1><div class="sub" id="sub"></div></div>
+    <div class="nav"><button id="prev" aria-label="Previous day">‹</button><button id="now">Now</button><button id="next" aria-label="Next day">›</button></div></div>
+  <svg id="arc" viewBox="0 0 1000 470" preserveAspectRatio="none" aria-label="The sun's path across the day with your events along it"></svg>
+  <div class="panel" id="panel"></div>
+  <div class="note" style="margin-top:10px">Drag anywhere to move the sun through the day. Drag an event bead to see what light it would sit in. This is a preview: nothing is saved to your calendar.</div>
+</div>
+<script type="module">
+import { sunPos } from "../js/sky.js";
+import { events, today, hhmm, location_, isDemo, connected } from "../js/calbridge.js";
+import { addDays } from "../js/util.js";
+const $ = id => document.getElementById(id), svg = $("arc"), W = 1000, H = 470, PAD = 24, Y0 = 250, K = 2.5;   // horizon line and pixels per degree of sun altitude
+const loc = location_(); let day = today(), evs = [], t = new Date().getHours() * 60 + new Date().getMinutes(), dragEv = null;
+const atMin = (d, m) => { const x = new Date(d + "T00:00:00"); x.setMinutes(m); return x; };
+const alt = (d, m) => sunPos(+atMin(d, m), loc.lat, loc.lon).alt;
+const X = m => PAD + m / 1440 * (W - 2 * PAD), Yof = a => Y0 - a * K;
+const mins = d => d.getHours() * 60 + d.getMinutes();
+// sky colour as a continuous function of the sun's altitude
+const stops = [[-18, "#04060d", "#0a1020"], [-8, "#141a3a", "#2a2750"], [-2, "#4a3a6e", "#e0775a"], [4, "#e88a5c", "#f7c58a"], [14, "#5b94d8", "#cfe3f5"], [45, "#2f78d4", "#a8d2f6"]];
+const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)), mix = (a, b, f) => a.map((v, i) => Math.round(v + (b[i] - v) * f));
+function sky(a) { a = Math.max(-18, Math.min(45, a)); let i = 0; while (i < stops.length - 2 && a > stops[i + 1][0]) i++; const [a0, t0, b0] = stops[i], [a1, t1, b1] = stops[i + 1], f = Math.max(0, Math.min(1, (a - a0) / (a1 - a0))); return [mix(hex(t0), hex(t1), f), mix(hex(b0), hex(b1), f)]; }
+function light(a, rising) { return a < -12 ? "night" : a < -4 ? (rising ? "before dawn" : "after dusk") : a < 4 ? (rising ? "sunrise glow" : "sunset glow") : a < 14 ? (rising ? "soft morning light" : "golden hour") : "full daylight"; }
+function paintSky() {
+  const a = alt(day, t), [top, bot] = sky(a); document.body.style.background = `linear-gradient(rgb(${top}), rgb(${bot}))`;
+  const cv = $("sky"), g = cv.getContext("2d"); cv.width = innerWidth; cv.height = innerHeight; const gr = g.createLinearGradient(0, 0, 0, innerHeight); gr.addColorStop(0, `rgb(${top})`); gr.addColorStop(1, `rgb(${bot})`); g.fillStyle = gr; g.fillRect(0, 0, cv.width, cv.height);
+  if (a < -6) { g.fillStyle = "rgba(255,255,255,.7)"; for (let i = 0; i < 90; i++) { const x = (Math.sin(i * 91.7) * .5 + .5) * cv.width, y = (Math.sin(i * 47.3 + 2) * .5 + .5) * cv.height * .55; g.globalAlpha = Math.min(1, (-a - 6) / 10) * (.3 + (i % 5) / 8); g.fillRect(x, y, 1.5, 1.5); } g.globalAlpha = 1; }
+}
+function draw() {
+  const pts = []; for (let m = 0; m <= 1440; m += 10) pts.push([X(m), Yof(alt(day, m))]);
+  const path = pts.map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
+  const a = alt(day, t), here = [X(t), Yof(a)];
+  let s = `<defs><linearGradient id="gAbove" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".22"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>`;
+  s += `<rect x="0" y="${Y0}" width="${W}" height="${H - Y0}" fill="rgba(0,0,0,.28)"/><line x1="0" x2="${W}" y1="${Y0}" y2="${Y0}" stroke="rgba(255,255,255,.5)" stroke-dasharray="2 6"/>`;
+  s += `<path d="${path} L${X(1440)},${Y0} L${X(0)},${Y0} Z" fill="url(#gAbove)" clip-path="inset(0 0 ${H - Y0}px 0)"/>`;
+  [0, 6, 12, 18, 24].forEach(h => { s += `<text x="${X(h * 60)}" y="${H - 8}" text-anchor="${h === 24 ? "end" : h === 0 ? "start" : "middle"}" fill="rgba(255,255,255,.7)" font-size="12">${String(h % 24).padStart(2, "0")}:00</text>`; });
+  s += `<path d="${path}" fill="none" stroke="rgba(255,255,255,.85)" stroke-width="2" stroke-linecap="round"/>`;
+  // events as thick strokes along the sun's path, with a bead where they start
+  const dayEv = evs.filter(e => !e.allDay), lanes = [];
+  dayEv.forEach((e, i) => {
+    const e0 = dragEv && dragEv.i === i ? dragEv : { s: mins(e.s), e: mins(e.e) }, a0 = Math.max(0, e0.s), a1 = Math.min(1440, Math.max(e0.e, a0 + 15));
+    const seg = pts.filter(p => p[0] >= X(a0) && p[0] <= X(a1)); const sx = [[X(a0), Yof(alt(day, a0))], ...seg, [X(a1), Yof(alt(day, a1))]];
+    s += `<path d="${sx.map((p, k) => `${k ? "L" : "M"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ")}" fill="none" stroke="${e.color}" stroke-width="12" stroke-linecap="round" opacity=".92"/>`;
+    const lane = lanes.findIndex(r => r < X(a0)); const ln = lane < 0 ? lanes.length : lane; lanes[ln] = X(a0) + 118;
+    const ly = Yof(alt(day, a0)) - 20 - ln * 28;
+    s += `<g class="bead" data-i="${i}"><circle cx="${X(a0)}" cy="${Yof(alt(day, a0))}" r="9" fill="#fff" stroke="${e.color}" stroke-width="4"/><circle cx="${X(a0)}" cy="${Yof(alt(day, a0))}" r="22" fill="transparent"/></g>`;
+    s += `<text class="ev-label" x="${X(a0) + 2}" y="${ly}">${e.title.replace(/</g, "&lt;")}</text><text class="ev-sub" x="${X(a0) + 2}" y="${ly + 13}">${hhmm(atMin(day, a0))}–${hhmm(atMin(day, a1 % 1440))}</text>`;
+  });
+  // the sun
+  s += `<circle cx="${here[0]}" cy="${here[1]}" r="26" fill="#ffd27a" opacity=".25"/><circle cx="${here[0]}" cy="${here[1]}" r="12" fill="${a > -4 ? "#ffe9b0" : "#cfd6ee"}" stroke="#fff" stroke-width="2"/><line x1="${here[0]}" x2="${here[0]}" y1="${here[1] + 14}" y2="${H - 24}" stroke="rgba(255,255,255,.35)" stroke-dasharray="3 5"/>`;
+  svg.innerHTML = s;
+  const dt = new Date(day + "T12:00:00"); $("clock").textContent = hhmm(atMin(day, t));
+  const rising = sunPos(+atMin(day, t), loc.lat, loc.lon).rising;
+  $("sub").textContent = `${dt.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })} · ${light(a, rising)} · sun ${a >= 0 ? "+" : "−"}${Math.abs(a).toFixed(0)}°`;
+  const rows = dayEv.map((e, i) => { const m = mins(e.s), aa = alt(day, m), r = sunPos(+atMin(day, m), loc.lat, loc.lon).rising; return `<div class="card"><b>${hhmm(e.s)} · ${light(aa, r)}</b><div>${e.title.replace(/</g, "&lt;")}</div></div>`; });
+  $("panel").innerHTML = rows.length ? rows.join("") : `<div class="empty">Nothing scheduled${connected() ? "" : ". Connect your calendar in the Calendar tab first"}.</div>`;
+  paintSky();
+}
+async function load() { try { evs = await events(day, addDays(day, 1)); } catch (e) { evs = []; $("sub").textContent = "Could not load events: " + e.message; } draw(); }
+// drag: on a bead moves that event (preview), elsewhere scrubs the sun
+const mFrom = e => { const r = svg.getBoundingClientRect(); return Math.round(Math.max(0, Math.min(1440, ((e.clientX - r.left) / r.width * W - PAD) / (W - 2 * PAD) * 1440)) / 15) * 15; };
+svg.addEventListener("pointerdown", e => { const bead = e.target.closest(".bead"); try { svg.setPointerCapture(e.pointerId); } catch {} if (bead) { const i = +bead.dataset.i, ev = evs.filter(x => !x.allDay)[i]; dragEv = { i, s: mins(ev.s), e: mins(ev.e), len: mins(ev.e) - mins(ev.s) }; } else { t = mFrom(e); draw(); } });
+svg.addEventListener("pointermove", e => { if (e.buttons !== 1 && e.pointerType === "mouse") return; if (dragEv) { const m = Math.min(1440 - dragEv.len, mFrom(e)); dragEv.s = m; dragEv.e = m + dragEv.len; t = m; draw(); } else if (e.buttons === 1 || e.pointerType !== "mouse") { t = mFrom(e); draw(); } });
+svg.addEventListener("pointerup", () => { dragEv = null; draw(); });
+$("prev").onclick = () => { day = addDays(day, -1); load(); }; $("next").onclick = () => { day = addDays(day, 1); load(); };
+$("now").onclick = () => { day = today(); t = new Date().getHours() * 60 + new Date().getMinutes(); load(); };
+addEventListener("resize", draw); load();
+</script></body></html>

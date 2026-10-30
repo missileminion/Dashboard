@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>Weight and pressure</title>
+<link rel="stylesheet" href="labs.css">
+<style>
+ body{background:radial-gradient(900px 600px at 30% 0%,#171d2e,#080a10)} .wrap{max-width:1180px;margin:0 auto;padding:64px 14px 40px}
+ h1{margin:0 0 4px;font-size:24px;font-weight:600} .sub{color:var(--tx2);font-size:13px;margin-bottom:16px;max-width:76ch}
+ .nav{display:flex;gap:6px;margin-bottom:14px} .nav button{min-width:40px;min-height:36px;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;cursor:pointer}
+ .week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px} @media(max-width:760px){.week{grid-template-columns:1fr}}
+ .day{border-radius:16px;border:1px solid var(--line);background:rgba(255,255,255,.03);overflow:hidden;display:flex;flex-direction:column;min-height:320px;transition:box-shadow .4s}
+ .head{padding:10px 12px;position:relative} .head b{font-size:14px} .head em{font-style:normal;color:var(--tx3);font-size:11px;margin-left:6px}
+ .gauge{height:6px;border-radius:3px;background:rgba(255,255,255,.08);margin-top:8px;overflow:hidden} .gauge i{display:block;height:100%;border-radius:3px;transition:width .5s}
+ .score{display:flex;justify-content:space-between;font-size:11px;color:var(--tx2);margin-top:5px} .score span:last-child{font-variant-numeric:tabular-nums}
+ .blocks{display:flex;flex-direction:column;gap:3px;padding:8px;flex:1}
+ .blk{border-radius:10px;padding:8px 10px;border-left:4px solid var(--c);background:color-mix(in srgb,var(--c) var(--a),rgba(255,255,255,.02));position:relative;transition:transform .2s} .blk:hover{transform:translateY(-1px)}
+ .blk b{display:block;font-size:13px;line-height:1.2;font-weight:var(--w)} .blk small{color:var(--tx2);font-size:11px}
+ .gap{font-size:10px;color:#ff9b82;text-align:center;letter-spacing:.04em} .none{color:var(--tx3);font-size:12px;padding:8px}
+ .legend{margin-top:14px;font-size:12px;color:var(--tx3);line-height:1.6;max-width:80ch}
+ .line{margin:0 0 14px;height:70px;position:relative} svg{width:100%;height:100%}
+</style></head>
+<body>
+<a class="back" href="../index.html" onclick="try{localStorage.setItem('tab','cal')}catch(e){}">‹ Calendar</a>
+<div class="wrap"><h1>Weight and pressure</h1>
+<div class="sub">Every block carries weight: exams, deadlines and labs count for more than a lecture, back-to-back blocks add strain, and long days add up. Heavy blocks look heavier, and each day's header glows with how tight it is, so the week reads at a glance without reading titles.</div>
+<div class="nav"><button id="prev">‹</button><button id="now">Today</button><button id="next">›</button><span class="sub" id="range" style="align-self:center;margin:0 0 0 8px"></span></div>
+<div class="line"><svg id="trend" viewBox="0 0 700 70" preserveAspectRatio="none"></svg></div>
+<div class="week" id="week"></div>
+<div class="legend">How weight is worked out: <b>exam, midterm, final, quiz, due, deadline</b> count 3×; <b>lab, project, presentation, interview</b> 1.6×; <b>run, gym, workout</b> 1.2×; anything else 1×. Each block's weight is its length in hours times that factor. A gap under 15 minutes between blocks adds 0.4. The day's pressure is the sum, shown out of 10 (a score of 10 is roughly a 9-hour heavy day).</div></div>
+<script type="module">
+import { events, today, hhmm, connected } from "../js/calbridge.js";
+import { addDays } from "../js/util.js";
+import { plannedFor } from "../js/analytics.js";
+const $ = id => document.getElementById(id); let start = addDays(today(), -1), evs = [];
+const factor = t => /exam|midterm|final|quiz|due|deadline/i.test(t) ? 3 : /lab|project|presentation|interview/i.test(t) ? 1.6 : /run|gym|workout/i.test(t) ? 1.2 : 1;
+const hrs = e => e.allDay ? 3 : (e.e - e.s) / 36e5, weight = e => hrs(e) * factor(e.title);
+const warm = p => p < 3 ? "#4f86f7" : p < 5 ? "#3fbf9a" : p < 7 ? "#f0b43f" : p < 8.5 ? "#f08a3f" : "#e0553c";
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+function dayData(d) {
+  const a = new Date(d + "T00:00:00"), b = new Date(addDays(d, 1) + "T00:00:00");
+  const list = evs.filter(e => (e.allDay ? e.s <= new Date(d + "T12:00:00") && e.e > new Date(d + "T12:00:00") : e.s < b && e.e > a)).sort((x, y) => (x.allDay ? -1 : 0) - (y.allDay ? -1 : 0) || x.s - y.s);
+  let w = 0, tight = 0; list.forEach((e, i) => { w += weight(e); const n = list[i + 1]; if (n && !e.allDay && !n.allDay && n.s - e.e < 15 * 6e4 && n.s - e.e > -1) { w += .4; tight++; } });
+  return { list, pressure: Math.min(10, w / 1.15), tight, hours: list.filter(e => !e.allDay).reduce((s, e) => s + hrs(e), 0) };
+}
+function draw() {
+  const ds = [...Array(7)].map((_, i) => addDays(start, i)), t = today(), data = ds.map(dayData);
+  $("range").textContent = `${new Date(ds[0] + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${new Date(ds[6] + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+  $("week").innerHTML = ds.map((d, i) => { const D = data[i], c = warm(D.pressure), g = D.pressure / 10, dt = new Date(d + "T12:00:00");
+    const blocks = D.list.length ? D.list.map((e, k) => { const f = factor(e.title), wgt = weight(e), n = D.list[k + 1], gapWarn = n && !e.allDay && !n.allDay && n.s - e.e < 15 * 6e4 && n.s - e.e > -1;
+      return `<div class="blk" style="--c:${esc(e.color)};--a:${Math.min(46, 10 + wgt * 7)}%;--w:${f >= 3 ? 700 : f > 1 ? 600 : 500};border-left-width:${2 + Math.min(7, wgt * 1.4)}px;padding-top:${6 + Math.min(14, wgt * 2)}px;padding-bottom:${6 + Math.min(14, wgt * 2)}px;box-shadow:${f >= 3 ? `0 0 0 1px ${esc(e.color)}66, 0 6px 18px ${esc(e.color)}33` : "none"}"><b>${esc(e.title)}</b><small>${e.allDay ? "All day" : hhmm(e.s) + "–" + hhmm(e.e)}${f > 1 ? ` · ×${f}` : ""}</small></div>${gapWarn ? `<div class="gap">NO BREATHING ROOM</div>` : ""}`; }).join("") : `<div class="none">Free day</div>`;
+    return `<div class="day" style="box-shadow:0 0 ${10 + g * 46}px ${g * 5}px ${c}${Math.round(20 + g * 60).toString(16).padStart(2, "0")}; border-color:${c}${Math.round(40 + g * 120).toString(16).padStart(2, "0")}"><div class="head"><b>${dt.toLocaleDateString("en-US", { weekday: "short" })} ${dt.getDate()}${d === t ? " ·" : ""}</b><em>${plannedFor(d)}</em><div class="gauge"><i style="width:${Math.max(3, g * 100)}%;background:${c}"></i></div><div class="score"><span>${D.hours.toFixed(1)} h scheduled</span><span style="color:${c}">${D.pressure.toFixed(1)} / 10</span></div></div><div class="blocks">${blocks}</div></div>`; }).join("");
+  const pts = data.map((D, i) => [i / 6 * 680 + 10, 62 - D.pressure / 10 * 54]); $("trend").innerHTML = `<polyline fill="none" stroke="rgba(255,255,255,.55)" stroke-width="1.5" points="${pts.map(p => p.join(",")).join(" ")}"/>` + pts.map((p, i) => `<circle cx="${p[0]}" cy="${p[1]}" r="4" fill="${warm(data[i].pressure)}"/>`).join("");
+}
+async function load() { if (!connected()) { $("week").innerHTML = `<div class="none">Connect your calendar in the Calendar tab first.</div>`; return; } try { evs = await events(start, addDays(start, 7)); } catch (e) { $("range").textContent = "Could not load: " + e.message; evs = []; } draw(); }
+$("prev").onclick = () => { start = addDays(start, -7); load(); }; $("next").onclick = () => { start = addDays(start, 7); load(); }; $("now").onclick = () => { start = addDays(today(), -1); load(); }; load();
+</script></body></html>

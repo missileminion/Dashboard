@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>Year ring zoom</title>
+<link rel="stylesheet" href="labs.css">
+<style>
+ body{overflow:hidden;background:radial-gradient(1000px 700px at 50% 40%,#161c2c,#07090f)}
+ .wrap{position:relative;height:100vh;display:flex;flex-direction:column;padding:60px 12px 12px}
+ .top{display:flex;align-items:baseline;justify-content:center;gap:14px;flex-wrap:wrap;text-align:center}
+ h1{margin:0;font-size:22px;font-weight:600;letter-spacing:-.01em} .sub{color:var(--tx2);font-size:13px}
+ svg{flex:1;min-height:0;width:100%;touch-action:none} .cell{cursor:pointer;transition:opacity .2s} .cell:hover{opacity:.8}
+ .mlabel{fill:var(--tx2);font:600 22px -apple-system,sans-serif;pointer-events:none} .dn{font:10px -apple-system,sans-serif;fill:rgba(255,255,255,.85);pointer-events:none;transition:opacity .25s}
+ .legend{display:flex;gap:8px;align-items:center;justify-content:center;color:var(--tx3);font-size:12px;margin-top:4px} .legend i{width:14px;height:14px;border-radius:4px;display:inline-block}
+ .sheet{position:fixed;right:14px;bottom:14px;width:min(360px,calc(100vw - 28px));max-height:46vh;overflow:auto;background:rgba(14,18,28,.82);border:1px solid var(--line);border-radius:16px;padding:14px 16px;backdrop-filter:blur(14px);z-index:10;transform:translateY(20px);opacity:0;pointer-events:none;transition:.25s}
+ .sheet.on{transform:none;opacity:1;pointer-events:auto} .sheet h3{margin:0 0 2px;font-size:16px} .row{display:grid;grid-template-columns:92px 1fr;gap:8px;padding:6px 0;border-top:1px solid var(--line);font-size:13px} .row span:first-child{color:var(--tx2);font-variant-numeric:tabular-nums}
+ .bar{height:8px;border-radius:4px;background:rgba(255,255,255,.08);position:relative;margin:8px 0 4px;overflow:hidden} .bar i{position:absolute;top:0;bottom:0;border-radius:3px}
+ .zoomback{position:fixed;top:14px;right:14px;z-index:20;background:rgba(10,12,18,.55);border:1px solid var(--line);border-radius:999px;padding:8px 14px;cursor:pointer;font-size:13px;display:none;backdrop-filter:blur(10px)}
+</style></head>
+<body>
+<a class="back" href="../index.html" onclick="try{localStorage.setItem('tab','cal')}catch(e){}">‹ Calendar</a>
+<button class="zoomback" id="zb">Zoom out</button>
+<div class="wrap"><div class="top"><h1 id="yr">Year</h1><span class="sub" id="sub">Each square is a day, coloured by how much is scheduled. Click a month to zoom in, then a day.</span></div>
+<svg id="ring" viewBox="0 0 1120 1120" aria-label="A year of days"></svg>
+<div class="legend"><span>light</span><i style="background:#243044"></i><i style="background:#3f6aa8"></i><i style="background:#d9a441"></i><i style="background:#e0553c"></i><span>heavy</span></div></div>
+<div class="sheet" id="sheet"></div>
+<script type="module">
+import { events, today, hhmm, isDemo, connected } from "../js/calbridge.js";
+import { addDays } from "../js/util.js";
+import { plannedFor } from "../js/analytics.js";
+const $ = id => document.getElementById(id), svg = $("ring"), NS = "http://www.w3.org/2000/svg", Y = new Date().getFullYear(), CELL = 24, GAP = 4, STEP = CELL + GAP;
+const MN = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+let evs = [], busy = {}, view = [0, 0, 1120, 1120], zoomed = null, sel = null;
+const colour = h => h <= 0 ? "#1b2335" : h < 2 ? "#243b5c" : h < 4 ? "#3f6aa8" : h < 6 ? "#d9a441" : "#e0553c";
+const ymd = d => d.toLocaleDateString("sv");
+const dayHours = d => (busy[d] || 0);
+function layout() {   // each month is a small calendar (weeks across, Monday to Sunday down), the twelve placed around a circle
+  const out = []; for (let m = 0; m < 12; m++) {
+    const first = new Date(Y, m, 1), n = new Date(Y, m + 1, 0).getDate(), off = (first.getDay() + 6) % 7, weeks = Math.ceil((off + n) / 7);
+    const w = weeks * STEP, h = 7 * STEP, ang = -Math.PI / 2 + m / 12 * Math.PI * 2, cx = 560 + Math.cos(ang) * 410, cy = 560 + Math.sin(ang) * 410;
+    out.push({ m, first, n, off, weeks, w, h, cx, cy, x: cx - w / 2, y: cy - h / 2 });
+  } return out;
+}
+const L = layout();
+function el(name, attrs = {}, parent) { const e = document.createElementNS(NS, name); for (const k in attrs) e.setAttribute(k, attrs[k]); parent && parent.appendChild(e); return e; }
+function build() {
+  svg.innerHTML = ""; el("text", { x: 560, y: 550, "text-anchor": "middle", fill: "#eef0f5", "font-size": 84, "font-weight": 600, "letter-spacing": -2 }, svg).textContent = Y;
+  el("text", { x: 560, y: 596, "text-anchor": "middle", fill: "#a3abb9", "font-size": 22 }, svg).textContent = isDemo ? "demo calendar" : "your calendar";
+  L.forEach(M => {
+    const g = el("g", { "data-m": M.m }, svg); el("text", { class: "mlabel", x: M.x, y: M.y - 12 }, g).textContent = MN[M.m].slice(0, 3);
+    for (let d = 1; d <= M.n; d++) {
+      const idx = M.off + d - 1, col = Math.floor(idx / 7), row = idx % 7, date = ymd(new Date(Y, M.m, d)), hrs = dayHours(date), isT = date === today();
+      const c = el("g", { class: "cell", "data-d": date }, g); el("rect", { x: M.x + col * STEP, y: M.y + row * STEP, width: CELL, height: CELL, rx: 5, fill: colour(hrs), stroke: isT ? "#fff" : "none", "stroke-width": 2 }, c);
+      el("text", { class: "dn", x: M.x + col * STEP + CELL / 2, y: M.y + row * STEP + CELL / 2 + 3.5, "text-anchor": "middle", opacity: zoomed === M.m ? 1 : 0 }, c).textContent = d;
+    }
+  });
+}
+function animateTo(t) { const from = view.slice(), t0 = performance.now(), dur = 520, ease = x => 1 - Math.pow(1 - x, 3); const step = now => { const f = Math.min(1, (now - t0) / dur), k = ease(f); view = from.map((v, i) => v + (t[i] - v) * k); svg.setAttribute("viewBox", view.join(" ")); if (f < 1) requestAnimationFrame(step); }; requestAnimationFrame(step); }
+function zoomMonth(m) { zoomed = m; const M = L[m], w = Math.max(M.w, M.h * 1.3) + 170, h = w * 0.72; animateTo([M.cx - w / 2, M.cy - h / 2, w, h]); $("zb").style.display = "block"; $("sub").textContent = `${MN[m]} ${Y}: click a day to see it`; svg.querySelectorAll(".dn").forEach(t => (t.style.opacity = t.closest("g[data-m]").dataset.m == m ? 1 : 0)); svg.querySelectorAll("g[data-m]").forEach(g => { g.style.transition = "opacity .4s"; g.style.opacity = g.dataset.m == m ? 1 : .12; }); }
+function zoomOut() { zoomed = null; sel = null; $("sheet").classList.remove("on"); animateTo([0, 0, 1120, 1120]); $("zb").style.display = "none"; $("sub").textContent = "Each square is a day, coloured by how much is scheduled. Click a month to zoom in, then a day."; svg.querySelectorAll(".dn").forEach(t => (t.style.opacity = 0)); svg.querySelectorAll("g[data-m]").forEach(g => (g.style.opacity = 1)); }
+function showDay(date) {
+  const list = evs.filter(e => (e.allDay ? e.s <= new Date(date + "T12:00:00") && e.e > new Date(date + "T12:00:00") : e.s < new Date(addDays(date, 1) + "T00:00:00") && e.e > new Date(date + "T00:00:00")));
+  const d = new Date(date + "T12:00:00"), hrs = dayHours(date);
+  const bars = list.filter(e => !e.allDay).map(e => { const a = (e.s - new Date(date + "T00:00:00")) / 864e5 * 100, w = Math.max(1.5, (e.e - e.s) / 864e5 * 100); return `<i style="left:${Math.max(0, a)}%;width:${w}%;background:${e.color}"></i>`; }).join("");
+  $("sheet").innerHTML = `<h3>${d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</h3><div class="sub">${plannedFor(date)} day in the plan · ${hrs.toFixed(1)} h scheduled</div><div class="bar">${bars}</div>` + (list.length ? list.map(e => `<div class="row"><span>${e.allDay ? "All day" : hhmm(e.s) + "–" + hhmm(e.e)}</span><span>${e.title.replace(/</g, "&lt;")}</span></div>`).join("") : `<div class="row"><span></span><span class="sub">Nothing scheduled</span></div>`);
+  $("sheet").classList.add("on");
+}
+svg.addEventListener("click", e => { const c = e.target.closest(".cell"), g = e.target.closest("g[data-m]"); if (!g) { if (zoomed != null) { zoomOut(); } return; } const m = +g.dataset.m; if (zoomed !== m) { zoomMonth(m); return; } if (c) showDay(c.dataset.d); });
+$("zb").onclick = zoomOut; addEventListener("keydown", e => { if (e.key === "Escape") zoomOut(); });
+async function load() {
+  build(); if (!connected()) { $("sub").textContent = "Connect your calendar in the Calendar tab first."; return; }
+  try { evs = await events(`${Y}-01-01`, `${Y + 1}-01-01`); } catch (e) { $("sub").textContent = "Could not load events: " + e.message; return; }
+  busy = {}; evs.filter(e => !e.allDay).forEach(e => { for (let d = new Date(e.s.getFullYear(), e.s.getMonth(), e.s.getDate()); d < e.e; d.setDate(d.getDate() + 1)) { const a = Math.max(+e.s, +d), b = Math.min(+e.e, +d + 864e5); busy[ymd(d)] = (busy[ymd(d)] || 0) + (b - a) / 36e5; } });
+  evs.filter(e => e.allDay).forEach(e => { for (let d = new Date(e.s); d < e.e; d.setDate(d.getDate() + 1)) busy[ymd(d)] = (busy[ymd(d)] || 0) + 3; });   // an all-day exam or deadline counts as three hours of weight
+  build();
+}
+load();
+</script></body></html>
