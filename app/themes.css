@@ -387,3 +387,5 @@ body.theme-glass .card[data-k=tasks]{background:linear-gradient(155deg,rgba(255,
 .ag-none{font:10.5px var(--mono);letter-spacing:.12em;color:#5e6272;padding:6px 0 10px 25px}
 @media (prefers-reduced-motion:reduce){.ag-dialwrap{transition:none}}
 @media (max-width:700px){.ag-list{padding:6px 14px 12px;border-radius:22px} .ag-row{grid-template-columns:14px 82px minmax(0,1fr) 9px;gap:9px;font-size:14px} .ag-cap{max-width:50%}}
+.ag-path{width:100%;max-width:560px;display:block;margin:14px auto 0;touch-action:none;cursor:crosshair}
+.ag-dialwrap{max-width:470px!important} .ag-path{max-width:470px!important} .ag-week,.ag-legend{max-width:470px!important}

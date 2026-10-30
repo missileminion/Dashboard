@@ -45,6 +45,24 @@ function dialSVG(day, list, scrub, now, loc) {
   return s;
 }
 
+
+// the sun's real path across the 24 hours as a dotted curve: dots above the horizon are daylight, events sit on it as larger dots, and the scrub marker rides along it
+function pathSVG(day, list, scrub, now, loc) {
+  const W = 640, X0 = 22, X1 = 618, Y0 = 100, X = m => X0 + m / 1440 * (X1 - X0), Y = m => { const v = alt(day, m % 1440, loc); return Y0 - (v >= 0 ? v * 1.5 : v * .8); }, dayEv = list.filter(e => !e.allDay && onDay(e, day)), isToday = !!now, nm = now ? mins(now) : -1;
+  let s = `<line x1="${X0}" x2="${X1}" y1="${Y0}" y2="${Y0}" stroke="#3a3e4a" stroke-dasharray="1.5 5"/>`;
+  for (let m = 0; m <= 1440; m += 6) {
+    const a = at(day, m), b = new Date(+a + 6 * 6e4), hit = dayEv.filter(e => e.s < b && e.e > a), up = alt(day, m % 1440, loc) > 0, red = hit.some(heavyEv), past = isToday && +b <= +now;
+    s += `<circle cx="${X(m).toFixed(1)}" cy="${Y(m).toFixed(1)}" r="${hit.length ? 3.1 : up ? 1.6 : 1.2}" fill="${hit.length ? (red ? RED : past ? "#7f8599" : "#fff") : up ? "#c9cdd8" : "#3a3e4a"}"/>`;
+  }
+  [0, 6, 12, 18, 24].forEach(h => { s += `<text x="${X(h * 60)}" y="180" text-anchor="${h === 24 ? "end" : h === 0 ? "start" : "middle"}" class="ag-hl">${pad(h % 24)}</text>`; });
+  let rise = null, set = null, prev = alt(day, 0, loc); for (let m = 5; m <= 1440; m += 5) { const v = alt(day, m % 1440, loc); if (prev < 0 && v >= 0 && rise == null) rise = m; if (prev >= 0 && v < 0 && set == null) set = m; prev = v; }
+  [[rise, "↑"], [set, "↓"]].forEach(([m, g]) => { if (m != null) s += `<text x="${X(m)}" y="${Y0 + 16}" text-anchor="middle" class="ag-sun">${g} ${pad(Math.floor(m / 60))}:${pad(m % 60)}</text>`; });
+  const mk = (m, col, r) => `<line x1="${X(m)}" x2="${X(m)}" y1="${Y(m) + 8}" y2="162" stroke="${col}" stroke-opacity=".35" stroke-dasharray="2 4"/><circle cx="${X(m)}" cy="${Y(m)}" r="${r + 6}" fill="none" stroke="${col}" stroke-width="1.5"/>`;
+  if (isToday) s += mk(nm, RED, 4);
+  if (scrub != null) s += mk(scrub + 7.5, "#fff", 5);
+  return s;
+}
+
 function chipHTML(day, list, focus, today) {
   const h = hoursOn(list, day), n = Math.min(12, Math.round(h)), heavy = list.some(e => heavyEv(e) && onDay(e, day)), d = new Date(day + "T12:00:00");
   const dots = [...Array(12)].map((_, i) => `<circle cx="${6.5 + (i % 4) * 7.6}" cy="${6.5 + Math.floor(i / 4) * 7.6}" r="2.1" fill="${i < n ? (heavy ? RED : "#fff") : "#2c2f36"}"/>`).join("");
@@ -62,30 +80,35 @@ export function agendaHTML(ctx) {
   }).join("");
   return `<div class="ag"><div class="ag-hero"><div class="ag-dialwrap" id="agWrap"><svg class="ag-dial" id="agDial" viewBox="-20 -20 640 640" aria-label="Your day as a ring of dots"></svg>
     <div class="ag-center"><svg class="ag-clk" id="agClk" aria-hidden="true"></svg><div class="ag-cap" id="agCap"></div></div></div>
+    <svg class="ag-path" id="agPath" viewBox="0 0 640 188" aria-label="The sun's path across the day"></svg>
     <div class="ag-week">${days.map(d => chipHTML(d, list, focus, today)).join("")}</div>
-    <div class="ag-legend">EACH DOT IS 15 MIN · <b>WHITE</b> SCHEDULED · <b class="ag-red">RED</b> HEAVY OR NEXT · INNER ARC SLEEP · OUTER ARC DAYLIGHT · DRAG ON THE RING TO SCRUB THE DAY</div></div>
+    <div class="ag-legend">EACH DOT IS 15 MIN · <b>WHITE</b> SCHEDULED · <b class="ag-red">RED</b> HEAVY OR NEXT · INNER ARC SLEEP · OUTER ARC DAYLIGHT · DRAG ON THE RING OR THE SUN PATH TO SCRUB THE DAY</div></div>
     <div class="ag-list">${rows}</div></div>`;
 }
 
 // paint and wire the ring (runs after the HTML is in the page)
 export function wireAgenda(root, ctx) {
-  const wrap = root.querySelector("#agWrap"), svg = root.querySelector("#agDial"), clk = root.querySelector("#agClk"), cap = root.querySelector("#agCap"); if (!wrap) return;
+  const pathEl = root.querySelector("#agPath"), wrap = root.querySelector("#agWrap"), svg = root.querySelector("#agDial"), clk = root.querySelector("#agClk"), cap = root.querySelector("#agCap"); if (!wrap) return;
   const { focus, list, today } = ctx, loc = place(), isToday = focus === today;
   let scrub = null, timer = null;
   const paint = () => {
     const now = isToday ? new Date() : null, m = scrub ?? (now ? mins(now) : 12 * 60), a = alt(focus, m, loc), [r, g, b] = glow(a);
-    svg.innerHTML = dialSVG(focus, list, scrub, now, loc);
+    svg.innerHTML = dialSVG(focus, list, scrub, now, loc); pathEl.innerHTML = pathSVG(focus, list, scrub, now, loc);
     wrap.style.setProperty("--glow", `rgba(${r},${g},${b},${scrub != null ? .62 : .46})`);
     const dayEv = list.filter(e => !e.allDay && onDay(e, focus)), when = at(focus, m), cur = dayEv.find(e => e.s <= when && e.e > when);
     let txt, line;
     if (scrub != null) { txt = hhmm(when); line = `${light(focus, m, loc).toUpperCase()} · SUN ${a >= 0 ? "+" : "−"}${Math.abs(a).toFixed(0)}°<br>${cur ? `<b>${esc(cur.title)}</b>` : "FREE"}`; }
     else if (now) { const fut = dayEv.filter(e => e.e > now).sort((x, y) => x.s - y.s), c = fut.find(e => e.s <= now), nx = fut.find(e => e.s > now); txt = hhmm(now); line = c ? `NOW<br><b>${esc(c.title)}</b><br>UNTIL ${hhmm(c.e)}` : nx ? `NEXT IN ${Math.floor((nx.s - now) / 36e5) ? Math.floor((nx.s - now) / 36e5) + "H " : ""}${Math.round(((nx.s - now) / 6e4) % 60)}M<br><b>${esc(nx.title)}</b>` : "NOTHING MORE TODAY"; }
-    else { const d = new Date(focus + "T12:00:00"); txt = String(d.getDate()).padStart(2, "0"); line = `${d.toLocaleDateString("en-US", { weekday: "long" }).toUpperCase()}<br><b>${dayEv.length} EVENT${dayEv.length === 1 ? "" : "S"}</b>${dayEv.length ? ` · ${hoursOn(list, focus).toFixed(1)} H` : ""}`; }
+    else { const d = new Date(focus + "T12:00:00"); txt = String(d.getDate()).padStart(2, "0"); line = `${d.toLocaleDateString("en-US", { weekday: "long", month: "short" }).toUpperCase()}<br><b>${dayEv.length} EVENT${dayEv.length === 1 ? "" : "S"}</b>${dayEv.length ? ` · ${hoursOn(list, focus).toFixed(1)} H` : ""}`; }
     const c = clock(txt, scrub != null || !now || new Date().getSeconds() % 2 === 0); clk.setAttribute("viewBox", c.vb); clk.innerHTML = c.s; cap.innerHTML = line;
   };
   const minuteAt = e => { const r = svg.getBoundingClientRect(), x = e.clientX - (r.left + r.width / 2), y = e.clientY - (r.top + r.height / 2); if (Math.hypot(x, y) < r.width * .12) return null; let ang = Math.atan2(y, x) + Math.PI / 2; if (ang < 0) ang += Math.PI * 2; return Math.min(1425, Math.floor(ang / (Math.PI * 2) * 96) * 15); };
   svg.addEventListener("pointermove", e => { if (e.pointerType === "touch" && e.buttons !== 1) return; const m = minuteAt(e); if (m !== scrub) { scrub = m; paint(); } });
   svg.addEventListener("pointerdown", e => { if (e.pointerType === "touch") { try { svg.setPointerCapture(e.pointerId); } catch {} scrub = minuteAt(e); paint(); } });
+  const pathMin = e => { const r = pathEl.getBoundingClientRect(), f = (e.clientX - r.left) / r.width * 640; return Math.max(0, Math.min(1425, Math.floor((f - 22) / 596 * 96) * 15)); };
+  pathEl.addEventListener("pointermove", e => { if (e.pointerType === "touch" && e.buttons !== 1) return; const m = pathMin(e); if (m !== scrub) { scrub = m; paint(); } });
+  pathEl.addEventListener("pointerdown", e => { if (e.pointerType === "touch") { try { pathEl.setPointerCapture(e.pointerId); } catch {} scrub = pathMin(e); paint(); } });
+  pathEl.addEventListener("pointerleave", () => done()); pathEl.addEventListener("pointerup", e => { if (e.pointerType === "touch") done(); }); pathEl.addEventListener("pointercancel", () => done());
   const done = () => { if (scrub != null) { scrub = null; paint(); } };
   svg.addEventListener("pointerleave", done); svg.addEventListener("pointerup", e => { if (e.pointerType === "touch") done(); }); svg.addEventListener("pointercancel", done);
   paint();
