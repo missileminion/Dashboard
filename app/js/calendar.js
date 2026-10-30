@@ -122,7 +122,7 @@ export function initCalendar(root, { demo = false } = {}) {
   function draw() {
     if (!demo && !(cfg && cfg.url)) { root.innerHTML = setupHTML(); wireSetup(); return; }
     const keep = root.querySelector("#calScroll")?.scrollTop;
-    root.innerHTML = head() + (narrow() || view === "agenda" ? agendaHTML() : gridHTML()) + `<div class="basis cal-foot">${demo ? "Demo calendar. Changes here stay in this page." : ""}${!demo ? `<button type="button" class="cal-link" data-a="disconnect">Disconnect</button>` : ""}</div>`;
+    root.innerHTML = head() + (narrow() || view === "agenda" ? agendaHTML() : gridHTML()) + `<div class="basis cal-foot">${demo ? "Demo calendar. Changes here stay in this page." : ""}<a class="cal-link" href="labs/index.html">Labs</a> ${!demo ? `<button type="button" class="cal-link" data-a="disconnect">Disconnect</button>` : ""}</div>`;
     const sc = root.querySelector("#calScroll"); if (sc) sc.scrollTop = keep ?? (week === addDays(today(), -1) ? Math.max(0, (new Date().getHours() - 2) * HR) : 7 * HR);
   }
   function wireSetup() {
@@ -163,7 +163,7 @@ export function initCalendar(root, { demo = false } = {}) {
       if (!sd || (!all && !(B > A))) { q("ceErr").textContent = "The end has to be after the start."; return; }
       const body = { summary: q("ceTitle").value.trim() || "(no title)", location: q("ceLoc").value, description: q("ceDesc").value, ...(all ? { start: { date: sd }, end: { date: addDays(ed < sd ? sd : ed, 1) } } : { start: { dateTime: A.toISOString(), timeZone: TZ }, end: { dateTime: B.toISOString(), timeZone: TZ } }) };
       q("ceSave").disabled = true; q("ceErr").textContent = "Saving…";
-      try { ev ? await bridge("update", { calendarId: ev.cal, id: ev.id, patch: body }) : await bridge("create", { calendarId: q("ceCal").value, event: body }); close(); load(); } catch (err) { q("ceErr").textContent = "Could not save: " + err.message; q("ceSave").disabled = false; }
+      try { ev ? await bridge("update", { calendarId: ev.cal, id: ev.id, patch: body }) : await bridge("create", { calendarId: q("ceCal").value, event: { ...body, reminders: { useDefault: false, overrides: [] } } }); close(); load(); } catch (err) { q("ceErr").textContent = "Could not save: " + err.message; q("ceSave").disabled = false; }
     });
     q("ceDel") && (q("ceDel").onclick = async () => {
       if (!confirm("Delete this event from your Google Calendar?")) return;
