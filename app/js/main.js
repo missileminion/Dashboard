@@ -14,6 +14,7 @@ import { initTasks } from "./tasks.js";
 import { initGymLog, e1rm } from "./gymlog.js";
 import { fitLift, fitGroup, journeyHTML, bodyStats, GROUPS, groupOf } from "./progress.js";
 import { initCalendar } from "./calendar.js";
+import { initTerminal } from "./terminal.js";
 import { weightHTML, weightEntryHTML, wireWeight, latestWeight } from "./weight.js";
 import { initSky } from "./sky.js";
 import { initWeather } from "./weather.js";
@@ -410,15 +411,38 @@ const last2 = k => { for (let i = 0; i < 4; i++) { const v = byDate[addDays(toda
 
 // tabs: Health (everything above) and Productivity (focus timer). The timer keeps running while Health is shown.
 {
-  const TABS = ["health", "prod", "gym", "cal"], setTab = k => { document.body.dataset.tab = k; document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.t === k)); try { localStorage.setItem("tab", k); } catch {} };
+  const TABS = ["health", "prod", "gym", "cal", "console"], setTab = k => { document.body.dataset.tab = k; dispatchEvent(new CustomEvent("tab", { detail: k })); document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.t === k)); try { localStorage.setItem("tab", k); } catch {} };
   $("tabs").addEventListener("click", e => { const b = e.target.closest("button"); if (b) setTab(b.dataset.t); });
   let k = "health"; try { k = localStorage.getItem("tab") || k; } catch {}
   setTab(TABS.includes(k) ? k : "health");
   initTimer($("timerRoot"));
   initCalendar($("calRoot"), { demo: DEMO });
+  initTerminal($("consoleRoot"), { demo: DEMO });
   initTasks($("tasksRoot"));
   gymLogApi = initGymLog($("glogRoot"), { demo: DEMO });
   renderWeightEntry();
   initSky({ demo: DEMO });
   initWeather($("weatherRoot"));
 }
+
+// What the Console is told with each question: a compact picture of the last two weeks, tonight's plan and the calendar. Type /context in the console to read it.
+window.__dashContext = () => {
+  const hm = min => (min == null ? null : `${Math.floor(min / 60)}h ${String(Math.round(min % 60)).padStart(2, "0")}m`), r1 = v => (v == null ? null : Math.round(v * 10) / 10), clock = m => `${String(Math.floor(m / 60) % 24).padStart(2, "0")}:${String(Math.round(m % 60) % 60).padStart(2, "0")}`;
+  const nightsD = days.filter(d => d.sleepStages?.length), ln = nightsD[nightsD.length - 1], st = ln ? A.nightStats(ln) : null, sq = ln ? A.sleepQuality(ln, days) : null;
+  const endD = [today, addDays(today, -1)].find(d => byDate[d]?.sleepMin != null) || addDays(today, -1), sf = A.shortfall7(byDate, endD, addDays), rd = A.readiness(byDate, today, addDays), signs = A.earlySigns(byDate, today, addDays);
+  const lastDays = [...Array(14)].map((_, i) => addDays(today, -13 + i)).map(d => { const r = byDate[d] || {}; return { date: d, plan: A.plannedFor(d), sleep: hm(r.sleepMin), restingHr: r.restingHr ?? null, hrvMs: r.hrv != null ? Math.round(r.hrv) : null, activeZoneMin: r.azm ?? null, workouts: (r.workouts || []).map(w => w.type).join(", ") || null }; });
+  const gym = (gymLogApi?.entries || []).filter(e => e.date >= addDays(today, -14)).reduce((o, e) => { (o[e.date] ||= {})[e.exercise] = `${e.weight} lb x ${e.reps} x ${e.sets}`; return o; }, {});
+  const now = new Date();
+  return {
+    now: now.toLocaleString("en-US", { weekday: "long", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }),
+    targets: { wake: "06:30", idealSleep: "8h 10m", sleepNeed: "7h 40m", weeklyPlan: "Mon legs, Tue push, Wed run, Thu pull, Fri legs, Sat push, Sun pull" },
+    plan: { today: A.plannedFor(today), tomorrow: A.plannedFor(addDays(today, 1)) },
+    lastNight: st ? { sleep: hm(st.tst), asleepBy: clock(st.onsetMin), wokeAt: clock(st.wakeMin), minutesAwake: Math.round(st.waso), quality: sq ? Math.round(sq.score) : null } : null,
+    sleepDebt: sf.nights >= 3 ? hm(sf.hours * 60) : null,
+    recovery: { readinessZ: rd.z != null ? r1(rd.z) : null, restingHrToday: r1(byDate[today]?.restingHr), hrvToday: byDate[today]?.hrv != null ? Math.round(byDate[today].hrv) : null, bodyCheck: signs.status },
+    weather: window.wxBrief || null,
+    last14Days: lastDays,
+    gymLog14Days: gym,
+    calendarNext7Days: (window.__calEvents ? window.__calEvents() : []).slice(0, 60)
+  };
+};

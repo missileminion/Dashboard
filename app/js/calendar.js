@@ -73,6 +73,7 @@ export function initCalendar(root, { demo = false } = {}) {
       const res = await Promise.all(vis.map(async c => (await bridge("list", { calendarId: c.id, timeMin, timeMax })).events.map(e => norm(e, c))));
       if (my !== token) return;
       events = res.flat().sort((a, b) => a.s - b.s || b.e - a.e); status = "";
+      window.__calEvents = () => events.filter(e => !hidden.has(e.cal)).map(e => ({ title: e.title, done: !!e.done, start: e.s.toISOString(), end: e.e.toISOString(), allDay: e.allDay, location: e.location || undefined }));
       const cache = get(CACHE, {}); cache[key] = { at: Date.now(), events: events.map(e => ({ ...e, s: e.s.toISOString(), e: e.e.toISOString() })) };
       Object.keys(cache).sort((a, b) => cache[b].at - cache[a].at).slice(8).forEach(k => delete cache[k]); put(CACHE, cache);
     } catch (err) {

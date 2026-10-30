@@ -487,3 +487,28 @@ body.theme-glass .card[data-k=tasks]{background:linear-gradient(155deg,rgba(255,
 /* the week grid is part of the page, not a scrolling window of its own */
 .cal-scroll{max-height:none!important;overflow:visible!important;scrollbar-gutter:auto!important;overscroll-behavior:auto!important}
 .ag-scroll{overflow-y:hidden}
+
+/* ---------- the expanded task view, decluttered ---------- */
+.ag-det{display:grid!important;grid-template-columns:22px minmax(0,1fr) 28px;gap:12px;align-items:start;padding:12px 0!important;border-top:0!important}
+.ag-det + .ag-det{border-top:1px solid rgba(255,255,255,.06)!important}
+.ag-det .ag-check{margin-top:2px}
+.ag-dtime{display:flex;align-items:center;gap:7px;font:10.5px "SF Mono",ui-monospace,Menlo,monospace;letter-spacing:.05em;color:#8a8fa1;min-height:14px} .ag-dtime i{width:7px;height:7px;border-radius:50%;flex:none}
+.ag-dt{font:600 15px/1.35 var(--sans)!important;margin:3px 0 0!important;color:#f3f4f9} .ag-dl{font-size:12.5px;color:#9aa0b3;margin-top:2px} .ag-dn{font-size:12px;color:#7a7f90;margin-top:4px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-line}
+.ag-edit{margin:0!important;width:26px;height:26px;padding:0!important;border:0!important;border-radius:8px!important;display:grid;place-items:center;opacity:.55;background:none} .ag-edit svg{width:14px;height:14px;fill:none;stroke:#fff;stroke-width:1.4;stroke-linejoin:round} .ag-edit:hover{opacity:1;background:rgba(255,255,255,.1)!important}
+.ag-det.done .ag-dt{text-decoration:line-through;opacity:.5} .ag-det.done .ag-check{background:#fff;border-color:#fff} .ag-det.done .ag-check svg{stroke:#0b0e18}
+.ag-card .ag-sec{margin:12px 0 2px}
+
+/* ---------- the Console: a smooth fade to pure black ---------- */
+.seg.tabs{position:relative;z-index:130}
+#console{position:fixed;inset:0;z-index:100;background:#000;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .75s ease,visibility 0s linear .75s}
+body[data-tab=console] #console{opacity:1;visibility:visible;pointer-events:auto;transition:opacity .75s ease,visibility 0s}
+body[data-tab=console] .hv,body[data-tab=console] .skybar{display:none!important} body[data-tab=console] .bar .seg.tabs{z-index:130}
+#consoleRoot,.tm{position:absolute;inset:0} .tm{overflow-y:auto;padding:84px max(6vw,24px) 150px;font:15px/1.75 "SF Mono",ui-monospace,Menlo,Consolas,monospace;color:#e6f0ff;text-shadow:0 0 10px rgba(150,200,255,.28);scrollbar-width:none;cursor:text} .tm::-webkit-scrollbar{display:none}
+.tm-line{white-space:pre-wrap;word-break:break-word;min-height:1.75em;max-width:84ch} .tm-head{color:#fff;letter-spacing:.14em} .tm-dim{color:#7f8aa3;text-shadow:none} .tm-err{color:#ff5a64;text-shadow:0 0 10px rgba(255,60,70,.3)} .tm-q{color:#fff;margin-top:10px}
+.tm-p{color:#ff2d37;margin-right:10px;text-shadow:0 0 10px rgba(255,45,55,.5)} .tm-live{margin-top:10px;color:#fff}
+.tm-cur{display:inline-block;width:.6em;height:1.1em;background:#fff;vertical-align:text-bottom;margin-left:2px;animation:tmblink 1.05s steps(1) infinite;box-shadow:0 0 10px rgba(255,255,255,.6)} @keyframes tmblink{50%{opacity:0}}
+.tm-wait span{display:inline-block;width:6px;height:6px;border-radius:50%;background:#7f8aa3;margin-right:7px;animation:tmdot 1.1s ease-in-out infinite} .tm-wait span:nth-child(2){animation-delay:.18s} .tm-wait span:nth-child(3){animation-delay:.36s} @keyframes tmdot{0%,100%{opacity:.25;transform:translateY(0)}50%{opacity:1;transform:translateY(-3px)}}
+.tm-in{position:fixed;left:-9999px;top:auto;bottom:0;width:10px;height:10px;opacity:0}
+@media (max-width:700px){.tm{padding:70px 18px 150px;font-size:14px}}
+
+@media (max-width:1100px){.ag-main{grid-template-columns:minmax(0,1fr)!important}.ag-card{align-self:stretch}.ag-card.open{margin-left:0!important;width:100%!important}}
