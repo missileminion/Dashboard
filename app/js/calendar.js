@@ -62,8 +62,9 @@ export function initCalendar(root, { demo = false } = {}) {
 
   /* ---------- data ---------- */
   const range = () => ({ timeMin: new Date(week + "T00:00:00").toISOString(), timeMax: new Date(addDays(week, 7) + "T00:00:00").toISOString() });
-  const doneMap = () => get("cal.done", {});
-  const norm = (e, c) => { const allDay = e.allDay; return { id: e.id, cal: c.id, color: EVC[e.colorId] || c.color, writable: c.writable, title: e.title, allDay, s: allDay ? new Date(e.start + "T00:00:00") : new Date(e.start), e: allDay ? new Date(e.end + "T00:00:00") : new Date(e.end), location: e.location, desc: e.description, recurring: e.recurring, done: e.done !== undefined ? !!e.done : !!doneMap()[e.id] }; };
+  // A finished event wears a check mark at the front of its title ("✓ Title") in Google Calendar itself, so it shows on every device and in every calendar app.
+  const DONE = /^✓\s*/;
+  const norm = (e, c) => { const allDay = e.allDay, done = DONE.test(e.title || ""); return { id: e.id, cal: c.id, color: EVC[e.colorId] || c.color, writable: c.writable, title: done ? e.title.replace(DONE, "") : e.title, allDay, s: allDay ? new Date(e.start + "T00:00:00") : new Date(e.start), e: allDay ? new Date(e.end + "T00:00:00") : new Date(e.end), location: e.location, desc: e.description, recurring: e.recurring, done }; };
   async function load() {
     const my = ++token, key = "w" + week; busy = true; draw();
     try {
@@ -169,7 +170,7 @@ export function initCalendar(root, { demo = false } = {}) {
       const all = q("ceAll").checked, sd = q("ceSd").value, ed = q("ceEd").value || sd, st = q("ceSt").value || "00:00", et = q("ceEt").value || "00:00";
       const A = new Date(`${sd}T${st}:00`), B = new Date(`${ed}T${et}:00`);
       if (!sd || (!all && !(B > A))) { q("ceErr").textContent = "The end has to be after the start."; return; }
-      const body = { summary: q("ceTitle").value.trim() || "(no title)", location: q("ceLoc").value, description: q("ceDesc").value, ...(all ? { start: { date: sd }, end: { date: addDays(ed < sd ? sd : ed, 1) } } : { start: { dateTime: A.toISOString(), timeZone: TZ }, end: { dateTime: B.toISOString(), timeZone: TZ } }) };
+      const body = { summary: (ev && ev.done ? "✓ " : "") + (q("ceTitle").value.trim() || "(no title)"), location: q("ceLoc").value, description: q("ceDesc").value, ...(all ? { start: { date: sd }, end: { date: addDays(ed < sd ? sd : ed, 1) } } : { start: { dateTime: A.toISOString(), timeZone: TZ }, end: { dateTime: B.toISOString(), timeZone: TZ } }) };
       let scope = "this"; if (ev && ev.recurring) { scope = await askScope(ev.title); if (!scope) return; }
       q("ceSave").disabled = true; q("ceErr").textContent = "Saving…";
       try { ev ? await bridge(scope === "following" ? "updateFollowing" : "update", { calendarId: ev.cal, id: ev.id, patch: body }) : await bridge("create", { calendarId: q("ceCal").value, event: { ...body, reminders: { useDefault: false, overrides: [] } } }); close(); load(); } catch (err) { q("ceErr").textContent = "Could not save: " + err.message; q("ceSave").disabled = false; }
@@ -203,12 +204,12 @@ export function initCalendar(root, { demo = false } = {}) {
     else if (b && b.dataset.id) { const ev = events.find(x => x.id === b.dataset.id); if (ev) openEditor(ev); }
     else { const col = e.target.closest(".cal-col"); if (col && !editing) { const r = col.getBoundingClientRect(), mins = Math.floor((e.clientY - r.top) / HR * 2) * 30, d = new Date(col.dataset.d + "T00:00:00"); d.setMinutes(mins); openEditor(null, d); } }
   });
-  // Mark complete: a calendar event has no "done" in Google, so it is kept as a private property on the event (shared across your devices once the script is updated)
-  // and, as a fallback, in this browser. It shows at once; the sync to Google happens in the background.
-  function setDone(id) {
-    const ev = events.find(x => x.id === id); if (!ev) return; ev.done = !ev.done;
-    const m = doneMap(); ev.done ? (m[id] = 1) : delete m[id]; put("cal.done", m); draw();
-    if (ev.writable !== false) bridge("update", { calendarId: ev.cal, id, patch: { extendedProperties: { private: { done: ev.done ? "1" : "0" } } } }).catch(() => {});
+  // Mark complete: the title gets (or loses) a leading "✓ " in Google Calendar. It shows at once here; if Google refuses, it goes back and says so.
+  async function setDone(id) {
+    const ev = events.find(x => x.id === id); if (!ev) return; ev.done = !ev.done; draw();
+    if (ev.writable === false) { ev.done = !ev.done; status = "That calendar is read-only, so it cannot be marked complete."; draw(); return; }
+    try { await bridge("update", { calendarId: ev.cal, id, patch: { summary: (ev.done ? "✓ " : "") + ev.title } }); }
+    catch (err) { ev.done = !ev.done; status = `Could not mark "${ev.title}": ${err.message}`; draw(); }
   }
   /* ---------- drag to move, drag the bottom edge to resize (mouse and pen; on a phone tap an event to edit it) ---------- */
   // The block stays visible and follows the pointer; it snaps to 15 minutes vertically and to the day under the pointer. On a repeating event we ask whether
