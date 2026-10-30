@@ -111,10 +111,8 @@ export function agendaHTML(ctx) {
   const state = e => { const past = !e.allDay && e.e <= now, cur = !e.allDay && e.s <= now && e.e > now, nx = nextEv && e === nextEv; return `${e.done ? " done" : ""}${past ? " past" : ""}${cur ? " now" : ""}${nx ? " next" : ""}${e.recurring ? " routine" : ""}${heavyEv(e) ? " heavy" : ""}`; };
   const chk = e => `<button type="button" class="ag-check" data-done="${esc(e.id)}" aria-pressed="${!!e.done}" aria-label="${e.done ? "Mark not complete" : "Mark complete"}"><svg viewBox="0 0 14 14" aria-hidden="true"><path d="M3 7.4 5.8 10 11 4.4"/></svg></button>`;
   const mini = e => `<div class="ag-mini${state(e)}">${chk(e)}<span class="ag-time">${e.allDay ? "ALL DAY" : hhmm(e.s)}</span><span class="ag-title">${esc(e.title)}</span></div>`;
-  // the expanded view, kept quiet: a check, the time and length in small grey type, the title, and one line each for the place and the notes; edit is a small pencil
-  const det = e => `<article class="ag-det${state(e)}">${chk(e)}<div class="ag-dbody"><div class="ag-dtime"><i style="background:${esc(e.color)}" title="${esc(calNames[e.cal] || "")}"></i>${e.allDay ? "" : `${hhmm(e.s)}–${hhmm(e.e)} · ${dur(e)}`}${e.recurring ? `${e.allDay ? "" : " · "}repeats` : ""}</div>
-      <div class="ag-dt">${esc(e.title)}</div>${e.location ? `<div class="ag-dl">${esc(e.location)}</div>` : ""}${e.desc ? `<div class="ag-dn">${esc(e.desc)}</div>` : ""}</div>
-      <button type="button" class="ag-edit" data-id="${esc(e.id)}" aria-label="Edit" title="Edit"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 13.5l.7-3L11 2.7a1.4 1.4 0 0 1 2 0l.3.3a1.4 1.4 0 0 1 0 2L5.5 12.8l-3 .7z"/></svg></button></article>`;
+  // the expanded view, kept quiet: a check, the time and the title. Everything else (place, notes, which calendar) waits inside the editor, which opens in place when you click a task.
+  const det = e => `<article class="ag-det${state(e)}" data-eid="${esc(e.id)}">${chk(e)}<div class="ag-dbody">${e.allDay ? "" : `<div class="ag-dtime">${hhmm(e.s)}–${hhmm(e.e)}</div>`}<div class="ag-dt">${esc(e.title)}</div></div><div class="ag-editor"><div class="ag-ei"></div></div></article>`;
   const sect = (label, items, fn) => (items.length ? `<div class="ag-sec">${label}</div>${items.map(fn).join("")}` : "");
   const min = evs.length ? sect("ALL DAY", allDay, mini) + sect("SCHEDULED", timed, mini) : `<div class="ag-none">NOTHING SCHEDULED</div>`;
   const full = sect("ALL DAY", allDay, det) + sect("SCHEDULED", timed, det);

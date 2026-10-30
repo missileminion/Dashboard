@@ -512,3 +512,9 @@ body[data-tab=console] .hv,body[data-tab=console] .skybar{display:none!important
 @media (max-width:700px){.tm{padding:70px 18px 150px;font-size:14px}}
 
 @media (max-width:1100px){.ag-main{grid-template-columns:minmax(0,1fr)!important}.ag-card{align-self:stretch}.ag-card.open{margin-left:0!important;width:100%!important}}
+
+/* tasks: click one and it opens into its editor, in place */
+.ag-det{grid-template-columns:22px minmax(0,1fr)!important;cursor:pointer;transition:background .2s;border-radius:12px;margin:0 -8px;padding:12px 8px!important} .ag-det:hover:not(.editing){background:rgba(255,255,255,.05)} .ag-det.editing{cursor:default;background:rgba(255,255,255,.04)}
+.ag-editor{grid-column:1/-1;display:grid;grid-template-rows:0fr;transition:grid-template-rows .5s cubic-bezier(.3,.7,.2,1)} .ag-det.editing .ag-editor{grid-template-rows:1fr} .ag-ei{overflow:hidden;min-height:0}
+.cal-sheet.inline{position:static;width:auto;max-width:none;max-height:none;background:none;border:0;border-radius:0;box-shadow:none;padding:10px 0 4px;overflow:visible;gap:8px}
+.cal-sheet .cal-save{background:#fff!important;color:#0b0e18!important;border-color:#fff!important} .cal-sheet .cal-save:disabled{opacity:.5}

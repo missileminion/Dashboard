@@ -149,12 +149,13 @@ export function initCalendar(root, { demo = false } = {}) {
   }
 
   /* ---------- the editor ---------- */
-  function openEditor(ev, when) {
-    const writable = cals.filter(c => c.writable); editing = ev;
+  let closeEd = null;
+  function openEditor(ev, when, host) {   // host: an element inside the tasks card to open the editor in place; without it, a pop-up sheet
+    const writable = cals.filter(c => c.writable); editing = ev; const inline = !!host;
     const s = ev ? ev.s : when, e = ev ? (ev.allDay ? new Date(+ev.e - 864e5) : ev.e) : new Date(+when + 36e5);
     const f = d => ymd(d), allDay = ev ? ev.allDay : false;
-    const m = document.createElement("div"); m.className = "cal-modal";
-    m.innerHTML = `<div class="cal-sheet" role="dialog" aria-label="${ev ? "Edit event" : "New event"}"><div class="lbl">${ev ? "Edit event" : "New event"}</div>
+    const m = inline ? host : document.createElement("div"); if (!inline) m.className = "cal-modal";
+    m.innerHTML = `<div class="cal-sheet${inline ? " inline" : ""}" ${inline ? "" : `role="dialog" aria-label="${ev ? "Edit event" : "New event"}"`}>${inline ? "" : `<div class="lbl">${ev ? "Edit event" : "New event"}</div>`}
       <input id="ceTitle" type="text" placeholder="Title" value="${esc(ev ? ev.title : "")}" aria-label="Title">
       <label class="cal-chk"><input id="ceAll" type="checkbox"${allDay ? " checked" : ""}> All day</label>
       <div class="cal-two"><label>Starts<input id="ceSd" type="date" value="${f(s)}"><input id="ceSt" type="time" value="${hhmm(s)}"></label><label>Ends<input id="ceEd" type="date" value="${f(e)}"><input id="ceEt" type="time" value="${hhmm(e)}"></label></div>
@@ -163,10 +164,12 @@ export function initCalendar(root, { demo = false } = {}) {
       ${ev ? `<div class="basis">${ev.recurring ? "Repeating event: changes apply to this occurrence only. " : ""}${ev.writable === false ? "This calendar is read-only." : ""}</div>` : `<select id="ceCal" aria-label="Calendar">${writable.map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("")}</select>`}
       <div class="cal-err" id="ceErr"></div>
       <div class="cal-btns">${ev && ev.writable !== false ? `<button type="button" class="btn cal-del" id="ceDel">Delete</button>` : ""}<span style="flex:1"></span><button type="button" class="btn" id="ceCancel">Cancel</button>${ev && ev.writable === false ? "" : `<button type="button" class="btn cal-save" id="ceSave">Save</button>`}</div></div>`;
-    root.appendChild(m);
-    const q = id => m.querySelector("#" + id), close = () => { m.remove(); editing = null; };
+    if (!inline) root.appendChild(m);
+    const art = inline ? host.closest(".ag-det") : null; art && art.classList.add("editing");
+    const q = id => m.querySelector("#" + id), close = () => { if (inline) { art.classList.remove("editing"); setTimeout(() => { if (!art.classList.contains("editing")) m.innerHTML = ""; }, 480); } else m.remove(); editing = null; closeEd = null; };
+    closeEd = close;
     const sync = () => m.querySelectorAll("#ceSt,#ceEt").forEach(i => (i.hidden = q("ceAll").checked)); sync(); q("ceAll").onchange = sync;
-    q("ceCancel").onclick = close; m.onclick = x => { if (x.target === m) close(); }; q("ceTitle").focus();
+    q("ceCancel").onclick = close; if (!inline) m.onclick = x => { if (x.target === m) close(); }; setTimeout(() => q("ceTitle").focus(), inline ? 300 : 0);
     q("ceSave") && (q("ceSave").onclick = async () => {
       const all = q("ceAll").checked, sd = q("ceSd").value, ed = q("ceEd").value || sd, st = q("ceSt").value || "00:00", et = q("ceEt").value || "00:00";
       const A = new Date(`${sd}T${st}:00`), B = new Date(`${ed}T${et}:00`);
@@ -188,6 +191,10 @@ export function initCalendar(root, { demo = false } = {}) {
     if (justDragged) return;
     const dn = e.target.closest("[data-done]");
     if (dn) { setDone(dn.dataset.done); return; }
+    if (e.target.closest(".ag-editor")) return;
+    const det = e.target.closest(".ag-det");
+    if (det && agUi.open) { const ev = events.find(x => x.id === det.dataset.eid); if (editing && closeEd) closeEd(); if (ev && !det.classList.contains("editing")) openEditor(ev, null, det.querySelector(".ag-ei")); return; }
+    if (e.target.closest(".ag-card") && editing && closeEd) closeEd();
     if (e.target.closest(".ag-card") && !e.target.closest("[data-id]")) { toggleCard(root); return; }
     if (calsOpen && !e.target.closest(".cal-popwrap")) { calsOpen = false; draw(); }
     const b = e.target.closest("[data-a],[data-v],[data-c],[data-id],[data-fd]");
