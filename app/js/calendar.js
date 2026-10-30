@@ -3,7 +3,7 @@
 // The bridge URL and secret are kept in this browser only. Events are fetched into the page and never stored anywhere else.
 import { esc, ymd, addDays, pad } from "./util.js";
 import { plannedFor } from "./analytics.js";
-import { agendaHTML as mergedAgenda, wireAgenda, toggleCard } from "./agenda.js";
+import { agendaHTML as mergedAgenda, wireAgenda, toggleCard, ui as agUi } from "./agenda.js";
 
 const CFG = "cal.cfg", HIDDEN = "cal.hidden", VIEW = "cal.view", CACHE = "cal.cache", CALS = "cal.cals";
 const HR = 44;   // pixels per hour in the week grid
@@ -108,9 +108,9 @@ export function initCalendar(root, { demo = false } = {}) {
   function gridHTML() {
     const ds = days(), t = today(), now = new Date();
     const header = `<div class="cal-gh"><span></span>${ds.map(d => `<div class="cal-dh${d === t ? " today" : ""}"><b>${fmtDay(d, { weekday: "short" })} ${atNoon(d).getDate()}</b><em>${plannedFor(d)}</em></div>`).join("")}</div>`;
-    const ad = `<div class="cal-ad"><span>all day</span>${ds.map(d => `<div>${allDayOn(d).map(e => `<button type="button" class="cal-ev ad${e.recurring ? " routine" : ""}" data-id="${esc(e.id)}" style="--c:${esc(e.color)}">${esc(e.title)}</button>`).join("")}</div>`).join("")}</div>`;
+    const ad = `<div class="cal-ad"><span>all day</span>${ds.map(d => `<div>${allDayOn(d).map(e => `<button type="button" class="cal-ev ad${e.recurring ? " routine" : ""}${e.done ? " done" : ""}" data-id="${esc(e.id)}" style="--c:${esc(e.color)}">${e.done ? "✓ " : ""}${esc(e.title)}</button>`).join("")}</div>`).join("")}</div>`;
     const hours = [...Array(24)].map((_, h) => `<div style="top:${h * HR}px">${h ? pad(h) + ":00" : ""}</div>`).join("");
-    const cols = ds.map(d => `<div class="cal-col${d === t ? " today" : ""}" data-d="${d}" style="height:${24 * HR}px">${segs(d).map(g => { const top = (g.s - new Date(d + "T00:00:00")) / 36e5 * HR, h = Math.max(18, (g.t - g.s) / 36e5 * HR - 2), w = 100 / g.cols; return `<button type="button" class="cal-ev${g.e.recurring ? " routine" : ""}" data-id="${esc(g.e.id)}" style="--c:${esc(g.e.color)};top:${top}px;height:${h}px;left:calc(${g.col * w}% + 1px);width:calc(${w}% - 3px)"><b>${esc(g.e.title)}</b>${h > 34 ? `<span>${timeLabel(g.e)}</span>` : ""}${h > 50 && g.e.location ? `<span>${esc(g.e.location)}</span>` : ""}${g.e.writable !== false && g.t >= +g.e.e ? `<i class="cal-rz" data-rz></i>` : ""}</button>`; }).join("")}${d === t ? `<i class="cal-now" style="top:${(now.getHours() + now.getMinutes() / 60) * HR}px"></i>` : ""}</div>`).join("");
+    const cols = ds.map(d => `<div class="cal-col${d === t ? " today" : ""}" data-d="${d}" style="height:${24 * HR}px">${segs(d).map(g => { const top = (g.s - new Date(d + "T00:00:00")) / 36e5 * HR, h = Math.max(18, (g.t - g.s) / 36e5 * HR - 2), w = 100 / g.cols; return `<button type="button" class="cal-ev${g.e.recurring ? " routine" : ""}${g.e.done ? " done" : ""}" data-id="${esc(g.e.id)}" style="--c:${esc(g.e.color)};top:${top}px;height:${h}px;left:calc(${g.col * w}% + 1px);width:calc(${w}% - 3px)"><b>${g.e.done ? "✓ " : ""}${esc(g.e.title)}</b>${h > 34 ? `<span>${timeLabel(g.e)}</span>` : ""}${h > 50 && g.e.location ? `<span>${esc(g.e.location)}</span>` : ""}${g.e.writable !== false && g.t >= +g.e.e ? `<i class="cal-rz" data-rz></i>` : ""}</button>`; }).join("")}${d === t ? `<i class="cal-now" style="top:${(now.getHours() + now.getMinutes() / 60) * HR}px"></i>` : ""}</div>`).join("");
     return `<div class="cal-grid">${header}${ad}<div class="cal-scroll" id="calScroll"><div class="cal-body"><div class="cal-hours" style="height:${24 * HR}px">${hours}</div>${cols}</div></div></div>`;
   }
   function agendaHTML() {
@@ -271,6 +271,8 @@ export function initCalendar(root, { demo = false } = {}) {
     let scope = "this"; if (d.ev.recurring) { scope = await askScope(d.ev.title); if (!scope) return; }
     await applyChange(d.ev, { start: { dateTime: s.toISOString(), timeZone: TZ }, end: { dateTime: t.toISOString(), timeZone: TZ } }, scope);
   });
+  document.addEventListener("click", e => { if (agUi.open && root.isConnected && !e.target.closest(".ag-card") && !e.target.closest(".cal-modal")) toggleCard(root); });   // a click anywhere outside the tasks card folds it
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && agUi.open && !editing) toggleCard(root); });
   document.addEventListener("keydown", e => { if (e.key === "Escape" && drag) endDrag(); });
   root.addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.classList?.contains("ag-card")) { e.preventDefault(); toggleCard(root); } });
   const paintStatus = () => { const el = root.querySelector(".cal-status"); if (el) el.firstChild.textContent = status + " "; else draw(); };

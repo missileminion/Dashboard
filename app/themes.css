@@ -480,3 +480,6 @@ body.theme-glass .card[data-k=tasks]{background:linear-gradient(155deg,rgba(255,
 .ag-dc{margin-top:0!important}
 
 .ag-card .ag-dh{display:block!important} .ag-dh1{display:flex;align-items:baseline;gap:10px;font:11px "SF Mono",ui-monospace,Menlo,monospace;letter-spacing:.12em} .ag-dh1 b{color:#fff;font-weight:600;white-space:nowrap} .ag-dh1 .ag-chev{margin-left:auto} .ag-dh2{font:10px "SF Mono",ui-monospace,Menlo,monospace;letter-spacing:.12em;color:#7a7f90;margin-top:4px}
+
+.cal-ev.done{opacity:.55} .cal-ev.done b,.cal-ev.ad.done{text-decoration:line-through}
+.ag-path .ag-now{stroke:rgba(8,11,22,.45)!important;stroke-width:calc(1px / var(--k,1.3))!important}
