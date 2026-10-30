@@ -41,8 +41,15 @@ export function initCalendar(root, { demo = false } = {}) {
       if (action === "update") { const e = demoStore.find(x => x.id === body.id); Object.assign(e, body.patch); return { event: e }; }
       if (action === "delete") { demoStore.splice(demoStore.findIndex(x => x.id === body.id), 1); return { ok: true }; }
     }
-    const r = await fetch(cfg.url, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ secret: cfg.secret, action, ...body }) });
-    const j = await r.json(); if (j.error) throw new Error(j.error === "unauthorized" ? "The secret does not match the one in your script." : j.error); return j;
+    // reads are safe to repeat, so they get one retry; writes are never repeated (a retry could create the event twice)
+    const attempt = async () => {
+      const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 25000);
+      try {
+        const r = await fetch(cfg.url, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ secret: cfg.secret, action, ...body }), signal: ctl.signal });
+        const j = await r.json(); if (j.error) throw Object.assign(new Error(j.error === "unauthorized" ? "The secret does not match the one in your script." : j.error), { final: true }); return j;
+      } catch (e) { if (e.final) throw e; throw new Error(e.name === "AbortError" ? "The calendar took too long to answer." : "Cannot reach the calendar (offline, or the link is wrong)."); } finally { clearTimeout(t); }
+    };
+    try { return await attempt(); } catch (e) { if (e.final || !(action === "list" || action === "calendars")) throw e; await new Promise(r => setTimeout(r, 1200)); return attempt(); }
   }
 
   /* ---------- data ---------- */
@@ -95,7 +102,7 @@ export function initCalendar(root, { demo = false } = {}) {
     const header = `<div class="cal-gh"><span></span>${ds.map(d => `<div class="cal-dh${d === t ? " today" : ""}"><b>${fmtDay(d, { weekday: "short" })} ${atNoon(d).getDate()}</b><em>${plannedFor(d)}</em></div>`).join("")}</div>`;
     const ad = `<div class="cal-ad"><span>all day</span>${ds.map(d => `<div>${allDayOn(d).map(e => `<button type="button" class="cal-ev ad${e.recurring ? " routine" : ""}" data-id="${esc(e.id)}" style="--c:${esc(e.color)}">${esc(e.title)}</button>`).join("")}</div>`).join("")}</div>`;
     const hours = [...Array(24)].map((_, h) => `<div style="top:${h * HR}px">${h ? pad(h) + ":00" : ""}</div>`).join("");
-    const cols = ds.map(d => `<div class="cal-col${d === t ? " today" : ""}" data-d="${d}" style="height:${24 * HR}px">${segs(d).map(g => { const top = (g.s - new Date(d + "T00:00:00")) / 36e5 * HR, h = Math.max(18, (g.t - g.s) / 36e5 * HR - 2), w = 100 / g.cols; return `<button type="button" class="cal-ev${g.e.recurring ? " routine" : ""}" data-id="${esc(g.e.id)}" style="--c:${esc(g.e.color)};top:${top}px;height:${h}px;left:calc(${g.col * w}% + 1px);width:calc(${w}% - 3px)"><b>${esc(g.e.title)}</b>${h > 34 ? `<span>${timeLabel(g.e)}</span>` : ""}${h > 50 && g.e.location ? `<span>${esc(g.e.location)}</span>` : ""}</button>`; }).join("")}${d === t ? `<i class="cal-now" style="top:${(now.getHours() + now.getMinutes() / 60) * HR}px"></i>` : ""}</div>`).join("");
+    const cols = ds.map(d => `<div class="cal-col${d === t ? " today" : ""}" data-d="${d}" style="height:${24 * HR}px">${segs(d).map(g => { const top = (g.s - new Date(d + "T00:00:00")) / 36e5 * HR, h = Math.max(18, (g.t - g.s) / 36e5 * HR - 2), w = 100 / g.cols; return `<button type="button" class="cal-ev${g.e.recurring ? " routine" : ""}" data-id="${esc(g.e.id)}" style="--c:${esc(g.e.color)};top:${top}px;height:${h}px;left:calc(${g.col * w}% + 1px);width:calc(${w}% - 3px)"><b>${esc(g.e.title)}</b>${h > 34 ? `<span>${timeLabel(g.e)}</span>` : ""}${h > 50 && g.e.location ? `<span>${esc(g.e.location)}</span>` : ""}${g.e.writable !== false && g.t >= +g.e.e ? `<i class="cal-rz" data-rz></i>` : ""}</button>`; }).join("")}${d === t ? `<i class="cal-now" style="top:${(now.getHours() + now.getMinutes() / 60) * HR}px"></i>` : ""}</div>`).join("");
     return `<div class="cal-grid">${header}${ad}<div class="cal-scroll" id="calScroll"><div class="cal-body"><div class="cal-hours" style="height:${24 * HR}px">${hours}</div>${cols}</div></div></div>`;
   }
   function agendaHTML() {
@@ -167,6 +174,7 @@ export function initCalendar(root, { demo = false } = {}) {
 
   /* ---------- events ---------- */
   root.addEventListener("click", e => {
+    if (justDragged) return;
     const b = e.target.closest("[data-a],[data-v],[data-c],[data-id]");
     if (b && b.dataset.a) {
       const a = b.dataset.a;
@@ -180,6 +188,46 @@ export function initCalendar(root, { demo = false } = {}) {
     else if (b && b.dataset.id) { const ev = events.find(x => x.id === b.dataset.id); if (ev) openEditor(ev); }
     else { const col = e.target.closest(".cal-col"); if (col && !editing) { const r = col.getBoundingClientRect(), mins = Math.floor((e.clientY - r.top) / HR * 2) * 30, d = new Date(col.dataset.d + "T00:00:00"); d.setMinutes(mins); openEditor(null, d); } }
   });
+  /* ---------- drag to move, drag the bottom edge to resize (mouse and pen; on a phone tap an event to edit it) ---------- */
+  let drag = null, justDragged = false;
+  const SNAP = 15, fmtRange = (s, e) => `${hhmm(s)}–${hhmm(e)}`;
+  function cancelDrag() { if (!drag) return; drag.el.style.cssText = drag.css; drag.home.appendChild(drag.el); drag.el.classList.remove("dragging"); drag = null; document.body.classList.remove("cal-dragging"); }
+  root.addEventListener("pointerdown", e => {
+    const el = e.target.closest(".cal-ev:not(.ad)"); if (!el || e.pointerType === "touch" || e.button !== 0 || editing || busy) return;
+    const ev = events.find(x => x.id === el.dataset.id); if (!ev || ev.writable === false) return;
+    const cols = [...root.querySelectorAll(".cal-col")]; if (!cols.length) return;
+    drag = { el, ev, mode: e.target.closest("[data-rz]") ? "resize" : "move", x0: e.clientX, y0: e.clientY, css: el.style.cssText, home: el.parentNode, cols, idx0: cols.indexOf(el.parentNode), moved: false, dMin: 0, shift: 0 };
+    try { el.setPointerCapture(e.pointerId); } catch {}
+  });
+  root.addEventListener("pointermove", e => {
+    if (!drag) return; const dy = e.clientY - drag.y0, dx = e.clientX - drag.x0;
+    if (!drag.moved && Math.hypot(dx, dy) < 5) return;
+    if (!drag.moved) { drag.moved = true; drag.el.classList.add("dragging"); document.body.classList.add("cal-dragging"); }
+    drag.dMin = Math.round(dy / HR * 60 / SNAP) * SNAP;
+    if (drag.mode === "resize") { const base = parseFloat(drag.css.match(/height:([\d.]+)px/)?.[1] || 20), h = Math.max(HR / 4, base + drag.dMin / 60 * HR); drag.el.style.height = h + "px"; const dur = Math.max(SNAP, (drag.ev.e - drag.ev.s) / 6e4 + drag.dMin); drag.label = dur; return; }
+    const hit = drag.cols.findIndex(c => { const r = c.getBoundingClientRect(); return e.clientX >= r.left && e.clientX < r.right; });
+    drag.shift = hit < 0 ? drag.shift : hit - drag.idx0;
+    const top = parseFloat(drag.css.match(/top:([\d.]+)px/)?.[1] || 0) + drag.dMin / 60 * HR; drag.el.style.top = Math.max(0, top) + "px";
+    if (hit >= 0 && drag.cols[hit] !== drag.el.parentNode) drag.cols[hit].appendChild(drag.el);
+    const s = new Date(drag.ev.s); s.setDate(s.getDate() + drag.shift); s.setMinutes(s.getMinutes() + drag.dMin); const t = new Date(+s + (drag.ev.e - drag.ev.s));
+    const sp = drag.el.querySelector("span"); if (sp) sp.textContent = fmtRange(s, t);
+  });
+  root.addEventListener("pointerup", async e => {
+    if (!drag) return; const d = drag; drag = null; document.body.classList.remove("cal-dragging"); d.el.classList.remove("dragging");
+    if (!d.moved) return;
+    justDragged = true; setTimeout(() => (justDragged = false), 0);
+    let s = new Date(d.ev.s), t = new Date(d.ev.e);
+    if (d.mode === "resize") t = new Date(+t + d.dMin * 6e4); else { s.setDate(s.getDate() + d.shift); s.setMinutes(s.getMinutes() + d.dMin); t = new Date(+s + (d.ev.e - d.ev.s)); }
+    if (!(t - s >= SNAP * 6e4) || (+s === +d.ev.s && +t === +d.ev.e)) { draw(); return; }
+    const was = { s: d.ev.s, e: d.ev.e }; d.ev.s = s; d.ev.e = t; draw();   // show it moved straight away, then tell Google
+    status = `Saving "${d.ev.title}"…`; paintStatus();
+    try {
+      await bridge("update", { calendarId: d.ev.cal, id: d.ev.id, patch: { start: { dateTime: s.toISOString(), timeZone: TZ }, end: { dateTime: t.toISOString(), timeZone: TZ } } });
+      status = d.ev.recurring ? "Moved this occurrence only." : ""; draw(); setTimeout(() => { if (status === "Moved this occurrence only.") { status = ""; paintStatus(); } }, 3000);
+    } catch (err) { d.ev.s = was.s; d.ev.e = was.e; status = `Could not move "${d.ev.title}": ${err.message} It was put back.`; draw(); }
+  });
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && drag) { cancelDrag(); } });
+  const paintStatus = () => { const el = root.querySelector(".cal-status"); if (el) el.firstChild.textContent = status + " "; else draw(); };
   addEventListener("resize", () => { if (root.isConnected && root.offsetParent) draw(); });
   document.addEventListener("visibilitychange", () => { if (!document.hidden && root.offsetParent && cfg && !editing) load(); });
   setInterval(() => { if (!document.hidden && root.offsetParent && cfg && !editing && !busy) load(); }, 5 * 60000);
