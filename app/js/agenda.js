@@ -108,10 +108,10 @@ export function agendaHTML(ctx) {
     return `<button type="button" class="ag-row${past ? " past" : ""}${cur ? " now" : ""}${nx ? " next" : ""}${e.recurring ? " routine" : ""}${heavyEv(e) ? " heavy" : ""}" data-id="${esc(e.id)}"><i class="ag-dot"></i><span class="ag-time">${e.allDay ? "ALL DAY" : hhmm(e.s) + "–" + hhmm(e.e)}</span><span class="ag-title">${esc(e.title)}${e.location ? `<small>${esc(e.location)}</small>` : ""}</span><i class="ag-cal" style="background:${esc(e.color)}"></i></button>`; }).join("") : `<div class="ag-none">NOTHING SCHEDULED</div>`;
   return `<div class="ag"><div class="ag-main"><div class="ag-left">
       <div class="ag-tl" id="agTl"><div class="ag-scroll" id="agScroll"><svg class="ag-path" id="agPath" viewBox="0 0 ${VW} ${VH}" aria-label="Your day as tasks along the sun's path"></svg></div></div>
-      <div class="ag-week">${days.map(x => chipHTML(x, list, focus, today)).join("")}</div>
+      <div class="ag-week">${days.map(x => chipHTML(x, list, focus, today)).join("")}</div></div>
+    <div class="ag-right"><section class="ag-card"><div class="ag-dh"><span><b>${d.toLocaleDateString("en-US", { weekday: "long" }).toUpperCase()} ${d.getDate()}</b>${day === today ? ' <i class="ag-red">TODAY</i>' : ""}<em>${plannedFor(day).toUpperCase()}</em></span><span>${h ? h.toFixed(1) + " H" : ""}</span></div>${rows}</section>
       <div class="ag-top"><div class="ag-ringbox"><svg class="ag-ring" id="agRing" viewBox="0 0 400 400" aria-label="Your waking day: booked and free time"></svg><div class="ag-center"><svg class="ag-clk" id="agClk" aria-hidden="true"></svg><div class="ag-cl">DAY BUDGET</div></div></div>
-        <div class="ag-side"><div class="ag-cap" id="agCap"></div><div class="ag-stats" id="agStats"></div></div></div></div>
-    <div class="ag-right"><section class="ag-card"><div class="ag-dh"><span><b>${d.toLocaleDateString("en-US", { weekday: "long" }).toUpperCase()} ${d.getDate()}</b>${day === today ? ' <i class="ag-red">TODAY</i>' : ""}<em>${plannedFor(day).toUpperCase()}</em></span><span>${h ? h.toFixed(1) + " H" : ""}</span></div>${rows}</section></div></div></div>`;
+        <div class="ag-side"><div class="ag-cap" id="agCap"></div><div class="ag-stats" id="agStats"></div></div></div></div></div></div>`;
 }
 
 // paint and wire (runs after the HTML is in the page)

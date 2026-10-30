@@ -434,3 +434,14 @@ body.theme-glass .card[data-k=tasks]{background:linear-gradient(155deg,rgba(255,
 /* the toolbar is one slim line so the path sits at the very top */
 .cal-top{margin-bottom:10px!important} .cal-chips.cal-inline{margin:0!important;display:flex;gap:6px;flex-wrap:wrap} .cal-inline .cal-chip{padding:4px 11px;font-size:12px}
 .ag-tl{padding-top:8px!important} .ag-left{gap:10px}
+
+/* use the whole width: path and chips on the left; the day's tasks and the day budget stacked on the right */
+.ag-main{grid-template-columns:minmax(0,1.55fr) minmax(380px,1fr)!important;gap:26px!important}
+.ag-path{max-height:none!important} .ag-right{display:flex;flex-direction:column;gap:18px} .ag-card{position:static!important;max-height:none!important}
+.ag-right .ag-top{grid-template-columns:132px minmax(0,1fr)!important;gap:16px!important;align-items:center;padding:0 4px} .ag-right .ag-ringbox{max-width:132px!important} .ag-right .ag-stats{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+.ag-right .ag-cap b{font-size:17px}
+.cal-popwrap{position:relative} .cal-calbtn span{color:var(--tx3);margin:0 2px}
+.cal-pop{position:absolute;left:0;top:calc(100% + 8px);z-index:60;min-width:290px;background:var(--popbg,rgba(14,17,28,.96));border:1px solid rgba(255,255,255,.18);border-radius:16px;padding:6px;box-shadow:0 18px 50px rgba(0,0,0,.5);backdrop-filter:blur(16px)}
+.cal-popit{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:0;color:var(--tx);padding:10px 12px;border-radius:11px;font:14px var(--sans);cursor:pointer} .cal-popit:hover{background:rgba(255,255,255,.07)} .cal-popit i{width:10px;height:10px;border-radius:50%;flex:none} .cal-popit span{flex:1} .cal-popit b{color:#fff;width:14px} .cal-popit.off{opacity:.5}
+@media (max-width:980px){.ag-main{grid-template-columns:1fr!important}}
+@media (max-width:700px){.cal-pop{left:auto;right:0;min-width:240px;max-width:calc(100vw - 32px)}}

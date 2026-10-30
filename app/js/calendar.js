@@ -19,7 +19,7 @@ const fmtDay = (s, o) => atNoon(s).toLocaleDateString("en-US", o);
 
 export function initCalendar(root, { demo = false } = {}) {
   let cfg = demo ? { demo: true } : get(CFG), cals = get(CALS, []), hidden = new Set(get(HIDDEN, [])), view = get(VIEW, "week"), week = addDays(ymd(new Date()), -1);
-  let events = [], status = "", busy = false, token = 0, editing = null, focus = null;
+  let events = [], status = "", busy = false, token = 0, editing = null, focus = null, calsOpen = false;
   const focusDay = () => (days().includes(focus) ? focus : days().includes(today()) ? today() : days()[0]);
   const today = () => ymd(new Date());
   const narrow = () => root.clientWidth < 760;
@@ -99,7 +99,7 @@ export function initCalendar(root, { demo = false } = {}) {
   function head() {
     const a = fmtDay(week, { month: "short", day: "numeric" }), b = fmtDay(addDays(week, 6), { month: "short", day: "numeric" });
     return `<div class="cal-top"><div class="cal-nav"><button type="button" data-a="prev" aria-label="Previous week">‹</button><button type="button" data-a="today">Today</button><button type="button" data-a="next" aria-label="Next week">›</button></div>
-      <div class="cal-range">${a} – ${b}</div><div class="cal-chips cal-inline">${cals.map(c => `<button type="button" class="cal-chip${hidden.has(c.id) ? " off" : ""}" data-c="${esc(c.id)}"><i style="background:${esc(c.color)}"></i>${esc(c.name)}</button>`).join("")}</div><div style="flex:1"></div>
+      <div class="cal-range">${a} – ${b}</div><div class="cal-popwrap"><button type="button" class="btn cal-calbtn" data-a="cals" aria-expanded="${calsOpen}">Calendars <span>${cals.filter(c => !hidden.has(c.id)).length}/${cals.length}</span> ▾</button>${calsOpen ? `<div class="cal-pop" role="menu">${cals.map(c => `<button type="button" class="cal-popit${hidden.has(c.id) ? " off" : ""}" data-c="${esc(c.id)}" role="menuitemcheckbox" aria-checked="${!hidden.has(c.id)}"><i style="background:${esc(c.color)}"></i><span>${esc(c.name)}</span><b>${hidden.has(c.id) ? "" : "✓"}</b></button>`).join("")}</div>` : ""}</div><div style="flex:1"></div>
       <button type="button" class="btn" data-a="new">+ New</button><button type="button" class="btn" data-a="refresh" aria-label="Refresh">${busy ? "…" : narrow() ? "↻" : "Refresh"}</button></div>
       ${status ? `<div class="basis cal-status">${esc(status)} <button type="button" class="btn" data-a="refresh">Retry</button></div>` : ""}`;
   }
@@ -183,12 +183,14 @@ export function initCalendar(root, { demo = false } = {}) {
   /* ---------- events ---------- */
   root.addEventListener("click", e => {
     if (justDragged) return;
+    if (calsOpen && !e.target.closest(".cal-popwrap")) { calsOpen = false; draw(); }
     const b = e.target.closest("[data-a],[data-v],[data-c],[data-id],[data-fd]");
     if (b && b.dataset.a) {
       const a = b.dataset.a;
       if (a === "prev" || a === "next") { week = addDays(week, a === "next" ? 7 : -7); load(); }
       else if (a === "today") { week = addDays(today(), -1); load(); }
       else if (a === "refresh") load();
+      else if (a === "cals") { calsOpen = !calsOpen; draw(); }
       else if (a === "new") { const n = new Date(); n.setMinutes(0, 0, 0); n.setHours(n.getHours() + 1); openEditor(null, n); }
       else if (a === "disconnect" && confirm("Disconnect this browser from your calendar? Your calendar itself is untouched.")) { cfg = null; cals = []; events = []; try { ["cal.cfg", CALS, CACHE].forEach(k => localStorage.removeItem(k)); } catch {} draw(); }
     } else if (b && b.dataset.fd) { focus = b.dataset.fd; draw(); root.querySelector(`.ag-day[data-day="${focus}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
