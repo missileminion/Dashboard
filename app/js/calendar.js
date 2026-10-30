@@ -54,7 +54,7 @@ export function initCalendar(root, { demo = false } = {}) {
       const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 25000);
       try {
         const r = await fetch(cfg.url, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ secret: cfg.secret, action, ...body }), signal: ctl.signal });
-        const j = await r.json(); if (j.error) throw Object.assign(new Error(j.error === "unauthorized" ? "The secret does not match the one in your script." : j.error), { final: true }); return j;
+        const j = await r.json(); if (j.error) throw Object.assign(new Error(j.error === "unauthorized" ? "The secret does not match the one in your script." : j.error === "unknown action" ? "Your Apps Script is out of date. In Apps Script choose Deploy, Manage deployments, Edit, New version, Deploy (after pasting the newest Code.gs)." : j.error), { final: true }); return j;
       } catch (e) { if (e.final) throw e; throw new Error(e.name === "AbortError" ? "The calendar took too long to answer." : "Cannot reach the calendar (offline, or the link is wrong)."); } finally { clearTimeout(t); }
     };
     try { return await attempt(); } catch (e) { if (e.final || !(action === "list" || action === "calendars")) throw e; await new Promise(r => setTimeout(r, 1200)); return attempt(); }
