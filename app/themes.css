@@ -394,3 +394,14 @@ body.theme-glass .card[data-k=tasks]{background:linear-gradient(155deg,rgba(255,
 .ag-none{font:10.5px var(--mono);letter-spacing:.12em;color:#5e6272;padding:6px 0 10px 25px}
 @media (prefers-reduced-motion:reduce){.ag-tl{transition:none}}
 @media (max-width:700px){.ag-list{padding:6px 14px 12px;border-radius:22px} .ag-row{grid-template-columns:14px 82px minmax(0,1fr) 9px;gap:9px;font-size:14px}}
+
+/* edges dissolve into the page */
+.ag-ringbox{border:0!important;background:radial-gradient(closest-side,rgba(0,0,0,.62) 52%,rgba(0,0,0,.28) 82%,transparent 100%)!important}
+.ag-tl{border:0!important;border-radius:0!important;background:radial-gradient(70% 90% at 50% 62%,var(--glow,rgba(80,110,170,.4)),rgba(0,0,0,.0) 78%),radial-gradient(90% 100% at 50% 50%,rgba(0,0,0,.5),transparent 85%)!important;-webkit-mask-image:radial-gradient(ellipse 78% 84% at 50% 50%,#000 66%,transparent 100%);mask-image:radial-gradient(ellipse 78% 84% at 50% 50%,#000 66%,transparent 100%);padding:18px 0 10px!important}
+.ag-stats div,.ag-chip{border-color:rgba(255,255,255,.07)!important}
+.ag-list{display:block!important;border:0!important;background:linear-gradient(rgba(0,0,0,.34),rgba(0,0,0,.34))!important;-webkit-mask-image:linear-gradient(transparent 0,#000 28px,#000 calc(100% - 28px),transparent 100%);mask-image:linear-gradient(transparent 0,#000 28px,#000 calc(100% - 28px),transparent 100%);padding:34px 24px!important;border-radius:0!important}
+.ag-path{max-height:480px}
+
+.cal-gh2{font:11px "SF Mono",ui-monospace,Menlo,monospace;letter-spacing:.14em;color:#6c7080;margin:26px 2px 10px} .cal-col.drop{background-color:rgba(255,255,255,.05)}
+.cal-opt{display:flex;align-items:center;gap:10px;font-size:15px;padding:6px 0;cursor:pointer} .cal-opt input{width:auto;min-height:0}
+.cal-ev.dragging{transition:none}

@@ -35,31 +35,37 @@ function clock(txt, blink) {   // dot-matrix digits as SVG circles
 }
 
 /* ---------- the timeline: the sun's path as a dotted curve across 24 hours, the tasks laid on it ---------- */
-const VW = 1200, VH = 340, X0 = 34, X1 = 1166, Y0 = 200;
+const VW = 1200, VH = 476, X0 = 34, X1 = 1166, HOR = 296;
 const Xm = m => X0 + m / 1440 * (X1 - X0);
-const Ym = (day, m, loc) => { const v = alt(day, m % 1440, loc); return Y0 - (v >= 0 ? v * 2.1 : v * .55); };
 function sunTimes(day, loc) { let rise = null, set = null, prev = alt(day, 0, loc); for (let m = 5; m <= 1440; m += 5) { const v = alt(day, m % 1440, loc); if (prev < 0 && v >= 0 && rise == null) rise = m; if (prev >= 0 && v < 0 && set == null) set = m; prev = v; } return { rise, set }; }
+// one smooth curve: the sun's altitude over the day, with the night half eased in so the arc keeps its true sine-like shape and a continuous slope at the horizon
+function curveFor(day, loc) {
+  const A = []; for (let m = 0; m <= 1440; m += 5) A.push(alt(day, m % 1440, loc));
+  const mx = Math.max(...A), f = v => (v >= 0 ? v : v / (1 - v / 45)), k = Math.min(3, 122 / Math.max(10, mx)), y = v => HOR - f(v) * k;
+  return { A, y, Y: m => { const q = Math.min(287.999, m / 5), i = Math.floor(q); return y(A[i] + (A[i + 1] - A[i]) * (q - i)); }, horizon: HOR };
+}
 function timelineSVG(day, list, scrub, now, loc) {
-  const dayEv = list.filter(e => !e.allDay && onDay(e, day)).sort((a, b) => a.s - b.s), isToday = !!now, nm = now ? mins(now) : -1, { rise, set } = sunTimes(day, loc);
-  let s = `<line x1="${X0}" x2="${X1}" y1="${Y0}" y2="${Y0}" stroke="#3d4150" stroke-dasharray="1.5 6"/>`;
+  const dayEv = list.filter(e => !e.allDay && onDay(e, day)).sort((a, b) => a.s - b.s), isToday = !!now, nm = now ? mins(now) : -1, { rise, set } = sunTimes(day, loc), C = curveFor(day, loc);
+  let s = `<line x1="${X0}" x2="${X1}" y1="${C.horizon}" y2="${C.horizon}" stroke="#3d4150" stroke-dasharray="1.5 6"/>`;
   for (let m = 0; m <= 1440; m += 5) {   // the path itself, one dot per five minutes; larger and brighter where a task is on
-    const a = at(day, m), b = new Date(+a + 5 * 6e4), hit = dayEv.filter(e => e.s < b && e.e > a), up = alt(day, m % 1440, loc) > 0, past = isToday && +b <= +now;
-    s += `<circle cx="${Xm(m).toFixed(1)}" cy="${Ym(day, m, loc).toFixed(1)}" r="${hit.length ? 4.4 : up ? 1.9 : 1.4}" fill="${hit.length ? (hit.some(heavyEv) ? RED : past ? "#7f8599" : "#fff") : up ? "#cfd3de" : "#3d4150"}"/>`;
+    const a = at(day, m), b = new Date(+a + 5 * 6e4), hit = dayEv.filter(e => e.s < b && e.e > a), up = C.A[m / 5] > 0, past = isToday && +b <= +now;
+    s += `<circle cx="${Xm(m).toFixed(1)}" cy="${C.y(C.A[m / 5]).toFixed(1)}" r="${hit.length ? 4.4 : up ? 1.9 : 1.4}" fill="${hit.length ? (hit.some(heavyEv) ? RED : past ? "#7f8599" : "#fff") : up ? "#cfd3de" : "#3d4150"}"/>`;
   }
   const bed = ((TARGET.wakeMin - TARGET.idealMin) % 1440 + 1440) % 1440, wake = TARGET.wakeMin;   // the sleep window along the bottom
-  for (let m = 0; m < 1440; m += 10) if (bed > wake ? m >= bed || m < wake : m >= bed && m < wake) s += `<circle cx="${Xm(m).toFixed(1)}" cy="296" r="1.9" fill="#7c86a8"/>`;
-  s += `<text x="${Xm(wake / 2)}" y="286" text-anchor="middle" class="ag-sun" style="fill:#7c86a8">SLEEP</text><text x="${Xm((bed + 1440) / 2 > 1440 ? bed + 40 : (bed + 1440) / 2)}" y="286" text-anchor="middle" class="ag-sun" style="fill:#7c86a8">SLEEP</text>`;
-  [0, 3, 6, 9, 12, 15, 18, 21, 24].forEach(h => { s += `<text x="${Xm(h * 60)}" y="326" text-anchor="${h === 24 ? "end" : h === 0 ? "start" : "middle"}" class="ag-hl">${pad(h % 24)}</text>`; });
-  [[rise, "↑"], [set, "↓"]].forEach(([m, g]) => { if (m != null) s += `<text x="${Xm(m)}" y="${Y0 + 22}" text-anchor="middle" class="ag-sun">${g} ${pad(Math.floor(m / 60))}:${pad(m % 60)}</text>`; });
-  const lanes = [];   // task titles on leader lines, staggered so they never overlap
+  for (let m = 0; m < 1440; m += 10) if (bed > wake ? m >= bed || m < wake : m >= bed && m < wake) s += `<circle cx="${Xm(m).toFixed(1)}" cy="426" r="1.9" fill="#7c86a8"/>`;
+  s += `<text x="${Xm(wake / 2)}" y="414" text-anchor="middle" class="ag-sun" style="fill:#7c86a8">SLEEP</text><text x="${Xm(bed + (1440 - bed) / 2)}" y="414" text-anchor="middle" class="ag-sun" style="fill:#7c86a8">SLEEP</text>`;
+  [0, 3, 6, 9, 12, 15, 18, 21, 24].forEach(h => { s += `<text x="${Xm(h * 60)}" y="462" text-anchor="${h === 24 ? "end" : h === 0 ? "start" : "middle"}" class="ag-hl">${pad(h % 24)}</text>`; });
+  [[rise, "↑"], [set, "↓"]].forEach(([m, g]) => { if (m != null) s += `<text x="${Xm(m)}" y="${C.horizon + 24}" text-anchor="middle" class="ag-sun">${g} ${pad(Math.floor(m / 60))}:${pad(m % 60)}</text>`; });
+  // task titles sit in their own band above the curve, on leader lines, staggered into lanes so no text ever touches the curve or another title
+  const lanes = [];
   dayEv.forEach(e => {
-    const startM = e.s < at(day, 0) ? 0 : mins(e.s), x = Xm(startM), w = Math.max(70, e.title.length * 7.3 + 8), lane = lanes.findIndex(r => r < x - 6), ln = lane < 0 ? lanes.length : lane;
-    if (ln > 4) return; lanes[ln] = x + w;
-    const by = Ym(day, startM, loc), ly = Math.max(26, by - 30 - ln * 34), past = isToday && e.e <= now, col = heavyEv(e) ? RED : past ? "#8b90a3" : "#fff", dim = e.recurring && !heavyEv(e);
-    s += `<g class="ag-bead" data-id="${esc(e.id)}"><line x1="${x}" x2="${x}" y1="${ly + 8}" y2="${by - 8}" stroke="${col}" stroke-opacity=".4" stroke-dasharray="1.5 4"/><circle cx="${x}" cy="${by}" r="8.5" fill="none" stroke="${col}" stroke-width="1.6"/>`
-      + `<text x="${x + 5}" y="${ly}" class="ag-ev" fill="${col}" opacity="${dim ? .7 : 1}">${esc(e.title.length > 34 ? e.title.slice(0, 33) + "…" : e.title)}</text><text x="${x + 5}" y="${ly + 13}" class="ag-evt">${hhmm(e.s)}–${hhmm(e.e)}</text><rect x="${x - 10}" y="${ly - 14}" width="${w + 14}" height="${by - ly + 24}" fill="transparent"/></g>`;
+    const startM = e.s < at(day, 0) ? 0 : mins(e.s), x = Xm(startM), title = e.title.length > 30 ? e.title.slice(0, 29) + "…" : e.title, w = Math.max(74, title.length * 7.4 + 10), flip = x + w > VW - 14, xs = flip ? x - w : x;
+    const lane = lanes.findIndex(r => r < xs - 8), ln = lane < 0 ? lanes.length : lane; if (ln > 3) return; lanes[ln] = xs + w;
+    const by = C.Y(startM), ly = 26 + ln * 36, past = isToday && e.e <= now, col = heavyEv(e) ? RED : past ? "#8b90a3" : "#fff", dim = e.recurring && !heavyEv(e), tx = flip ? x - 5 : x + 5, anchor = flip ? "end" : "start";
+    s += `<g class="ag-bead" data-id="${esc(e.id)}"><line x1="${x}" x2="${x}" y1="${ly + 20}" y2="${by - 9}" stroke="${col}" stroke-opacity=".4" stroke-dasharray="1.5 4"/><circle cx="${x}" cy="${by}" r="8.5" fill="none" stroke="${col}" stroke-width="1.6"/>`
+      + `<text x="${tx}" y="${ly}" text-anchor="${anchor}" class="ag-ev" fill="${col}" opacity="${dim ? .7 : 1}">${esc(title)}</text><text x="${tx}" y="${ly + 14}" text-anchor="${anchor}" class="ag-evt">${hhmm(e.s)}–${hhmm(e.e)}</text><rect x="${xs - 6}" y="${ly - 15}" width="${w + 12}" height="34" fill="transparent"/></g>`;
   });
-  const mk = (m, col, r) => `<line x1="${Xm(m)}" x2="${Xm(m)}" y1="${Ym(day, m, loc) + 12}" y2="270" stroke="${col}" stroke-opacity=".4" stroke-dasharray="2 5"/><circle cx="${Xm(m)}" cy="${Ym(day, m, loc)}" r="${r + 7}" fill="none" stroke="${col}" stroke-width="1.8"/><circle cx="${Xm(m)}" cy="${Ym(day, m, loc)}" r="${r}" fill="${col}"/>`;
+  const mk = (m, col, r) => `<line x1="${Xm(m)}" x2="${Xm(m)}" y1="${C.Y(m) + 12}" y2="398" stroke="${col}" stroke-opacity=".4" stroke-dasharray="2 5"/><circle cx="${Xm(m)}" cy="${C.Y(m)}" r="${r + 7}" fill="none" stroke="${col}" stroke-width="1.8"/><circle cx="${Xm(m)}" cy="${C.Y(m)}" r="${r}" fill="${col}"/>`;
   if (isToday) s += mk(nm, RED, 4.5);
   if (scrub != null) s += mk(scrub + 2.5, "#fff", 4);
   return s;
@@ -139,6 +145,9 @@ export function wireAgenda(root, ctx) {
   const done = () => { if (scrub != null) { scrub = null; paint(); } };
   pathEl.addEventListener("pointerleave", done); pathEl.addEventListener("pointerup", e => { if (e.pointerType === "touch") done(); }); pathEl.addEventListener("pointercancel", done);
   paint();
-  if (isToday && sc && sc.scrollWidth > sc.clientWidth) sc.scrollLeft = Math.max(0, Xm(mins(new Date())) / VW * sc.scrollWidth - sc.clientWidth / 2);   // on a phone, start the path centred on now
+  if (sc && sc.scrollWidth > sc.clientWidth) {   // on a phone, start the path centred on now, or on the day's first task (or 09:00 on an empty day)
+    const first = list.filter(e => !e.allDay && onDay(e, focus)).sort((x, y) => x.s - y.s)[0], m = isToday ? mins(new Date()) : first ? mins(first.s) : 9 * 60;
+    sc.scrollLeft = Math.max(0, Xm(m) / VW * sc.scrollWidth - sc.clientWidth / 2);
+  }
   if (isToday) timer = setInterval(() => { if (!tl.isConnected) return clearInterval(timer); if (scrub == null) paint(); }, 1000);
 }

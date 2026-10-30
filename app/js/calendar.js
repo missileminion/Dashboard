@@ -31,6 +31,7 @@ export function initCalendar(root, { demo = false } = {}) {
     const list = [];
     [0, 2, 4].forEach(d => list.push(ev("classes", d, 9, 0, 10, 30, "Thermodynamics", "Eng Hall 214"), ev("classes", d, 13, 0, 14, 0, "Machine Design lab", "Lab B")));
     [1, 3].forEach(d => list.push(ev("classes", d, 10, 0, 11, 15, "Fluid Mechanics", "Eng Hall 101")));
+    list.forEach(e => (e.rec = true));
     list.push(ev("personal", 2, 17, 30, 18, 30, "Run, easy pace"), ev("personal", 5, 12, 0, 13, 0, "Lunch with Marco", "Cafe Verde"), { id: "d" + id++, cal: "classes", summary: "Midterm: Fluid Mechanics", start: { date: addDays(mon, 3) }, end: { date: addDays(mon, 4) } });
     return list;
   })();
@@ -38,9 +39,14 @@ export function initCalendar(root, { demo = false } = {}) {
     if (demo) {
       await new Promise(r => setTimeout(r, 120));
       if (action === "calendars") return { calendars: [{ id: "personal", name: "Personal", color: "#4f86f7", primary: true, writable: true }, { id: "classes", name: "Classes", color: "#34a37a", writable: true }] };
-      if (action === "list") return { events: demoStore.filter(e => e.cal === body.calendarId && (e.start.dateTime || e.start.date + "T00:00:00") < body.timeMax && (e.end.dateTime || e.end.date + "T00:00:00") > body.timeMin).map(e => ({ id: e.id, title: e.summary, start: e.start.dateTime || e.start.date, end: e.end.dateTime || e.end.date, allDay: !e.start.dateTime, location: e.location || "", description: e.description || "", recurring: false })) };
+      if (action === "list") return { events: demoStore.filter(e => e.cal === body.calendarId && (e.start.dateTime || e.start.date + "T00:00:00") < body.timeMax && (e.end.dateTime || e.end.date + "T00:00:00") > body.timeMin).map(e => ({ id: e.id, title: e.summary, start: e.start.dateTime || e.start.date, end: e.end.dateTime || e.end.date, allDay: !e.start.dateTime, location: e.location || "", description: e.description || "", recurring: !!e.rec })) };
       if (action === "create") { const e = { ...body.event, id: "n" + Date.now(), cal: body.calendarId }; demoStore.push(e); return { event: e }; }
       if (action === "update") { const e = demoStore.find(x => x.id === body.id); Object.assign(e, body.patch); return { event: e }; }
+      if (action === "updateFollowing") {   // every later event with the same title moves by the same amount
+        const e = demoStore.find(x => x.id === body.id), from = new Date(e.start.dateTime), dt = body.patch.start ? new Date(body.patch.start.dateTime) - from : 0, dur = body.patch.end && body.patch.start ? new Date(body.patch.end.dateTime) - new Date(body.patch.start.dateTime) : null;
+        demoStore.filter(x => x.summary === e.summary && x.start.dateTime && new Date(x.start.dateTime) >= from).forEach(x => { const s = new Date(+new Date(x.start.dateTime) + dt); x.start = { dateTime: s.toISOString() }; x.end = { dateTime: new Date(+s + (dur ?? (new Date(x.end.dateTime) - new Date(x.start.dateTime)))).toISOString() }; if (body.patch.summary) x.summary = body.patch.summary; });
+        return { event: e };
+      }
       if (action === "delete") { demoStore.splice(demoStore.findIndex(x => x.id === body.id), 1); return { ok: true }; }
     }
     // reads are safe to repeat, so they get one retry; writes are never repeated (a retry could create the event twice)
@@ -94,7 +100,6 @@ export function initCalendar(root, { demo = false } = {}) {
     const a = fmtDay(week, { month: "short", day: "numeric" }), b = fmtDay(addDays(week, 6), { month: "short", day: "numeric" });
     return `<div class="cal-top"><div class="cal-nav"><button type="button" data-a="prev" aria-label="Previous week">‹</button><button type="button" data-a="today">Today</button><button type="button" data-a="next" aria-label="Next week">›</button></div>
       <div class="cal-range">${a} – ${b}</div><div style="flex:1"></div>
-      ${narrow() ? "" : `<div class="seg cal-seg"><button type="button" data-v="week" class="${view === "week" ? "on" : ""}">Week</button><button type="button" data-v="agenda" class="${view === "agenda" ? "on" : ""}">Agenda</button></div>`}
       <button type="button" class="btn" data-a="new">+ New</button><button type="button" class="btn" data-a="refresh" aria-label="Refresh">${busy ? "…" : narrow() ? "↻" : "Refresh"}</button></div>
       <div class="cal-chips">${cals.map(c => `<button type="button" class="cal-chip${hidden.has(c.id) ? " off" : ""}" data-c="${esc(c.id)}"><i style="background:${esc(c.color)}"></i>${esc(c.name)}</button>`).join("")}</div>
       ${status ? `<div class="basis cal-status">${esc(status)} <button type="button" class="btn" data-a="refresh">Retry</button></div>` : ""}`;
@@ -124,9 +129,8 @@ export function initCalendar(root, { demo = false } = {}) {
   function draw() {
     if (!demo && !(cfg && cfg.url)) { root.innerHTML = setupHTML(); wireSetup(); return; }
     const keep = root.querySelector("#calScroll")?.scrollTop;
-    const agendaOn = narrow() || view === "agenda";
-    root.innerHTML = head() + (agendaOn ? mergedAgenda({ days: days(), list: visible(), focus: focusDay(), today: today() }) : gridHTML()) + `<div class="basis cal-foot">${demo ? "Demo calendar. Changes here stay in this page." : ""}<a class="cal-link" href="labs/index.html">Labs</a> ${!demo ? `<button type="button" class="cal-link" data-a="disconnect">Disconnect</button>` : ""}</div>`;
-    if (agendaOn) wireAgenda(root, { list: visible(), focus: focusDay(), today: today() });
+    root.innerHTML = head() + mergedAgenda({ days: days(), list: visible(), focus: focusDay(), today: today() }) + (narrow() ? "" : `<div class="cal-gh2">THE WEEK</div>` + gridHTML()) + `<div class="basis cal-foot">${demo ? "Demo calendar. Changes here stay in this page." : ""}<a class="cal-link" href="labs/index.html">Labs</a> ${!demo ? `<button type="button" class="cal-link" data-a="disconnect">Disconnect</button>` : ""}</div>`;
+    wireAgenda(root, { list: visible(), focus: focusDay(), today: today() });
     const sc = root.querySelector("#calScroll"); if (sc) sc.scrollTop = keep ?? (week === addDays(today(), -1) ? Math.max(0, (new Date().getHours() - 2) * HR) : 7 * HR);
   }
   function wireSetup() {
@@ -166,8 +170,9 @@ export function initCalendar(root, { demo = false } = {}) {
       const A = new Date(`${sd}T${st}:00`), B = new Date(`${ed}T${et}:00`);
       if (!sd || (!all && !(B > A))) { q("ceErr").textContent = "The end has to be after the start."; return; }
       const body = { summary: q("ceTitle").value.trim() || "(no title)", location: q("ceLoc").value, description: q("ceDesc").value, ...(all ? { start: { date: sd }, end: { date: addDays(ed < sd ? sd : ed, 1) } } : { start: { dateTime: A.toISOString(), timeZone: TZ }, end: { dateTime: B.toISOString(), timeZone: TZ } }) };
+      let scope = "this"; if (ev && ev.recurring) { scope = await askScope(ev.title); if (!scope) return; }
       q("ceSave").disabled = true; q("ceErr").textContent = "Saving…";
-      try { ev ? await bridge("update", { calendarId: ev.cal, id: ev.id, patch: body }) : await bridge("create", { calendarId: q("ceCal").value, event: { ...body, reminders: { useDefault: false, overrides: [] } } }); close(); load(); } catch (err) { q("ceErr").textContent = "Could not save: " + err.message; q("ceSave").disabled = false; }
+      try { ev ? await bridge(scope === "following" ? "updateFollowing" : "update", { calendarId: ev.cal, id: ev.id, patch: body }) : await bridge("create", { calendarId: q("ceCal").value, event: { ...body, reminders: { useDefault: false, overrides: [] } } }); close(); load(); } catch (err) { q("ceErr").textContent = "Could not save: " + err.message; q("ceSave").disabled = false; }
     });
     q("ceDel") && (q("ceDel").onclick = async () => {
       if (!confirm("Delete this event from your Google Calendar?")) return;
@@ -194,44 +199,63 @@ export function initCalendar(root, { demo = false } = {}) {
     else { const col = e.target.closest(".cal-col"); if (col && !editing) { const r = col.getBoundingClientRect(), mins = Math.floor((e.clientY - r.top) / HR * 2) * 30, d = new Date(col.dataset.d + "T00:00:00"); d.setMinutes(mins); openEditor(null, d); } }
   });
   /* ---------- drag to move, drag the bottom edge to resize (mouse and pen; on a phone tap an event to edit it) ---------- */
+  // The block stays visible and follows the pointer; it snaps to 15 minutes vertically and to the day under the pointer. On a repeating event we ask whether
+  // the change is for this one or for this and all following events.
   let drag = null, justDragged = false;
   const SNAP = 15, fmtRange = (s, e) => `${hhmm(s)}–${hhmm(e)}`;
-  function cancelDrag() { if (!drag) return; drag.el.style.cssText = drag.css; drag.home.appendChild(drag.el); drag.el.classList.remove("dragging"); drag = null; document.body.classList.remove("cal-dragging"); }
+  function cancelDrag() { if (!drag) return; document.body.classList.remove("cal-dragging"); drag = null; draw(); }
+  function askScope(title) {
+    return new Promise(res => {
+      const m = document.createElement("div"); m.className = "cal-modal";
+      m.innerHTML = `<div class="cal-sheet" role="dialog" aria-label="Change a repeating event"><div class="lbl">Repeating event</div><div style="font-weight:600">${esc(title)}</div>
+        <label class="cal-opt"><input type="radio" name="sc" value="this" checked> This event only</label><label class="cal-opt"><input type="radio" name="sc" value="following"> This and all following events</label>
+        <div class="basis">Following events are updated in Google Calendar too. Earlier ones stay as they are.</div>
+        <div class="cal-btns"><span style="flex:1"></span><button type="button" class="btn" id="scNo">Cancel</button><button type="button" class="btn cal-save" id="scOk">OK</button></div></div>`;
+      root.appendChild(m); const done = v => { m.remove(); document.removeEventListener("keydown", key); res(v); };
+      const key = e => { if (e.key === "Escape") done(null); }; document.addEventListener("keydown", key);
+      m.querySelector("#scNo").onclick = () => done(null); m.querySelector("#scOk").onclick = () => done(m.querySelector("input:checked").value); m.onclick = e => { if (e.target === m) done(null); };
+    });
+  }
+  async function applyChange(ev, patch, scope) {   // sends one change to Google Calendar and keeps what you see in step with it
+    const was = { s: ev.s, e: ev.e, title: ev.title };
+    if (patch.start) { ev.s = new Date(patch.start.dateTime); ev.e = new Date(patch.end.dateTime); }
+    draw(); status = `Saving "${ev.title}"…`; paintStatus();
+    try {
+      if (scope === "following") await bridge("updateFollowing", { calendarId: ev.cal, id: ev.id, patch });
+      else await bridge("update", { calendarId: ev.cal, id: ev.id, patch });
+      status = ""; if (scope === "following") await load(); else { draw(); }
+    } catch (err) { ev.s = was.s; ev.e = was.e; status = `Could not save "${ev.title}": ${err.message} It was put back.`; draw(); }
+  }
   root.addEventListener("pointerdown", e => {
     const el = e.target.closest(".cal-ev:not(.ad)"); if (!el || e.pointerType === "touch" || e.button !== 0 || editing || busy) return;
     const ev = events.find(x => x.id === el.dataset.id); if (!ev || ev.writable === false) return;
     const cols = [...root.querySelectorAll(".cal-col")]; if (!cols.length) return;
-    drag = { el, ev, mode: e.target.closest("[data-rz]") ? "resize" : "move", x0: e.clientX, y0: e.clientY, css: el.style.cssText, home: el.parentNode, cols, idx0: cols.indexOf(el.parentNode), moved: false, dMin: 0, shift: 0 };
+    drag = { el, ev, mode: e.target.closest("[data-rz]") ? "resize" : "move", x0: e.clientX, y0: e.clientY, h0: el.offsetHeight, top0: el.offsetTop, cols, idx0: cols.indexOf(el.parentNode), moved: false, dMin: 0, shift: 0 };
     try { el.setPointerCapture(e.pointerId); } catch {}
   });
   root.addEventListener("pointermove", e => {
     if (!drag) return; const dy = e.clientY - drag.y0, dx = e.clientX - drag.x0;
     if (!drag.moved && Math.hypot(dx, dy) < 5) return;
     if (!drag.moved) { drag.moved = true; drag.el.classList.add("dragging"); document.body.classList.add("cal-dragging"); }
-    drag.dMin = Math.round(dy / HR * 60 / SNAP) * SNAP;
-    if (drag.mode === "resize") { const base = parseFloat(drag.css.match(/height:([\d.]+)px/)?.[1] || 20), h = Math.max(HR / 4, base + drag.dMin / 60 * HR); drag.el.style.height = h + "px"; const dur = Math.max(SNAP, (drag.ev.e - drag.ev.s) / 6e4 + drag.dMin); drag.label = dur; return; }
+    let dMin = Math.round(dy / HR * 60 / SNAP) * SNAP; if (drag.mode === "move") dMin = Math.max(dMin, -drag.top0 / HR * 60); drag.dMin = dMin;
+    if (drag.mode === "resize") { drag.el.style.height = Math.max(HR / 4, drag.h0 + dMin / 60 * HR) + "px"; const sp = drag.el.querySelector("span"); if (sp) sp.textContent = fmtRange(drag.ev.s, new Date(+drag.ev.e + dMin * 6e4)); return; }
     const hit = drag.cols.findIndex(c => { const r = c.getBoundingClientRect(); return e.clientX >= r.left && e.clientX < r.right; });
-    drag.shift = hit < 0 ? drag.shift : hit - drag.idx0;
-    const top = parseFloat(drag.css.match(/top:([\d.]+)px/)?.[1] || 0) + drag.dMin / 60 * HR; drag.el.style.top = Math.max(0, top) + "px";
-    if (hit >= 0 && drag.cols[hit] !== drag.el.parentNode) drag.cols[hit].appendChild(drag.el);
-    const s = new Date(drag.ev.s); s.setDate(s.getDate() + drag.shift); s.setMinutes(s.getMinutes() + drag.dMin); const t = new Date(+s + (drag.ev.e - drag.ev.s));
-    const sp = drag.el.querySelector("span"); if (sp) sp.textContent = fmtRange(s, t);
+    if (hit >= 0) drag.shift = hit - drag.idx0;
+    drag.cols.forEach((c, i) => c.classList.toggle("drop", i === drag.idx0 + drag.shift));
+    drag.el.style.transform = `translate(${(drag.cols[drag.idx0 + drag.shift].getBoundingClientRect().left - drag.cols[drag.idx0].getBoundingClientRect().left)}px, ${dMin / 60 * HR}px)`;
+    const s = new Date(drag.ev.s); s.setDate(s.getDate() + drag.shift); s.setMinutes(s.getMinutes() + dMin); const sp = drag.el.querySelector("span"); if (sp) sp.textContent = fmtRange(s, new Date(+s + (drag.ev.e - drag.ev.s)));
   });
-  root.addEventListener("pointerup", async e => {
-    if (!drag) return; const d = drag; drag = null; document.body.classList.remove("cal-dragging"); d.el.classList.remove("dragging");
+  root.addEventListener("pointerup", async () => {
+    if (!drag) return; const d = drag; drag = null; document.body.classList.remove("cal-dragging");
     if (!d.moved) return;
     justDragged = true; setTimeout(() => (justDragged = false), 0);
     let s = new Date(d.ev.s), t = new Date(d.ev.e);
     if (d.mode === "resize") t = new Date(+t + d.dMin * 6e4); else { s.setDate(s.getDate() + d.shift); s.setMinutes(s.getMinutes() + d.dMin); t = new Date(+s + (d.ev.e - d.ev.s)); }
     if (!(t - s >= SNAP * 6e4) || (+s === +d.ev.s && +t === +d.ev.e)) { draw(); return; }
-    const was = { s: d.ev.s, e: d.ev.e }; d.ev.s = s; d.ev.e = t; draw();   // show it moved straight away, then tell Google
-    status = `Saving "${d.ev.title}"…`; paintStatus();
-    try {
-      await bridge("update", { calendarId: d.ev.cal, id: d.ev.id, patch: { start: { dateTime: s.toISOString(), timeZone: TZ }, end: { dateTime: t.toISOString(), timeZone: TZ } } });
-      status = d.ev.recurring ? "Moved this occurrence only." : ""; draw(); setTimeout(() => { if (status === "Moved this occurrence only.") { status = ""; paintStatus(); } }, 3000);
-    } catch (err) { d.ev.s = was.s; d.ev.e = was.e; status = `Could not move "${d.ev.title}": ${err.message} It was put back.`; draw(); }
+    let scope = "this"; if (d.ev.recurring) { scope = await askScope(d.ev.title); if (!scope) { draw(); return; } }
+    await applyChange(d.ev, { start: { dateTime: s.toISOString(), timeZone: TZ }, end: { dateTime: t.toISOString(), timeZone: TZ } }, scope);
   });
-  document.addEventListener("keydown", e => { if (e.key === "Escape" && drag) { cancelDrag(); } });
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && drag) cancelDrag(); });
   const paintStatus = () => { const el = root.querySelector(".cal-status"); if (el) el.firstChild.textContent = status + " "; else draw(); };
   addEventListener("resize", () => { if (root.isConnected && root.offsetParent) draw(); });
   document.addEventListener("visibilitychange", () => { if (!document.hidden && root.offsetParent && cfg && !editing) load(); });
