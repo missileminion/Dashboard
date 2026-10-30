@@ -17,7 +17,6 @@ function doPost(e) {
       case "create": return out_({ event: Calendar.Events.insert(req.event, cal) });
       case "update": return out_({ event: Calendar.Events.patch(req.patch, cal, req.id) });
       case "updateFollowing": return out_({ event: following_(cal, req.id, req.patch || {}) });
-      case "ask": return out_({ text: ask_(req.question, req.context, req.history) });
       case "delete": Calendar.Events.remove(cal, req.id); return out_({ ok: true });
       default: return out_({ error: "unknown action" });
     }
@@ -71,21 +70,6 @@ function following_(cal, id, patch) {
   const created = Calendar.Events.insert(Object.assign({ summary: master.summary, location: master.location, description: master.description, colorId: master.colorId, reminders: master.reminders, start: pt(nStart), end: pt(nEnd), recurrence: [shiftRule(newRule)] }, extra), cal);
   Calendar.Events.patch({ recurrence: rec.map((r, i) => (i === ri ? oldRule : r)) }, cal, mid);
   return created;
-}
-
-// The Console: a question goes to Claude with a compact summary of your numbers. The API key (ANTHROPIC_KEY) and the model (CLAUDE_MODEL, optional) live in Script properties.
-function ask_(question, context, history) {
-  const props = PropertiesService.getScriptProperties(), key = props.getProperty("ANTHROPIC_KEY");
-  if (!key) throw new Error("no key");
-  const model = props.getProperty("CLAUDE_MODEL") || "claude-haiku-5-5";
-  const system = "You are the console of a personal health, training and schedule dashboard, answering the one person who owns it. Reply in plain text only: no markdown, no bullet symbols, no emoji, short lines, usually under eight lines. Use only the DATA you are given and say so when something is not in it; never invent numbers. Be direct and specific, and give the reasoning in a sentence. Do not give medical diagnoses; for symptoms or worrying numbers suggest seeing a doctor. Address the person as you.";
-  const turns = (Array.isArray(history) ? history : []).filter(m => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string").slice(-8);
-  const data = JSON.stringify(context || {}).slice(0, 14000);
-  const messages = turns.concat([{ role: "user", content: "DATA (current as of now):\n" + data + "\n\nQUESTION: " + String(question || "").slice(0, 1500) }]);
-  const res = UrlFetchApp.fetch("https://api.anthropic.com/v1/messages", { method: "post", contentType: "application/json", muteHttpExceptions: true, headers: { "x-api-key": key, "anthropic-version": "2023-06-01" }, payload: JSON.stringify({ model: model, max_tokens: 700, system: system, messages: messages }) });
-  const code = res.getResponseCode(), body = JSON.parse(res.getContentText() || "{}");
-  if (code >= 300) throw new Error("Claude " + code + ": " + ((body.error && body.error.message) || "request failed"));
-  return (body.content || []).filter(b => b.type === "text").map(b => b.text).join("\n").trim();
 }
 
 // Run this once from the editor (Run > authorize) to grant the permissions. It changes nothing.

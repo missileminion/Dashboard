@@ -214,4 +214,9 @@ export function initTasks(root) {
     if (src) setDoc(src);
     if (txt == null && mirror) { dirty = true; flush(); }
   })();
+  // used by the command line: add a line to the note, or take that same line back out
+  return {
+    append(line) { const doc = view.state.doc.toString(), pre = doc.length && !doc.endsWith("\n") ? "\n" : ""; view.dispatch({ changes: { from: doc.length, insert: pre + line + "\n" } }); return line; },
+    removeLine(line) { const doc = view.state.doc.toString(), at = doc.lastIndexOf(line + "\n"); if (at >= 0) view.dispatch({ changes: { from: at, to: at + line.length + 1 } }); }
+  };
 }

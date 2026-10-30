@@ -288,5 +288,23 @@ export function initCalendar(root, { demo = false } = {}) {
   document.addEventListener("visibilitychange", () => { if (!document.hidden && root.offsetParent && cfg && !editing) load(); });
   setInterval(() => { if (!document.hidden && root.offsetParent && cfg && !editing && !busy) load(); }, 5 * 60000);
   draw(); if (demo || (cfg && cfg.url)) load();
-  return { reload: () => load() };
+  // used by the command line
+  const norm_ = s => String(s).toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+  return {
+    reload: () => load(),
+    events: () => events.filter(e => !hidden.has(e.cal)),
+    // events whose title matches the words you typed, best first: today's unfinished ones, then upcoming, then recent
+    find(q, { notDone = false } = {}) {
+      const words = norm_(q).split(" ").filter(Boolean), now = Date.now();
+      return events.filter(e => !hidden.has(e.cal) && (!notDone || !e.done)).map(e => { const t = norm_(e.title), hit = words.filter(w => t.includes(w)).length; return { e, hit, d: Math.abs(+e.s - now) }; })
+        .filter(x => x.hit === words.length).sort((a, b) => (a.e.done - b.e.done) || (a.d - b.d)).map(x => x.e);
+    },
+    async create({ title, start, end }) {
+      const cal = cals.find(c => c.primary && c.writable) || cals.find(c => c.writable); if (!cal) throw new Error("No writable calendar found.");
+      const r = await bridge("create", { calendarId: cal.id, event: { summary: title, start: { dateTime: start.toISOString(), timeZone: TZ }, end: { dateTime: end.toISOString(), timeZone: TZ }, reminders: { useDefault: false, overrides: [] } } });
+      await load(); return { id: r.event && r.event.id, cal: cal.id };
+    },
+    async remove(id, calId) { await bridge("delete", { calendarId: calId, id }); await load(); },
+    async setDone(id, want) { const ev = events.find(x => x.id === id); if (!ev) throw new Error("That event is not loaded."); if (want !== undefined && ev.done === want) return ev; await setDone(id); return ev; }
+  };
 }

@@ -261,7 +261,12 @@ export function initGymLog(root, { demo = false } = {}) {
     } else if (fromFile == null && entries.length && !demo && !HOSTED) { dirty = true; flush(); }
     else if (HOSTED) setStatus("Saved in this browser only. Connect GitHub below to sync across devices.");
   })();
-  return { get entries() { return entries; } };
+  // used by the command line: add or remove a set without touching the page
+  return {
+    get entries() { return entries; },
+    add({ date, day, exercise, weight, reps, sets }) { const e = { id: Date.now() + Math.floor(Math.random() * 1000), date, day, exercise, weight, reps, sets: sets || 1 }; entries.push(e); changed(); render(); return e; },
+    remove(id) { entries = entries.filter(x => x.id !== id); deleted.add(id); changed(); render(); }
+  };
 }
 
 // demo only: eight weeks of a push / pull / legs split with slowly rising weights

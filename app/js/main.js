@@ -415,11 +415,17 @@ const last2 = k => { for (let i = 0; i < 4; i++) { const v = byDate[addDays(toda
   $("tabs").addEventListener("click", e => { const b = e.target.closest("button"); if (b) setTab(b.dataset.t); });
   let k = "health"; try { k = localStorage.getItem("tab") || k; } catch {}
   setTab(TABS.includes(k) ? k : "health");
-  initTimer($("timerRoot"));
-  initCalendar($("calRoot"), { demo: DEMO });
-  initTerminal($("consoleRoot"), { demo: DEMO });
-  initTasks($("tasksRoot"));
+  const timerApi = initTimer($("timerRoot")), calApi = initCalendar($("calRoot"), { demo: DEMO }), tasksApi = initTasks($("tasksRoot"));
   gymLogApi = initGymLog($("glogRoot"), { demo: DEMO });
+  initTerminal($("consoleRoot"), { demo: DEMO, api: { timer: timerApi, cal: calApi, tasks: tasksApi, gym: () => gymLogApi } });
+  // the command line from anywhere: Cmd/Ctrl+K opens it and, pressed again, returns to the page you were on; Esc on an empty line does the same
+  let prevTab = "health";
+  addEventListener("goto", e => { if (document.body.dataset.tab !== "console") prevTab = document.body.dataset.tab; setTab(e.detail); });
+  addEventListener("keydown", e => {
+    const cur = document.body.dataset.tab;
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); if (cur === "console") setTab(prevTab); else { prevTab = cur; setTab("console"); } }
+    else if (e.key === "Escape" && cur === "console" && !document.getElementById("tmIn").value) setTab(prevTab);
+  });
   renderWeightEntry();
   initSky({ demo: DEMO });
   initWeather($("weatherRoot"));

@@ -239,4 +239,12 @@ export function initTimer(root) {
     if (dsig !== devSig) { devSig = dsig; buildDev(); }
   }
   tick(); setInterval(tick, 250);
+  // used by the command line
+  return {
+    start(minutes) { const keep = prefs.workMin; if (minutes) prefs.workMin = Math.min(180, Math.max(1, minutes)); startWork(); prefs.workMin = keep; tick(); return Math.round(workAllot / 60); },
+    pause() { if (S.mode !== "idle" && !paused()) togglePause(); },
+    resume() { if (paused()) togglePause(); },
+    stop() { Object.assign(S, { pausedAt: null, mode: "idle", startTs: null, allot: prefs.workMin * 60, cur: null }); alerted = overdueAlerted = false; tick(); },
+    get running() { return S.mode !== "idle"; }
+  };
 }
