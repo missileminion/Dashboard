@@ -430,3 +430,7 @@ body.theme-glass .card[data-k=tasks]{background:linear-gradient(155deg,rgba(255,
 /* the tasks panel and the week grid keep hard borders */
 .cal-grid{border:1px solid rgba(255,255,255,.18)!important;border-radius:18px!important;background:rgba(9,11,20,.5)!important;-webkit-mask-image:none!important;mask-image:none!important;backdrop-filter:blur(12px)}
 @media (max-width:760px){.ag-top{grid-template-columns:120px minmax(0,1fr)!important;gap:10px!important;align-items:start} .ag-ringbox{max-width:120px!important} .ag-cl{display:none} .ag-card{position:static;max-height:none} .ag-path{min-width:700px}}
+
+/* the toolbar is one slim line so the path sits at the very top */
+.cal-top{margin-bottom:10px!important} .cal-chips.cal-inline{margin:0!important;display:flex;gap:6px;flex-wrap:wrap} .cal-inline .cal-chip{padding:4px 11px;font-size:12px}
+.ag-tl{padding-top:8px!important} .ag-left{gap:10px}

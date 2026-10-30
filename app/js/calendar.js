@@ -99,9 +99,8 @@ export function initCalendar(root, { demo = false } = {}) {
   function head() {
     const a = fmtDay(week, { month: "short", day: "numeric" }), b = fmtDay(addDays(week, 6), { month: "short", day: "numeric" });
     return `<div class="cal-top"><div class="cal-nav"><button type="button" data-a="prev" aria-label="Previous week">‹</button><button type="button" data-a="today">Today</button><button type="button" data-a="next" aria-label="Next week">›</button></div>
-      <div class="cal-range">${a} – ${b}</div><div style="flex:1"></div>
+      <div class="cal-range">${a} – ${b}</div><div class="cal-chips cal-inline">${cals.map(c => `<button type="button" class="cal-chip${hidden.has(c.id) ? " off" : ""}" data-c="${esc(c.id)}"><i style="background:${esc(c.color)}"></i>${esc(c.name)}</button>`).join("")}</div><div style="flex:1"></div>
       <button type="button" class="btn" data-a="new">+ New</button><button type="button" class="btn" data-a="refresh" aria-label="Refresh">${busy ? "…" : narrow() ? "↻" : "Refresh"}</button></div>
-      <div class="cal-chips">${cals.map(c => `<button type="button" class="cal-chip${hidden.has(c.id) ? " off" : ""}" data-c="${esc(c.id)}"><i style="background:${esc(c.color)}"></i>${esc(c.name)}</button>`).join("")}</div>
       ${status ? `<div class="basis cal-status">${esc(status)} <button type="button" class="btn" data-a="refresh">Retry</button></div>` : ""}`;
   }
   function gridHTML() {
