@@ -3,7 +3,7 @@
 // The bridge URL and secret are kept in this browser only. Events are fetched into the page and never stored anywhere else.
 import { esc, ymd, addDays, pad } from "./util.js";
 import { plannedFor } from "./analytics.js";
-import { agendaHTML as mergedAgenda, wireAgenda } from "./agenda.js";
+import { agendaHTML as mergedAgenda, wireAgenda, toggleCard } from "./agenda.js";
 
 const CFG = "cal.cfg", HIDDEN = "cal.hidden", VIEW = "cal.view", CACHE = "cal.cache", CALS = "cal.cals";
 const HR = 44;   // pixels per hour in the week grid
@@ -100,7 +100,7 @@ export function initCalendar(root, { demo = false } = {}) {
     const a = fmtDay(week, { month: "short", day: "numeric" }), b = fmtDay(addDays(week, 6), { month: "short", day: "numeric" });
     return `<div class="cal-top"><div class="cal-nav"><button type="button" data-a="prev" aria-label="Previous week">‹</button><button type="button" data-a="today">Today</button><button type="button" data-a="next" aria-label="Next week">›</button></div>
       <div class="cal-range">${a} – ${b}</div><div class="cal-popwrap"><button type="button" class="btn cal-calbtn" data-a="cals" aria-expanded="${calsOpen}">Calendars <span>${cals.filter(c => !hidden.has(c.id)).length}/${cals.length}</span> ▾</button>${calsOpen ? `<div class="cal-pop" role="menu">${cals.map(c => `<button type="button" class="cal-popit${hidden.has(c.id) ? " off" : ""}" data-c="${esc(c.id)}" role="menuitemcheckbox" aria-checked="${!hidden.has(c.id)}"><i style="background:${esc(c.color)}"></i><span>${esc(c.name)}</span><b>${hidden.has(c.id) ? "" : "✓"}</b></button>`).join("")}</div>` : ""}</div><div style="flex:1"></div>
-      <button type="button" class="btn" data-a="new">+ New</button><button type="button" class="btn" data-a="refresh" aria-label="Refresh">${busy ? "…" : narrow() ? "↻" : "Refresh"}</button></div>
+      <button type="button" class="btn" data-a="new">+ New</button></div>
       ${status ? `<div class="basis cal-status">${esc(status)} <button type="button" class="btn" data-a="refresh">Retry</button></div>` : ""}`;
   }
   function gridHTML() {
@@ -128,7 +128,7 @@ export function initCalendar(root, { demo = false } = {}) {
   function draw() {
     if (!demo && !(cfg && cfg.url)) { root.innerHTML = setupHTML(); wireSetup(); return; }
     const keep = root.querySelector("#calScroll")?.scrollTop;
-    root.innerHTML = head() + mergedAgenda({ days: days(), list: visible(), focus: focusDay(), today: today() }) + (narrow() ? "" : `<div class="cal-gh2">THE WEEK</div>` + gridHTML()) + `<div class="basis cal-foot">${demo ? "Demo calendar. Changes here stay in this page." : ""}<a class="cal-link" href="labs/index.html">Labs</a> ${!demo ? `<button type="button" class="cal-link" data-a="disconnect">Disconnect</button>` : ""}</div>`;
+    root.innerHTML = head() + mergedAgenda({ days: days(), list: visible(), focus: focusDay(), today: today(), calNames: Object.fromEntries(cals.map(k => [k.id, k.name])) }) + (narrow() ? "" : `<div class="cal-gh2">THE WEEK</div>` + gridHTML()) + `<div class="basis cal-foot">${demo ? "Demo calendar. Changes here stay in this page." : ""}<a class="cal-link" href="labs/index.html">Labs</a> ${!demo ? `<button type="button" class="cal-link" data-a="disconnect">Disconnect</button>` : ""}</div>`;
     wireAgenda(root, { list: visible(), focus: focusDay(), today: today() });
     const sc = root.querySelector("#calScroll"); if (sc) sc.scrollTop = keep ?? (week === addDays(today(), -1) ? Math.max(0, (new Date().getHours() - 2) * HR) : 7 * HR);
   }
@@ -183,6 +183,7 @@ export function initCalendar(root, { demo = false } = {}) {
   /* ---------- events ---------- */
   root.addEventListener("click", e => {
     if (justDragged) return;
+    if (e.target.closest(".ag-card") && !e.target.closest("[data-id]")) { toggleCard(root); return; }
     if (calsOpen && !e.target.closest(".cal-popwrap")) { calsOpen = false; draw(); }
     const b = e.target.closest("[data-a],[data-v],[data-c],[data-id],[data-fd]");
     if (b && b.dataset.a) {
@@ -260,6 +261,7 @@ export function initCalendar(root, { demo = false } = {}) {
     await applyChange(d.ev, { start: { dateTime: s.toISOString(), timeZone: TZ }, end: { dateTime: t.toISOString(), timeZone: TZ } }, scope);
   });
   document.addEventListener("keydown", e => { if (e.key === "Escape" && drag) endDrag(); });
+  root.addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.classList?.contains("ag-card")) { e.preventDefault(); toggleCard(root); } });
   const paintStatus = () => { const el = root.querySelector(".cal-status"); if (el) el.firstChild.textContent = status + " "; else draw(); };
   addEventListener("resize", () => { if (root.isConnected && root.offsetParent) draw(); });
   document.addEventListener("visibilitychange", () => { if (!document.hidden && root.offsetParent && cfg && !editing) load(); });

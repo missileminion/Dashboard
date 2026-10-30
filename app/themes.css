@@ -445,3 +445,18 @@ body.theme-glass .card[data-k=tasks]{background:linear-gradient(155deg,rgba(255,
 .cal-popit{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:0;color:var(--tx);padding:10px 12px;border-radius:11px;font:14px var(--sans);cursor:pointer} .cal-popit:hover{background:rgba(255,255,255,.07)} .cal-popit i{width:10px;height:10px;border-radius:50%;flex:none} .cal-popit span{flex:1} .cal-popit b{color:#fff;width:14px} .cal-popit.off{opacity:.5}
 @media (max-width:980px){.ag-main{grid-template-columns:1fr!important}}
 @media (max-width:700px){.cal-pop{left:auto;right:0;min-width:240px;max-width:calc(100vw - 32px)}}
+
+/* ---------- the path is the main thing: wide and tall; the tasks card is minimal until you click it ---------- */
+.ag-main{grid-template-columns:minmax(0,1fr) 350px!important;gap:28px!important} @media (max-width:1100px){.ag-main{grid-template-columns:1fr!important}}
+.ag-path{max-height:none!important} .ag-ev{font:600 15px var(--sans)!important} .ag-evt{font:11px var(--mono)!important} .ag-hl{font-size:11px!important} .ag-sun{font-size:12px!important} .ag-now{font:700 11px var(--mono)}
+.ag-card{cursor:pointer;padding:2px 16px 8px!important;transition:background .2s} .ag-card:hover{background:rgba(14,17,30,.66)} .ag-card:focus-visible{outline:2px solid rgba(255,255,255,.5);outline-offset:2px}
+.ag-card .ag-dh{padding:12px 0 8px!important} .ag-chev{font-style:normal;margin-left:10px;display:inline-block;transition:transform .35s} .ag-card.open .ag-chev{transform:rotate(180deg)}
+.ag-fold{display:grid;grid-template-rows:1fr;transition:grid-template-rows .42s cubic-bezier(.3,.7,.2,1),opacity .3s} .ag-fi{overflow:hidden;min-height:0}
+.ag-foldfull{grid-template-rows:0fr;opacity:0} .ag-card.open .ag-foldfull{grid-template-rows:1fr;opacity:1} .ag-card.open .ag-foldmin{grid-template-rows:0fr;opacity:0}
+.ag-mini{display:grid;grid-template-columns:12px 58px minmax(0,1fr);gap:9px;align-items:center;padding:6px 0;font:13.5px var(--sans);color:#eceef6} .ag-mini .ag-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .ag-mini .ag-time{font-size:11px}
+.ag-mini .ag-dot{width:7px;height:7px;justify-self:center} .ag-mini.next .ag-dot{background:#ff2d37;box-shadow:0 0 0 3px rgba(255,45,55,.2)} .ag-mini.now .ag-dot{background:#fff} .ag-mini.past{opacity:.42} .ag-mini.routine{color:#9fa3b3} .ag-mini.heavy .ag-dot{background:#ff2d37} .ag-mini.heavy .ag-title{font-weight:600} .ag-mini.next .ag-time{color:#ff2d37}
+.ag-det{padding:12px 0;border-top:1px dotted rgba(255,255,255,.16)} .ag-det:first-child{border-top:0}
+.ag-dtop{display:flex;gap:8px;align-items:center;font:11px var(--mono);letter-spacing:.06em} .ag-dtop .ag-time{color:#c9cdda} .ag-dd{color:#7a7f90;border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:1px 8px;font-size:9.5px} .ag-edit{margin-left:auto;background:none;border:1px solid rgba(255,255,255,.22);color:#fff;border-radius:999px;padding:3px 11px;font:600 9.5px var(--mono);letter-spacing:.1em;cursor:pointer} .ag-edit:hover{background:rgba(255,255,255,.1)}
+.ag-dt{font:600 17px/1.3 var(--sans);margin:6px 0 2px;color:#fff} .ag-dl{font-size:13px;color:#aab0c2} .ag-dn{font-size:12.5px;color:#8c91a3;margin-top:5px;line-height:1.5;white-space:pre-line} .ag-dc{display:flex;align-items:center;gap:7px;font:10px var(--mono);letter-spacing:.08em;color:#7a7f90;margin-top:7px;text-transform:uppercase} .ag-dc i{width:7px;height:7px;border-radius:50%}
+.ag-det.past{opacity:.55} .ag-det.heavy .ag-dt{color:#ff6068}
+.ag-info{display:flex;flex-direction:column;gap:12px;padding:2px 2px} .ag-info .ag-stats{grid-template-columns:repeat(2,minmax(0,1fr))!important}
