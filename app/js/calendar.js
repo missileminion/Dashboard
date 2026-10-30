@@ -3,6 +3,7 @@
 // The bridge URL and secret are kept in this browser only. Events are fetched into the page and never stored anywhere else.
 import { esc, ymd, addDays, pad } from "./util.js";
 import { plannedFor } from "./analytics.js";
+import { agendaHTML as mergedAgenda, wireAgenda } from "./agenda.js";
 
 const CFG = "cal.cfg", HIDDEN = "cal.hidden", VIEW = "cal.view", CACHE = "cal.cache", CALS = "cal.cals";
 const HR = 44;   // pixels per hour in the week grid
@@ -18,7 +19,8 @@ const fmtDay = (s, o) => atNoon(s).toLocaleDateString("en-US", o);
 
 export function initCalendar(root, { demo = false } = {}) {
   let cfg = demo ? { demo: true } : get(CFG), cals = get(CALS, []), hidden = new Set(get(HIDDEN, [])), view = get(VIEW, "week"), week = addDays(ymd(new Date()), -1);
-  let events = [], status = "", busy = false, token = 0, editing = null;
+  let events = [], status = "", busy = false, token = 0, editing = null, focus = null;
+  const focusDay = () => (days().includes(focus) ? focus : days().includes(today()) ? today() : days()[0]);
   const today = () => ymd(new Date());
   const narrow = () => root.clientWidth < 760;
 
@@ -93,7 +95,7 @@ export function initCalendar(root, { demo = false } = {}) {
     return `<div class="cal-top"><div class="cal-nav"><button type="button" data-a="prev" aria-label="Previous week">‹</button><button type="button" data-a="today">Today</button><button type="button" data-a="next" aria-label="Next week">›</button></div>
       <div class="cal-range">${a} – ${b}</div><div style="flex:1"></div>
       ${narrow() ? "" : `<div class="seg cal-seg"><button type="button" data-v="week" class="${view === "week" ? "on" : ""}">Week</button><button type="button" data-v="agenda" class="${view === "agenda" ? "on" : ""}">Agenda</button></div>`}
-      <button type="button" class="btn" data-a="new">+ New</button><button type="button" class="btn" data-a="refresh">${busy ? "…" : "Refresh"}</button></div>
+      <button type="button" class="btn" data-a="new">+ New</button><button type="button" class="btn" data-a="refresh" aria-label="Refresh">${busy ? "…" : narrow() ? "↻" : "Refresh"}</button></div>
       <div class="cal-chips">${cals.map(c => `<button type="button" class="cal-chip${hidden.has(c.id) ? " off" : ""}" data-c="${esc(c.id)}"><i style="background:${esc(c.color)}"></i>${esc(c.name)}</button>`).join("")}</div>
       ${status ? `<div class="basis cal-status">${esc(status)} <button type="button" class="btn" data-a="refresh">Retry</button></div>` : ""}`;
   }
@@ -122,7 +124,9 @@ export function initCalendar(root, { demo = false } = {}) {
   function draw() {
     if (!demo && !(cfg && cfg.url)) { root.innerHTML = setupHTML(); wireSetup(); return; }
     const keep = root.querySelector("#calScroll")?.scrollTop;
-    root.innerHTML = head() + (narrow() || view === "agenda" ? agendaHTML() : gridHTML()) + `<div class="basis cal-foot">${demo ? "Demo calendar. Changes here stay in this page." : ""}<a class="cal-link" href="labs/index.html">Labs</a> ${!demo ? `<button type="button" class="cal-link" data-a="disconnect">Disconnect</button>` : ""}</div>`;
+    const agendaOn = narrow() || view === "agenda";
+    root.innerHTML = head() + (agendaOn ? mergedAgenda({ days: days(), list: visible(), focus: focusDay(), today: today() }) : gridHTML()) + `<div class="basis cal-foot">${demo ? "Demo calendar. Changes here stay in this page." : ""}<a class="cal-link" href="labs/index.html">Labs</a> ${!demo ? `<button type="button" class="cal-link" data-a="disconnect">Disconnect</button>` : ""}</div>`;
+    if (agendaOn) wireAgenda(root, { list: visible(), focus: focusDay(), today: today() });
     const sc = root.querySelector("#calScroll"); if (sc) sc.scrollTop = keep ?? (week === addDays(today(), -1) ? Math.max(0, (new Date().getHours() - 2) * HR) : 7 * HR);
   }
   function wireSetup() {
@@ -175,7 +179,7 @@ export function initCalendar(root, { demo = false } = {}) {
   /* ---------- events ---------- */
   root.addEventListener("click", e => {
     if (justDragged) return;
-    const b = e.target.closest("[data-a],[data-v],[data-c],[data-id]");
+    const b = e.target.closest("[data-a],[data-v],[data-c],[data-id],[data-fd]");
     if (b && b.dataset.a) {
       const a = b.dataset.a;
       if (a === "prev" || a === "next") { week = addDays(week, a === "next" ? 7 : -7); load(); }
@@ -183,6 +187,7 @@ export function initCalendar(root, { demo = false } = {}) {
       else if (a === "refresh") load();
       else if (a === "new") { const n = new Date(); n.setMinutes(0, 0, 0); n.setHours(n.getHours() + 1); openEditor(null, n); }
       else if (a === "disconnect" && confirm("Disconnect this browser from your calendar? Your calendar itself is untouched.")) { cfg = null; cals = []; events = []; try { ["cal.cfg", CALS, CACHE].forEach(k => localStorage.removeItem(k)); } catch {} draw(); }
+    } else if (b && b.dataset.fd) { focus = b.dataset.fd; draw(); root.querySelector(`.ag-day[data-day="${focus}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
     } else if (b && b.dataset.v) { view = b.dataset.v; put(VIEW, view); draw(); }
     else if (b && b.dataset.c) { hidden.has(b.dataset.c) ? hidden.delete(b.dataset.c) : hidden.add(b.dataset.c); put(HIDDEN, [...hidden]); load(); }
     else if (b && b.dataset.id) { const ev = events.find(x => x.id === b.dataset.id); if (ev) openEditor(ev); }
