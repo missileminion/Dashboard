@@ -414,3 +414,19 @@ body.theme-glass .card[data-k=tasks]{background:linear-gradient(155deg,rgba(255,
 .cal-ev.ghost{position:fixed!important;z-index:1000;margin:0;pointer-events:none;box-shadow:0 10px 30px rgba(0,0,0,.5);opacity:.96;transition:none}
 .cal-ev.lifted{opacity:.28}
 .cal-scroll{overflow-y:scroll;scrollbar-gutter:stable;overscroll-behavior:contain}
+
+/* ---------- one-screen layout: chips on top; the ring and the sun path on the left, that day's tasks on the right ---------- */
+.ag{gap:12px}
+.ag-week{max-width:none;margin:0 0 2px} .ag-chip{padding:6px 2px 5px;gap:3px;border-radius:14px} .ag-chip svg{max-width:30px}
+.ag-main{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(330px,.9fr);gap:22px;align-items:start} @media (max-width:980px){.ag-main{grid-template-columns:1fr}}
+.ag-left{display:flex;flex-direction:column;gap:6px;min-width:0}
+.ag-top{grid-template-columns:150px minmax(0,1fr)!important;gap:18px!important;align-items:center}
+.ag-ringbox{max-width:150px!important} .ag-cl{font-size:8px;letter-spacing:.14em} .ag-clk{width:52%}
+.ag-cap b{font-size:18px} .ag-stats{grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:7px!important} .ag-stats div{padding:7px 9px!important} .ag-stats b{font-size:13.5px!important} .ag-stats span{font-size:8px!important}
+@media (max-width:1100px){.ag-stats{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+.ag-path{min-width:620px;max-height:360px}
+.ag-right{min-width:0} .ag-card{border:1px solid rgba(255,255,255,.18);border-radius:22px;background:rgba(9,11,20,.55);backdrop-filter:blur(16px);padding:4px 18px 12px;position:sticky;top:12px;max-height:calc(100vh - 36px);overflow:auto;scrollbar-width:none} .ag-card::-webkit-scrollbar{display:none}
+.ag-card .ag-dh{cursor:default;border-bottom:1px dotted rgba(255,255,255,.2);margin-bottom:4px;padding:14px 0 10px}
+/* the tasks panel and the week grid keep hard borders */
+.cal-grid{border:1px solid rgba(255,255,255,.18)!important;border-radius:18px!important;background:rgba(9,11,20,.5)!important;-webkit-mask-image:none!important;mask-image:none!important;backdrop-filter:blur(12px)}
+@media (max-width:760px){.ag-top{grid-template-columns:120px minmax(0,1fr)!important;gap:10px!important;align-items:start} .ag-ringbox{max-width:120px!important} .ag-cl{display:none} .ag-card{position:static;max-height:none} .ag-path{min-width:700px}}

@@ -35,13 +35,13 @@ function clock(txt, blink) {   // dot-matrix digits as SVG circles
 }
 
 /* ---------- the timeline: the sun's path as a dotted curve across 24 hours, the tasks laid on it ---------- */
-const VW = 1200, VH = 476, X0 = 34, X1 = 1166, HOR = 296;
+const VW = 900, VH = 436, X0 = 26, X1 = 874, HOR = 266;
 const Xm = m => X0 + m / 1440 * (X1 - X0);
 function sunTimes(day, loc) { let rise = null, set = null, prev = alt(day, 0, loc); for (let m = 5; m <= 1440; m += 5) { const v = alt(day, m % 1440, loc); if (prev < 0 && v >= 0 && rise == null) rise = m; if (prev >= 0 && v < 0 && set == null) set = m; prev = v; } return { rise, set }; }
 // one smooth curve: the sun's altitude over the day, with the night half eased in so the arc keeps its true sine-like shape and a continuous slope at the horizon
 function curveFor(day, loc) {
   const A = []; for (let m = 0; m <= 1440; m += 5) A.push(alt(day, m % 1440, loc));
-  const mx = Math.max(...A), f = v => (v >= 0 ? v : v / (1 - v / 45)), k = Math.min(3, 122 / Math.max(10, mx)), y = v => HOR - f(v) * k;
+  const mx = Math.max(...A), f = v => (v >= 0 ? v : v / (1 - v / 45)), k = Math.min(2.7, 108 / Math.max(10, mx)), y = v => HOR - f(v) * k;
   return { A, y, Y: m => { const q = Math.min(287.999, m / 5), i = Math.floor(q); return y(A[i] + (A[i + 1] - A[i]) * (q - i)); }, horizon: HOR };
 }
 function timelineSVG(day, list, scrub, now, loc) {
@@ -52,22 +52,22 @@ function timelineSVG(day, list, scrub, now, loc) {
     s += `<circle cx="${Xm(m).toFixed(1)}" cy="${C.y(C.A[m / 5]).toFixed(1)}" r="2.1" fill="${hit.length ? (hit.some(heavyEv) ? RED : past ? "#8a90a4" : "#fff") : up ? "#aeb3c4" : "#454957"}" opacity="${hit.length ? 1 : up ? .72 : .6}"/>`;   // every dot the same size; a task is a brighter colour
   }
   const bed = ((TARGET.wakeMin - TARGET.idealMin) % 1440 + 1440) % 1440, wake = TARGET.wakeMin;   // the sleep window along the bottom
-  for (let m = 0; m < 1440; m += 10) if (bed > wake ? m >= bed || m < wake : m >= bed && m < wake) s += `<circle cx="${Xm(m).toFixed(1)}" cy="426" r="1.9" fill="#7c86a8"/>`;
-  s += `<text x="${Xm(wake / 2)}" y="414" text-anchor="middle" class="ag-sun" style="fill:#7c86a8">SLEEP</text><text x="${Xm(bed + (1440 - bed) / 2)}" y="414" text-anchor="middle" class="ag-sun" style="fill:#7c86a8">SLEEP</text>`;
-  [0, 3, 6, 9, 12, 15, 18, 21, 24].forEach(h => { s += `<text x="${Xm(h * 60)}" y="462" text-anchor="${h === 24 ? "end" : h === 0 ? "start" : "middle"}" class="ag-hl">${pad(h % 24)}</text>`; });
+  for (let m = 0; m < 1440; m += 10) if (bed > wake ? m >= bed || m < wake : m >= bed && m < wake) s += `<circle cx="${Xm(m).toFixed(1)}" cy="382" r="1.9" fill="#7c86a8"/>`;
+  s += `<text x="${Xm(wake / 2)}" y="370" text-anchor="middle" class="ag-sun" style="fill:#7c86a8">SLEEP</text><text x="${Xm(bed + (1440 - bed) / 2)}" y="370" text-anchor="middle" class="ag-sun" style="fill:#7c86a8">SLEEP</text>`;
+  [0, 3, 6, 9, 12, 15, 18, 21, 24].forEach(h => { s += `<text x="${Xm(h * 60)}" y="422" text-anchor="${h === 24 ? "end" : h === 0 ? "start" : "middle"}" class="ag-hl">${pad(h % 24)}</text>`; });
   [[rise, "↑"], [set, "↓"]].forEach(([m, g]) => { if (m != null) s += `<text x="${Xm(m)}" y="${C.horizon + 24}" text-anchor="middle" class="ag-sun">${g} ${pad(Math.floor(m / 60))}:${pad(m % 60)}</text>`; });
   // task titles sit in their own band above the curve, on leader lines, staggered into lanes so no text ever touches the curve or another title
   const lanes = [];
   dayEv.forEach(e => {
-    const startM = e.s < at(day, 0) ? 0 : mins(e.s), x = Xm(startM), title = e.title.length > 30 ? e.title.slice(0, 29) + "…" : e.title, w = Math.max(74, title.length * 7.4 + 10), flip = x + w > VW - 14, xs = flip ? x - w : x;
+    const startM = e.s < at(day, 0) ? 0 : mins(e.s), x = Xm(startM), title = e.title.length > 28 ? e.title.slice(0, 27) + "…" : e.title, w = Math.max(70, title.length * 7.6 + 10), flip = x + w > VW - 14, xs = flip ? x - w : x;
     const lane = lanes.findIndex(r => r < xs - 8), ln = lane < 0 ? lanes.length : lane; if (ln > 3) return; lanes[ln] = xs + w;
-    const by = C.Y(startM), ly = 26 + ln * 36, past = isToday && e.e <= now, col = heavyEv(e) ? RED : past ? "#8b90a3" : "#fff", dim = e.recurring && !heavyEv(e), tx = flip ? x - 5 : x + 5, anchor = flip ? "end" : "start";
-    s += `<g class="ag-bead" data-id="${esc(e.id)}"><line x1="${x}" x2="${x}" y1="${ly + 20}" y2="${by - 9}" stroke="${col}" stroke-opacity=".4" stroke-dasharray="1.5 4"/><circle cx="${x}" cy="${by}" r="8.5" fill="none" stroke="${col}" stroke-width="1.6"/>`
-      + `<text x="${tx}" y="${ly}" text-anchor="${anchor}" class="ag-ev" fill="${col}" opacity="${dim ? .7 : 1}">${esc(title)}</text><text x="${tx}" y="${ly + 14}" text-anchor="${anchor}" class="ag-evt">${hhmm(e.s)}–${hhmm(e.e)}</text><rect x="${xs - 6}" y="${ly - 15}" width="${w + 12}" height="34" fill="transparent"/></g>`;
+    const by = C.Y(startM), ly = 24 + ln * 34, past = isToday && e.e <= now, col = heavyEv(e) ? RED : past ? "#8b90a3" : "#fff", dim = e.recurring && !heavyEv(e), tx = flip ? x - 5 : x + 5, anchor = flip ? "end" : "start";
+    s += `<g class="ag-bead" data-id="${esc(e.id)}"><line x1="${x}" x2="${x}" y1="${ly + 20}" y2="${by - 4}" stroke="${col}" stroke-opacity=".55" stroke-width="1.4" stroke-dasharray="3 4"/>`
+      + `<text x="${tx}" y="${ly}" text-anchor="${anchor}" class="ag-ev" fill="${col}" opacity="${dim ? .7 : 1}">${esc(title)}</text><text x="${tx}" y="${ly + 14}" text-anchor="${anchor}" class="ag-evt">${hhmm(e.s)}–${hhmm(e.e)}</text><rect x="${xs - 6}" y="${ly - 15}" width="${w + 12}" height="${Math.max(34, by - ly + 4)}" fill="transparent"/></g>`;
   });
-  const mk = (m, col, r) => `<line x1="${Xm(m)}" x2="${Xm(m)}" y1="${C.Y(m) + 12}" y2="398" stroke="${col}" stroke-opacity=".4" stroke-dasharray="2 5"/><circle cx="${Xm(m)}" cy="${C.Y(m)}" r="${r + 7}" fill="none" stroke="${col}" stroke-width="1.8"/><circle cx="${Xm(m)}" cy="${C.Y(m)}" r="${r}" fill="${col}"/>`;
-  if (isToday) s += mk(nm, RED, 4.5);
-  if (scrub != null) s += mk(scrub + 2.5, "#fff", 4);
+  const mk = (m, col) => `<line x1="${Xm(m)}" x2="${Xm(m)}" y1="${C.Y(m) + 2}" y2="352" stroke="${col}" stroke-width="2" stroke-dasharray="6 5" stroke-linecap="round"/>`;
+  if (isToday) s += mk(nm, "#ffd24d");
+  if (scrub != null) s += mk(scrub + 2.5, "#fff");
   return s;
 }
 
@@ -103,19 +103,14 @@ function chipHTML(day, list, focus, today) {
 export function agendaHTML(ctx) {
   const { days, list, focus, today } = ctx, now = new Date();
   const nextEv = list.filter(e => !e.allDay && e.e > now).sort((a, b) => a.s - b.s).find(e => e.s > now);
-  const allDay = list.filter(e => e.allDay && onDay(e, focus));
-  const rows = days.map(day => {
-    const evs = list.filter(e => onDay(e, day)).sort((a, b) => (a.allDay ? -1 : 0) - (b.allDay ? -1 : 0) || a.s - b.s), d = new Date(day + "T12:00:00"), h = hoursOn(list, day);
-    return `<section class="ag-day${day === focus ? " on" : ""}" data-day="${day}"><button type="button" class="ag-dh" data-fd="${day}"><span><b>${d.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase()} ${d.getDate()}</b>${day === today ? ' <i class="ag-red">TODAY</i>' : ""}<em>${plannedFor(day).toUpperCase()}</em></span><span>${h ? h.toFixed(1) + " H" : ""}</span></button>
-      ${evs.length ? evs.map(e => { const past = !e.allDay && e.e <= now, cur = !e.allDay && e.s <= now && e.e > now, nx = nextEv && e === nextEv;
-        return `<button type="button" class="ag-row${past ? " past" : ""}${cur ? " now" : ""}${nx ? " next" : ""}${e.recurring ? " routine" : ""}${heavyEv(e) ? " heavy" : ""}" data-id="${esc(e.id)}"><i class="ag-dot"></i><span class="ag-time">${e.allDay ? "ALL DAY" : hhmm(e.s) + "–" + hhmm(e.e)}</span><span class="ag-title">${esc(e.title)}${e.location ? `<small>${esc(e.location)}</small>` : ""}</span><i class="ag-cal" style="background:${esc(e.color)}"></i></button>`; }).join("") : `<div class="ag-none">NOTHING SCHEDULED</div>`}</section>`;
-  }).join("");
-  return `<div class="ag"><div class="ag-top"><div class="ag-ringbox"><svg class="ag-ring" id="agRing" viewBox="0 0 400 400" aria-label="Your waking day: booked and free time"></svg><div class="ag-center"><svg class="ag-clk" id="agClk" aria-hidden="true"></svg><div class="ag-cl">DAY BUDGET</div></div></div>
-    <div class="ag-side"><div class="ag-cap" id="agCap"></div><div class="ag-stats" id="agStats"></div></div><div class="ag-week">${days.map(d => chipHTML(d, list, focus, today)).join("")}</div></div>
-    <div class="ag-tl" id="agTl"><div class="ag-scroll" id="agScroll">${allDay.length ? `<div class="ag-allday">${allDay.map(e => `<button type="button" class="${heavyEv(e) ? "heavy" : ""}" data-id="${esc(e.id)}"><i style="background:${esc(e.color)}"></i>${esc(e.title)}</button>`).join("")}</div>` : ""}
-      <svg class="ag-path" id="agPath" viewBox="0 0 ${VW} ${VH}" aria-label="Your day as tasks along the sun's path"></svg></div></div>
-    <div class="ag-legend">PATH: EACH DOT 5 MIN · <b>BRIGHT WHITE</b> A TASK · <b class="ag-red">RED</b> HEAVY OR NOW · BELOW THE DOTTED LINE IS NIGHT · RING: YOUR WAKING DAY, <b>WHITE</b> BOOKED, DIM FREE · DRAG ALONG THE PATH TO SCRUB</div>
-    <div class="ag-list">${rows}</div></div>`;
+  const day = focus, evs = list.filter(e => onDay(e, day)).sort((a, b) => (a.allDay ? -1 : 0) - (b.allDay ? -1 : 0) || a.s - b.s), d = new Date(day + "T12:00:00"), h = hoursOn(list, day);
+  const rows = evs.length ? evs.map(e => { const past = !e.allDay && e.e <= now, cur = !e.allDay && e.s <= now && e.e > now, nx = nextEv && e === nextEv;
+    return `<button type="button" class="ag-row${past ? " past" : ""}${cur ? " now" : ""}${nx ? " next" : ""}${e.recurring ? " routine" : ""}${heavyEv(e) ? " heavy" : ""}" data-id="${esc(e.id)}"><i class="ag-dot"></i><span class="ag-time">${e.allDay ? "ALL DAY" : hhmm(e.s) + "–" + hhmm(e.e)}</span><span class="ag-title">${esc(e.title)}${e.location ? `<small>${esc(e.location)}</small>` : ""}</span><i class="ag-cal" style="background:${esc(e.color)}"></i></button>`; }).join("") : `<div class="ag-none">NOTHING SCHEDULED</div>`;
+  return `<div class="ag"><div class="ag-week">${days.map(x => chipHTML(x, list, focus, today)).join("")}</div>
+    <div class="ag-main"><div class="ag-left"><div class="ag-top"><div class="ag-ringbox"><svg class="ag-ring" id="agRing" viewBox="0 0 400 400" aria-label="Your waking day: booked and free time"></svg><div class="ag-center"><svg class="ag-clk" id="agClk" aria-hidden="true"></svg><div class="ag-cl">DAY BUDGET</div></div></div>
+      <div class="ag-side"><div class="ag-cap" id="agCap"></div><div class="ag-stats" id="agStats"></div></div></div>
+      <div class="ag-tl" id="agTl"><div class="ag-scroll" id="agScroll"><svg class="ag-path" id="agPath" viewBox="0 0 ${VW} ${VH}" aria-label="Your day as tasks along the sun's path"></svg></div></div></div>
+    <div class="ag-right"><section class="ag-card"><div class="ag-dh"><span><b>${d.toLocaleDateString("en-US", { weekday: "long" }).toUpperCase()} ${d.getDate()}</b>${day === today ? ' <i class="ag-red">TODAY</i>' : ""}<em>${plannedFor(day).toUpperCase()}</em></span><span>${h ? h.toFixed(1) + " H" : ""}</span></div>${rows}</section></div></div></div>`;
 }
 
 // paint and wire (runs after the HTML is in the page)
