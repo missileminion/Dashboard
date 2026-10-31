@@ -557,3 +557,4 @@ body[data-tab=console] .hv,body[data-tab=console] .skybar{display:none!important
 .cdev-err{border-left:2px solid #ff5a64;padding:1px 0 1px 11px;display:flex;flex-direction:column;gap:2px} .cdev-meta{color:#7f8aa3;font-size:11px} .cdev-in{color:#e6f0ff;word-break:break-word} .cdev-in span{color:#ff2d37;margin-right:6px} .cdev-msg{color:#ff5a64;word-break:break-word;line-height:1.5}
 .cdev-h{color:#7f8aa3;font-size:11px;letter-spacing:.12em;text-transform:uppercase;margin-top:6px} .cdev-ex{cursor:pointer;display:flex;flex-direction:column;gap:1px;padding:2px 0} .cdev-ex b{font-weight:500;word-break:break-word} .cdev-ex span{color:#7f8aa3;font-size:11.5px;line-height:1.45} .cdev-ex:hover span{color:#a9aec0}
 @media (max-width:700px){.cdev{right:14px;bottom:12px}}
+.cdev-note{color:#a9aec0;font-size:11.5px;line-height:1.5} .cdev-note::before{content:"↳ ";color:#7f8aa3}

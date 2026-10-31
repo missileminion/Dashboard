@@ -21,7 +21,6 @@ export function interpret(raw) {
     () => R(/^(?:what(?:'s| is)\s+)?(\d+(?:\.\d+)?)\s*([a-z°"']+)\s+(?:in|to|into)\s+([a-z°]+)$/, m => ({ run: `convert ${m[1]} ${m[2]} to ${m[3]}` })),
     () => R(/^(?:how many|how much)\s+([a-z°]+)\s+(?:is|are|in)\s+(\d+(?:\.\d+)?)\s*([a-z°]+)$/, m => ({ run: `convert ${m[2]} ${m[3]} to ${m[1]}` })),
     () => R(/^(?:what(?:'s| is| are)|whats|calculate|calc|compute|how much is|solve|work out|evaluate)\s+(.+)$/, m => { const e = words2math(m[1]); return /\d/.test(e) && /^[\d\s+\-*/^().,x×÷%a-z]+$/i.test(e) ? { run: e } : undefined; }),
-    () => R(/^(?:calculate|calc|compute)\b/, () => ({ run: "calculator" })),
     // sleep, recovery, body
     () => R(/(how (did|have|was) (i|my)|how'?s my|how is my)\s*(sleep|slept)|\bmy sleep\b|sleep (last night|lately|this week|score|quality|history)/, () => ({ run: "sleep 7" })),
     () => R(/^last night\b|how was last night/, () => ({ run: "status" })),

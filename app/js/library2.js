@@ -1,9 +1,10 @@
 // More console commands (calendar editing, task editing, health reviews, gym extras, reminders, everyday calculators and text tools).
 // addMore(X) registers them through the same def() as library.js, so help, Tab completion, suggestions and blue highlighting pick them up with no extra wiring.
 import { e1rm } from "./gymlog.js";
+import { gh, ghRead, ghWrite, ghMessage } from "./ghstore.js";
 
 export function addMore(X) {
-  const { def, print, dim, ask, choose, err, undos, parseWhen, fmtDay, hhmm, midnight, addDaysD, call, history, H, series, MET, metric, calApi, tasksApi, gymApi, taskList, pickTask, rewrite, TASK, lastKg, loadWeights,
+  const { def, print, dim, ask, askInput, choose, err, undos, parseWhen, fmtDay, hhmm, midnight, addDaysD, call, history, H, series, MET, metric, calApi, tasksApi, gymApi, taskList, pickTask, rewrite, TASK, lastKg, loadWeights,
     pad, hmm, num, nn, mean, sdev, trim, thou, chart, link, dotHBars, timers, clk, rd, html, U, esc, ymd, addDays, n3, nums, relDays, longDay, copyText, beep, rankExercises, debtNow } = X;
   const minOf = d => d.getHours() * 60 + d.getMinutes(), at = (day, m) => { const d = new Date(midnight(day)); d.setMinutes(m); return d; };
   const evLine = e => `${e.allDay ? "all day" : `${hhmm(e.s)}–${hhmm(e.e)}`}  ${e.title}`;
@@ -57,6 +58,26 @@ export function addMore(X) {
   def("cal", "now whatson", "now", "what is on right now and what comes next", async () => {
     const n = new Date(), cur = timed().filter(e => e.s <= n && e.e > n), nx = timed().filter(e => e.s > n).sort((x, y) => x.s - y.s)[0];
     await print([cur.length ? cur.map(e => `on now: ${e.title}, until ${hhmm(e.e)} (${dur2(Math.round((e.e - n) / 6e4))} left)`).join("\n") : "nothing on right now", nx ? `next: ${nx.title} at ${hhmm(nx.s)}${midnight(nx.s) > midnight(n) ? " " + fmtDay(nx.s) : ""}, in ${dur2(Math.round((nx.s - n) / 6e4))}` : "nothing else in view"].flatMap(x => x.split("\n")), "tm-dim");
+  });
+  // journal: one file (journal.md) in the GitHub repo already connected for the gym log, newest day last, a 0 to 5 rating on each day's first entry
+  const JPATH = "journal.md", jHead = d => d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  async function jSave(rating, text) {
+    const now = new Date(), head = "## " + jHead(now), entry = `**${hhmm(now)}** ${text}`;
+    for (let tries = 0; ; tries++) {
+      const f = await ghRead(JPATH), doc = f ? f.text : "# Journal\n", i = doc.indexOf(head); let out;
+      if (i < 0) out = doc.replace(/\s*$/, "\n") + `\n${head}${rating != null ? ` · ${rating}/5` : ""}\n\n${entry}\n`;
+      else { let k = doc.indexOf("\n## ", i + head.length); if (k < 0) k = doc.length; out = doc.slice(0, k).replace(/\s*$/, "") + `\n\n${entry}\n` + doc.slice(k); }
+      try { await ghWrite(JPATH, out, f && f.sha, `journal ${ymd(now)} ${hhmm(now)}`); return; } catch (e) { if (tries === 0 && (e.status === 409 || e.status === 422)) continue; throw e; }
+    }
+  }
+  def("log", "journal j", "journal [what you want to write]", "write a journal entry to journal.md on GitHub, stamped with day and time; the first one each day asks how the day was, 0 to 5", async a => {
+    if (!gh.on) { await print(link("gym", "Open Gym log")); U("no GitHub repo is connected yet. Connect it on the Gym log page first (the journal uses the same repo and token)."); }
+    let f; try { f = await ghRead(JPATH); } catch (e) { U(ghMessage(e)); }
+    const first = !f || !f.text.includes("## " + jHead(new Date())), text = a.trim();
+    const finish = async (rating, body) => { if (!body) U("nothing to save."); try { await jSave(rating, body); } catch (e) { U(ghMessage(e)); } await print(`✓ saved to ${JPATH}: ${jHead(new Date())}, ${hhmm(new Date())}${rating != null ? `, day ${rating}/5` : ""}`); };
+    if (!first) return text ? finish(null, text) : askInput("write your entry (or cancel)", t => finish(null, t.trim()), true);
+    await print(["how was today?  0 awful · 3 meh · 5 great", { buttons: [0, 1, 2, 3, 4, 5].map(n => ({ label: String(n), say: String(n) })) }]);
+    askInput("press a number, or type 0 to 5 (or cancel)", async l => { const n = l.trim(); if (!/^[0-5]$/.test(n)) U("a number from 0 to 5 please. Type journal to start again."); if (text) return finish(+n, text); await askInput("write your entry (or cancel)", t => finish(+n, t.trim()), true); }, true);
   });
   def("cal", "nextfree gap", "nextfree [45m]", "the next free slot of a given length between 08:00 and 22:00 (default 1 hour), in view", async a => {
     const need = a.trim() ? parseDur(a) : 60; if (!need) U("usage: nextfree 45m"); const evs = timed().sort((x, y) => x.s - y.s), n = new Date();

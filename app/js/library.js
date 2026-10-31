@@ -59,7 +59,7 @@ const GROUPS = { log: "Log", gym: "Gym log", health: "Health numbers", body: "Bo
 export { GROUPS };
 
 export function buildLibrary(c) {
-  const { print, err, dim, ask, choose, A, calc, today, undos, parseWhen, fmtDay, hhmm, midnight, addDaysD, loadWeights, setWeight, delWeight, call, log, bottom, lastOut, history, aliases, names, timers } = c;
+  const { print, err, dim, ask, choose, A, calc, today, undos, parseWhen, fmtDay, hhmm, midnight, addDaysD, loadWeights, setWeight, delWeight, call, log, bottom, lastOut, history, aliases, names, timers, askInput } = c;
   const L = {}, meta = [];
   const def = (cat, nm, use, d, fn) => { const [n, ...al] = nm.split(" "); L[n] = fn; meta.push({ n, cat, use, d, al }); };
   const H = () => { const h = A.health && A.health(); if (!h || !h.days || !h.days.length) U("the health numbers are not loaded yet."); return h; };
@@ -430,7 +430,7 @@ export function buildLibrary(c) {
   });
   def("sys", "unalias", "unalias ww", "remove one of your aliases", async a => { if (!aliases()[a.trim().toLowerCase()]) U(`no alias called "${a.trim()}".`); c.setAlias(a.trim().toLowerCase(), null); await print("✓ alias removed"); });
   def("sys", "copy", "copy [text]", "copy text, or the last answer, to the clipboard", async a => { const t = a.trim() || lastOut(); if (!t) U("nothing to copy yet."); await print(await copyText(t) ? "✓ copied" : "could not reach the clipboard; the browser blocked it."); });
-  def("sys", "bye exit quit", "bye", "inside the calculator, leaves it. Elsewhere the console stays put: use go <page> to switch pages", async () => { await dim("the console stays open. To switch page:"); await print(PAGES); });
+  def("sys", "bye exit quit", "bye", "the console stays put; this shows buttons to switch page", async () => { await dim("the console stays open. To switch page:"); await print(PAGES); });
   def("sys", "hi hello hey hiya yo sup howdy hola gm morning", "hi", "a quick briefing: last night, today's plan, what is next, what needs doing, and what to try", async () => {
     const now = new Date(), hr = now.getHours(), part = hr < 5 ? "Still up" : hr < 12 ? "Good morning" : hr < 17 ? "Good afternoon" : "Good evening", out = [html(esc(`${part}. ${fmtDay(now)}, ${hhmm(now)}`))], tryRows = [];
     const ctx = window.__dashContext && window.__dashContext(); let h = null; try { h = A.health && A.health(); } catch {}
@@ -445,12 +445,12 @@ export function buildLibrary(c) {
     try { if (A.tasks && A.tasks.text) { const open = taskList().filter(t => !t.done).length; out.push(`  Tasks    ${open ? `${open} open` : "none open"}`); } } catch {}
     try { const w = loadWeights(), lw = w[w.length - 1]; if (lw) { const ago = Math.round((midnight(now) - midnight(new Date(lw.date + "T12:00"))) / 864e5); out.push(`  Weight   ${n3(lw.kg)} kg${ago ? `, ${ago} day${ago > 1 ? "s" : ""} ago` : ", logged today"}`); if (ago >= 3) tryRows.push("weight 70.4 logs today's"); } else tryRows.push("weight 70.4 logs your first weigh-in"); } catch {}
     if (hr < 12) tryRows.unshift("today", "routine"); else if (hr < 18) tryRows.unshift("free", "block 2h study"); else tryRows.unshift("bedtime", "agenda");
-    out.push("", `try: ${[...new Set(tryRows)].slice(0, 4).join("  ·  ")}`, "or just say it: how did I sleep · what's next · calculator · help");
+    out.push("", `try: ${[...new Set(tryRows)].slice(0, 4).join("  ·  ")}`, "or just say it: how did I sleep · what's next · help");
     await print(out, "tm-dim");
   });
   def("sys", "commands", "commands", "every command name on one screen", async () => { const by = {}; meta.forEach(m => (by[m.cat] ||= []).push(m.n)); await print(Object.entries(by).map(([k, v]) => `${(GROUPS[k] || k).padEnd(18)} ${v.sort().join(" ")}`), "tm-dim"); });
 
-  addMore({ def, print, dim, ask, choose, err, undos, parseWhen, fmtDay, hhmm, midnight, addDaysD, call, history, H, series, MET, metric, calApi, tasksApi, gymApi, taskList, pickTask, rewrite, TASK, lastKg, loadWeights,
+  addMore({ def, print, dim, ask, askInput, choose, err, undos, parseWhen, fmtDay, hhmm, midnight, addDaysD, call, history, H, series, MET, metric, calApi, tasksApi, gymApi, taskList, pickTask, rewrite, TASK, lastKg, loadWeights,
     pad, hmm, num, nn, mean, sdev, trim, thou, chart, link, dotHBars, timers, clk, rd, html, U, esc, ymd, addDays, n3, nums, relDays, longDay, copyText, beep, rankExercises, debtNow, ZONES });
   return { cmds: L, meta };
 }
