@@ -9,6 +9,7 @@ export function interpret(raw) {
   const R = (rx, f) => { const m = t.match(rx); return m ? f(m) : undefined; };
   const rules = [
     // small talk
+    () => R(/^(?:how many )?days?\s+(?:until|till|to|left until|before)\s+(.+)$|^how long (?:until|till|to)\s+(.+)$/, m => ({ run: "until " + (m[1] || m[2]) })),
     () => R(/^(hi|hello|hey|hiya|yo|sup|howdy|hola|gm|greetings|good (morning|afternoon|evening|day|night)|how are you|how'?s it going|what'?s up|wassup|whats up)\b[\w\s,!.']*$/, () => ({ run: "hi" })),
     () => R(/^(thanks|thank you|thx|ty|cheers|nice one|great|awesome|cool|perfect)\b/, () => ({ say: "any time." })),
     () => R(/^(bye|goodbye|see you|see ya|cya|later|good ?night)\b/, () => ({ run: "bye" })),

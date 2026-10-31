@@ -20,7 +20,7 @@ const TABS = { health: "health", home: "health", h: "health", prod: "prod", prod
 const CORE = [
   ["log", "add", "add gym thu 5pm", "add a calendar event (add lunch tomorrow 12:30 for 45m)", ["ev", "event"]],
   ["log", "done", "done rocketry", "mark a calendar event complete", ["d"]], ["log", "note", "note buy shoes", "add a line to Stickynote", ["n"]], ["log", "task", "task buy shoes", "add a checkbox to Stickynote", ["t"]],
-  ["log", "rm", "delete set | weight | <event title words>", "delete the last set, today's weight or a calendar event (asks first)", ["delete", "del", "remove"]], ["log", "undo", "undo", "take back the last change"], ["sys", "end", "end", "stop whatever is looping: a question being asked, a countdown or stopwatch"], ["sys", "rerun", "rerun [n]", "run your previous command again (rerun 2 for the one before)", ["!!"]],
+  ["log", "rm", "delete set | weight | <event title words>", "delete the last set, today's weight or a calendar event (asks first)", ["delete", "del", "remove"]], ["log", "undo", "undo", "take back the last change"], ["sys", "end", "end", "stop whatever is looping: a question being asked, a countdown or stopwatch", ["cancel"]], ["sys", "errors", "errors", "open the error log in the developer panel (copy all, then paste it to Claude)", ["err", "error", "errorlog", "errlog"]], ["sys", "rerun", "rerun [n]", "run your previous command again (rerun 2 for the one before)", ["!!"]],
   ["log", "today", "today", "your day: the plan and the events"], ["log", "next", "next", "your next calendar event"], ["log", "status", "status", "last night, recovery and the plan"], ["log", "go", "go gym", "jump to a tab: health, prod, gym, cal"],
   ["timer", "timer", "timer 25", "start a focus session of that many minutes"], ["timer", "start", "start study now", "start a focus session (a label is optional)"], ["timer", "stop", "stop", "stop the focus timer"], ["timer", "pause", "pause", "pause the focus timer"], ["timer", "resume", "resume", "resume the focus timer"],
   ["math", "plot", "plot sin(x), cos(x) from -2pi to 2pi", "graph up to four functions, hover for exact values"], ["math", "roots", "roots x^2-2", "where a function crosses zero"], ["math", "deriv", "deriv x^3 at 2", "the slope of a function at a point"], ["math", "integral", "integral sin(x) from 0 to pi", "the area under a function"],
@@ -233,6 +233,7 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
       const l = c.lastNight; await print(["LAST NIGHT", l ? `  ${l.sleep}, asleep by ${l.asleepBy}, woke ${l.wokeAt}, quality ${l.quality}` : "  no sleep recorded", `  sleep debt ${c.sleepDebt || "—"}`, "RECOVERY", `  resting heart rate ${c.recovery.restingHrToday ?? "—"} bpm, HRV ${c.recovery.hrvToday ?? "—"} ms, body check: ${c.recovery.bodyCheck}`, `PLAN  today ${c.plan.today}, tomorrow ${c.plan.tomorrow}`], "tm-dim");
     },
     async end() { await endAll(false); },
+    async errors() { dockOpen("errors"); await print(`${errs.length} error${errs.length === 1 ? "" : "s"} logged. They are in the developer panel; copy all, then paste them to Claude.`, "tm-dim"); },
     async rerun(args) { const n = +args.trim() || 1, h = past.filter(l => !/^(rerun|!!)\b/.test(l)), l = h[n - 1]; if (!l) return err("nothing to repeat yet."); await dim(`→ ${l}`); return exec(l, true); },
     async undo() { const u = undos.pop(); if (!u) return dim("nothing to undo."); busy = true; try { await u.fn(); await print(`↩ undone: ${u.label}`); } catch (e) { await err(`could not undo ${u.label}: ${e.message || e}`); } finally { busy = false; } },
     async rm(args) {
@@ -361,6 +362,7 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
 
   async function exec(line, viaIntent = false) {
     const ua = userAl(), w0 = line.split(/\s+/)[0].toLowerCase(); if (ua[w0]) line = ua[w0] + line.slice(w0.length);   // your own aliases
+    line = line.replace(/^(?:how many\s+)?days?\s+(?:until|till|left until|before)\s+|^how long\s+(?:until|till)\s+/i, "until ");   // "day until jan 1"
     if (/^-?\d+(\.\d+)?\s*[a-z°"']+\s+(to|in)\s+[a-z°]+$/i.test(line)) line = "convert " + line;   // 5 km to mi
     const m = line.match(/^(\S+)\s*(.*)$/), word = m[1].toLowerCase().replace(/(?<=[a-z])[!?.,]+$/, ""), rest = m[2];
     const isMath = /^[A-Za-z_]\w*\s*(\([^)]*\))?\s*=[^=]/.test(line);   // a = 5 and f(x) = x^2 are math, not commands

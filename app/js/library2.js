@@ -5,7 +5,7 @@ import { gh, ghRead, ghWrite, ghMessage } from "./ghstore.js";
 
 export function addMore(X) {
   const { def, print, dim, ask, askInput, choose, err, undos, parseWhen, fmtDay, hhmm, midnight, addDaysD, call, history, H, series, MET, metric, calApi, tasksApi, gymApi, taskList, pickTask, rewrite, TASK, lastKg, loadWeights,
-    pad, hmm, num, nn, mean, sdev, trim, thou, chart, link, dotHBars, timers, clk, rd, html, U, esc, ymd, addDays, n3, nums, relDays, longDay, copyText, beep, rankExercises, debtNow } = X;
+    pad, hmm, num, nn, mean, sdev, trim, thou, chart, link, dotHBars, timers, clk, rd, html, U, esc, ymd, addDays, n3, nums, relDays, longDay, copyText, beep, rankExercises, debtNow, zoneOf } = X;
   const minOf = d => d.getHours() * 60 + d.getMinutes(), at = (day, m) => { const d = new Date(midnight(day)); d.setMinutes(m); return d; };
   const evLine = e => `${e.allDay ? "all day" : `${hhmm(e.s)}–${hhmm(e.e)}`}  ${e.title}`;
   const parseDur = t => { const m = String(t || "").trim().toLowerCase().match(/^(?:(\d+(?:\.\d+)?)\s*h(?:ours?|rs?)?)?\s*(?:(\d+)\s*m(?:in(?:ute)?s?)?)?$|^(\d+)$/); if (!m || !t.trim()) return null; return m[3] ? +m[3] : (+m[1] || 0) * 60 + (+m[2] || 0); };
@@ -207,11 +207,24 @@ export function addMore(X) {
   /* ================= TEXT ================= */
   const words = s => s.replace(/([a-z0-9])([A-Z])/g, "$1 $2").split(/[^A-Za-z0-9]+/).filter(Boolean).map(w => w.toLowerCase());
   const MORSE = { a: ".-", b: "-...", c: "-.-.", d: "-..", e: ".", f: "..-.", g: "--.", h: "....", i: "..", j: ".---", k: "-.-", l: ".-..", m: "--", n: "-.", o: "---", p: ".--.", q: "--.-", r: ".-.", s: "...", t: "-", u: "..-", v: "...-", w: ".--", x: "-..-", y: "-.--", z: "--..", 0: "-----", 1: ".----", 2: "..---", 3: "...--", 4: "....-", 5: ".....", 6: "-....", 7: "--...", 8: "---..", 9: "----." };
-  def("time", "worldtime meeting", "worldtime 3pm london to tokyo", "what a time in one city is in another", async a => {
-    const { ZONES } = X; const m = a.match(/^(.*?)\s+(?:in|to)\s+(.+)$/i); if (!m) U("usage: worldtime 3pm london to tokyo"); const parts = m[1].trim().split(/\s+/), city = parts.pop().toLowerCase(), z1 = ZONES[city], z2 = ZONES[m[2].trim().toLowerCase()]; if (!z1 || !z2) U("I know the cities in the time command: tokyo, london, ny, la, sydney, paris...");
-    const w = parseWhen(parts); if (!w.hasTime) U("give a time, like 3pm."); const d = new Date(), off = z => { const f = new Intl.DateTimeFormat("en-US", { timeZone: z, hour: "2-digit", minute: "2-digit", hour12: false, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(d), g = k => +f.find(p => p.type === k).value; return Date.UTC(g("year"), g("month") - 1, g("day"), g("hour") % 24, g("minute")) - d.getTime(); };
-    const m1 = Math.round(off(z1) / 9e5) * 15, m2 = Math.round(off(z2) / 9e5) * 15, t2 = w.start.getHours() * 60 + w.start.getMinutes() - m1 + m2, day = Math.floor(t2 / 1440), mm = ((t2 % 1440) + 1440) % 1440;
-    await print(`${w.start.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })} in ${city}  =  ${clockStr(mm)} in ${m[2].trim().toLowerCase()}${day ? ` (${day > 0 ? "next" : "previous"} day)` : ""}`);
+  def("time", "worldtime meeting tz", "tz 0200 TPE to LAX   |   tz 3pm london to tokyo", "convert a time between cities, airport codes or zones (daylight saving included); leave the time out for right now", async a => {
+    const { zoneOf } = X, m = a.trim().match(/^(.*?)\s*(?:\bto\b|\bin\b|->|=>|>)\s*(.+)$/i); if (!m) U("usage: tz 0200 TPE to LAX   ·   tz 0132 eze to paris   ·   tz 3pm london to tokyo");
+    let toks = m[1].trim().split(/\s+/).filter(Boolean), mins = null, used = new Set();
+    toks.forEach((t, i) => { if (mins != null) return; const w = t.toLowerCase(); let k;
+      if ((k = w.match(/^(\d{1,2}):(\d{2})(am|pm)?$/))) { mins = +k[1] * 60 + +k[2]; if (k[3]) mins = ((+k[1] % 12) + (k[3] === "pm" ? 12 : 0)) * 60 + +k[2]; used.add(i); }
+      else if ((k = w.match(/^(\d{1,2})(am|pm)$/))) { mins = ((+k[1] % 12) + (k[2] === "pm" ? 12 : 0)) * 60; used.add(i); }
+      else if (/^\d{1,2}$/.test(w) && /^(am|pm)$/i.test(toks[i + 1] || "")) { mins = ((+w % 12) + (/pm/i.test(toks[i + 1]) ? 12 : 0)) * 60; used.add(i); used.add(i + 1); }
+      else if (/^\d{3,4}$/.test(w) && +w.slice(0, -2) < 24 && +w.slice(-2) < 60) { mins = +w.slice(0, -2) * 60 + +w.slice(-2); used.add(i); }
+      else if (w === "noon") { mins = 720; used.add(i); } else if (w === "midnight") { mins = 0; used.add(i); } });
+    const fromName = toks.filter((_, i) => !used.has(i)).join(" "), toName = m[2].trim(), z1 = zoneOf(fromName), z2 = zoneOf(toName);
+    if (!z1) U(`I do not know "${fromName}". Try a city, an airport code like TPE or LAX, or a zone like Europe/Oslo.`); if (!z2) U(`I do not know "${toName}". Try a city, an airport code like TPE or LAX, or a zone like Europe/Oslo.`);
+    const parts = (z, ms) => Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: z, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" }).formatToParts(new Date(ms)).map(p => [p.type, +p.value]));
+    const offset = (z, ms) => { const p = parts(z, ms); return Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second) - Math.floor(ms / 1000) * 1000; };
+    const now = Date.now(); let utc;
+    if (mins == null) utc = now; else { const p = parts(z1, now), guess = Date.UTC(p.year, p.month - 1, p.day, 0, mins); utc = guess - offset(z1, guess); utc = guess - offset(z1, utc); }   // today's date in the first place, at that clock time
+    const show = (z, label) => { const d = new Date(utc), p = parts(z, utc); const wd = d.toLocaleDateString("en-US", { timeZone: z, weekday: "short", day: "numeric", month: "short" }), ab = new Intl.DateTimeFormat("en-US", { timeZone: z, timeZoneName: "short" }).formatToParts(d).find(x => x.type === "timeZoneName").value; return { text: `${pad(p.hour)}:${pad(p.minute)}  ${wd}  ${label} (${ab})`, day: Date.UTC(p.year, p.month - 1, p.day) }; };
+    const nice = s => (/^[a-z]{3}$/i.test(s) ? s.toUpperCase() : s.replace(/\b\w/g, c => c.toUpperCase())), A1 = show(z1, nice(fromName)), A2 = show(z2, nice(toName)), dd = Math.round((A2.day - A1.day) / 864e5);
+    await print([A1.text, `= ${A2.text}${dd ? `   (${dd > 0 ? "next" : "previous"} day)` : ""}`]);
   });
 
   /* ================= MATH and money ================= */
