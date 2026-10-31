@@ -70,7 +70,7 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
     <input id="tmIn" class="tm-in" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Command line">`;
   const $ = id => root.querySelector("#" + id), log = $("tmLog"), live = $("tmLive"), sug = $("tmSug"), echo = $("tmEcho"), inp = $("tmIn"), scr = $("tm");
   let busy = false, booted = false, past = [], pi = -1, pending = null, undos = [], lastOut = "", mode = null; const calc = makeCalc(), ml = makeMatlab(calc);
-  const aiKey = () => { try { return localStorage.getItem("console.aikey") || ""; } catch { return ""; } }, aiModel = () => { try { return localStorage.getItem("console.aimodel") || "gemini-2.5-flash"; } catch { return "gemini-2.5-flash"; } };
+  const aiKey = () => { try { return localStorage.getItem("console.aikey") || ""; } catch { return ""; } }, aiModel = () => { try { return localStorage.getItem("console.aimodel") || "gemini-3.8-flash"; } catch { return "gemini-3.8-flash"; } };
   async function aiTranslate(line) {   // only the typed line and the command list leave the page, never any health data
     const list = allMeta().map(m => `${m.use} : ${m.d}`).join("\n"), now = new Date().toString().slice(0, 21);
     const sys = `You turn a person's casual sentence into ONE command for their personal dashboard console. Reply with JSON only: {"command": string or null, "say": string or null}. Use "command" when a listed command fits, written exactly in that command's syntax with real values filled in (times like 1900 or 7pm, days like today, tomorrow, thu). Use "say" (one short sentence) only to ask for a missing detail or to say nothing fits. Never invent commands. Now: ${now}.\nCOMMANDS:\n${list}`;
