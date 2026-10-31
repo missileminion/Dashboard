@@ -473,7 +473,24 @@ export function buildLibrary(c) {
   def("sys", "copy", "copy [text]", "copy text, or the last answer, to the clipboard", async a => { const t = a.trim() || lastOut(); if (!t) U("nothing to copy yet."); await print(await copyText(t) ? "✓ copied" : "could not reach the clipboard; the browser blocked it."); });
   def("sys", "about version", "about", "what this console is", async () => print(["DASH // COMMAND LINE", "  no AI behind it: a small parser, your own data, and everything it changes can be undone.", `  ${names().length} commands in ${Object.keys(GROUPS).length} groups. help lists them.`], "tm-dim"));
   def("sys", "reload refresh", "reload", "reload the dashboard", async () => { location.reload(); });
-  def("sys", "bye exit quit", "bye", "close the console and go back to Health", async () => { dispatchEvent(new CustomEvent("goto", { detail: "health" })); });
+  def("sys", "bye exit quit", "bye", "close the console and go back to the page you were on (inside the calculator, exit leaves the calculator)", async () => { dispatchEvent(new CustomEvent("leaveconsole")); });
+  def("sys", "hi hello hey hiya yo sup howdy hola gm morning", "hi", "a quick briefing: last night, today's plan, what is next, what needs doing, and what to try", async () => {
+    const now = new Date(), hr = now.getHours(), part = hr < 5 ? "Still up" : hr < 12 ? "Good morning" : hr < 17 ? "Good afternoon" : "Good evening", out = [html(esc(`${part}. ${fmtDay(now)}, ${hhmm(now)}`))], tryRows = [];
+    const ctx = window.__dashContext && window.__dashContext(); let h = null; try { h = A.health && A.health(); } catch {}
+    if (ctx && ctx.lastNight) { const l = ctx.lastNight, dm = h && ctx.sleepDebt ? (() => { try { const { sf } = debtNow(); return h.bad("sleepDebtHours", sf.hours); } catch { return false; } })() : false;
+      out.push(html(esc(`  Sleep    ${l.sleep} last night, asleep by ${l.asleepBy}, quality ${l.quality ?? "—"}`) + (ctx.sleepDebt ? esc(". Debt ") + rd(ctx.sleepDebt, dm) : ""))); }
+    else out.push("  Sleep    no night recorded yet");
+    if (ctx && ctx.recovery) { const r = ctx.recovery; out.push(`  Body     ${r.hrvToday != null ? `HRV ${r.hrvToday} ms, ` : ""}${r.restingHrToday != null ? `resting HR ${r.restingHrToday} bpm, ` : ""}body check: ${r.bodyCheck}`); }
+    if (ctx) out.push(`  Plan     ${ctx.plan.today} today, ${ctx.plan.tomorrow} tomorrow`);
+    try { const cal = A.cal, ev = cal ? cal.events().filter(e => !e.allDay && !e.done && e.e > now).sort((x, y) => x.s - y.s)[0] : null;
+      if (ev) { const mins = Math.round((ev.s - now) / 6e4); out.push(`  Next     ${ev.title}, ${ev.s <= now ? "on now" : mins < 60 ? `in ${mins} min` : mins < 1440 ? `in ${Math.floor(mins / 60)} h ${mins % 60} min` : fmtDay(ev.s)} (${hhmm(ev.s)}–${hhmm(ev.e)})`); } else out.push("  Next     nothing coming up in the loaded calendar"); } catch {}
+    try { const g = A.gym && A.gym(), todays = g ? g.entries.filter(e => e.date === ymd(now)) : []; out.push(todays.length ? `  Gym      ${todays.reduce((s, e) => s + (e.sets || 1), 0)} set${todays.reduce((s, e) => s + (e.sets || 1), 0) === 1 ? "" : "s"} logged today` : `  Gym      nothing logged yet today${ctx && ctx.plan.today !== "Run" ? ` (${ctx.plan.today})` : ""}`); } catch {}
+    try { if (A.tasks && A.tasks.text) { const open = taskList().filter(t => !t.done).length; out.push(`  Tasks    ${open ? `${open} open` : "none open"}`); } } catch {}
+    try { const w = loadWeights(), lw = w[w.length - 1]; if (lw) { const ago = Math.round((midnight(now) - midnight(new Date(lw.date + "T12:00"))) / 864e5); out.push(`  Weight   ${n3(lw.kg)} kg${ago ? `, ${ago} day${ago > 1 ? "s" : ""} ago` : ", logged today"}`); if (ago >= 3) tryRows.push("weight 70.4 logs today's"); } else tryRows.push("weight 70.4 logs your first weigh-in"); } catch {}
+    if (hr < 12) tryRows.unshift("today", "routine"); else if (hr < 18) tryRows.unshift("free", "block 2h study"); else tryRows.unshift("bedtime", "set bench 135 8 3");
+    out.push("", `try: ${[...new Set(tryRows)].slice(0, 4).join("  ·  ")}`, "or just say it: how did I sleep · what's next · I weigh 70.4 · calculator · help");
+    await print(out, "tm-dim");
+  });
   def("sys", "commands", "commands", "every command name on one screen", async () => { const by = {}; meta.forEach(m => (by[m.cat] ||= []).push(m.n)); await print(Object.entries(by).map(([k, v]) => `${(GROUPS[k] || k).padEnd(18)} ${v.sort().join(" ")}`), "tm-dim"); });
 
   return { cmds: L, meta };

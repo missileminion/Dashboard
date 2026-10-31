@@ -529,3 +529,10 @@ body[data-tab=console] .hv,body[data-tab=console] .skybar{display:none!important
 /* console: recognised commands and math functions turn blue; bad numbers are red; today in the month view is a white block */
 .tm-fn{color:#6db8ff;text-shadow:0 0 10px rgba(109,184,255,.45)} .tm-red{color:#ff5a64;text-shadow:0 0 10px rgba(255,60,70,.3)} .tm-today{background:#fff;color:#000;text-shadow:none}
 .tm-q .tm-fn{color:#6db8ff}
+
+/* console: suggestion strip under the prompt, tappable chips, and the calculator mode prompt */
+.tm-sug{margin-top:8px;display:flex;flex-direction:column;gap:3px;max-width:110ch} .tm-sug[hidden]{display:none}
+.tm-sr{font-size:12.5px;line-height:1.55;color:#6f7790;cursor:pointer;white-space:pre-wrap;word-break:break-word;text-shadow:none} .tm-sr b{font-weight:500;margin-right:8px;text-shadow:none} .tm-sr:hover span{color:#a9aec0}
+.tm-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:2px} .tm-chip{background:none;border:1px solid rgba(255,255,255,.14);border-radius:100px;padding:4px 13px;color:#8e95ab;font:12.5px "SF Mono",ui-monospace,Menlo,monospace;cursor:pointer;transition:all .25s} .tm-chip:hover{color:#6db8ff;border-color:rgba(109,184,255,.5)}
+.tm.mode .tm-p{color:#6db8ff;text-shadow:0 0 10px rgba(109,184,255,.5)}
+.tm-p.calc{color:#6db8ff;text-shadow:0 0 10px rgba(109,184,255,.5)}

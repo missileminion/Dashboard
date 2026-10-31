@@ -421,6 +421,7 @@ const last2 = k => { for (let i = 0; i < 4; i++) { const v = byDate[addDays(toda
   // the command line from anywhere: Cmd/Ctrl+K opens it and, pressed again, returns to the page you were on; Esc on an empty line does the same
   let prevTab = "health";
   addEventListener("goto", e => { if (document.body.dataset.tab !== "console") prevTab = document.body.dataset.tab; setTab(e.detail); });
+  addEventListener("leaveconsole", () => { if (document.body.dataset.tab === "console") setTab(prevTab); });
   addEventListener("keydown", e => {
     const cur = document.body.dataset.tab;
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); if (cur === "console") setTab(prevTab); else { prevTab = cur; setTab("console"); } }

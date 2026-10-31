@@ -2,11 +2,13 @@
 //   weight 70.4        set bench 135 8 3        add gym thu 5pm        done rocketry        note buy shoes
 //   start study now    timer 25        go gym        today / next / status        undo        clc
 // There is no AI behind it: commands are read by a small parser, answers come straight from your own data, and everything it changes can be undone.
+// Plain-English phrasing ("how did I sleep", "I weigh 70.4") is read by intent.js; calculator is a mode with its own prompt (exit leaves it).
 // The core commands live here; about 130 more (gym stats, health numbers, calendar, tasks, conversions, fitness and math tools) are in library.js.
 import { esc, addDays, ymd } from "./util.js";
 import { loadWeights, setWeight, delWeight } from "./weight.js";
 import { makeCalc } from "./calc.js";
 import { buildLibrary, rankExercises, dist, GROUPS } from "./library.js";
+import { interpret, findCommands, words2math } from "./intent.js";
 
 const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const pad = n => String(n).padStart(2, "0"), hhmm = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
@@ -20,7 +22,7 @@ const CORE = [
   ["log", "rm", "rm set | weight | event <title>", "delete the last set, today's weight or an event (asks first)", ["delete", "del", "remove"]], ["log", "undo", "undo", "take back the last change"],
   ["log", "today", "today", "your day: the plan and the events"], ["log", "next", "next", "your next calendar event"], ["log", "status", "status", "last night, recovery and the plan"], ["log", "go", "go gym", "jump to a tab: health, prod, gym, cal"],
   ["timer", "timer", "timer 25", "start a focus session of that many minutes"], ["timer", "start", "start study now", "start a focus session (a label is optional)"], ["timer", "stop", "stop", "stop the focus timer"], ["timer", "pause", "pause", "pause the focus timer"], ["timer", "resume", "resume", "resume the focus timer"],
-  ["math", "plot", "plot sin(x), cos(x) from -2pi to 2pi", "graph up to four functions, hover for exact values"], ["math", "roots", "roots x^2-2", "where a function crosses zero"], ["math", "deriv", "deriv x^3 at 2", "the slope of a function at a point"], ["math", "integral", "integral sin(x) from 0 to pi", "the area under a function"],
+  ["math", "calculator", "calculator", "a calculator: sums, x or × multiplies, ans is the last result; exit leaves", ["calc", "calculate"]], ["math", "plot", "plot sin(x), cos(x) from -2pi to 2pi", "graph up to four functions, hover for exact values"], ["math", "roots", "roots x^2-2", "where a function crosses zero"], ["math", "deriv", "deriv x^3 at 2", "the slope of a function at a point"], ["math", "integral", "integral sin(x) from 0 to pi", "the area under a function"],
   ["math", "deg", "deg", "angles in degrees"], ["math", "rad", "rad", "angles in radians"], ["math", "prec", "prec 10", "decimals shown (1 to 12, default 7)"],
   ["sys", "help", "help [group | command | word]", "this guide; help gym lists a group, help last explains one, help sleep searches", ["?"]], ["sys", "clc", "clc", "clear the screen", ["clear", "cls"]]
 ];
@@ -60,10 +62,10 @@ function parseWhen(tokens) {
 function addDaysD(d, n) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
 
 export function initTerminal(root, { demo = false, api = {} } = {}) {
-  root.innerHTML = `<div class="tm" id="tm"><div class="tm-log" id="tmLog"></div><div class="tm-line tm-live" id="tmLive"><span class="tm-p">›</span><span id="tmEcho"></span><i class="tm-cur"></i></div></div>
+  root.innerHTML = `<div class="tm" id="tm"><div class="tm-log" id="tmLog"></div><div class="tm-line tm-live" id="tmLive"><span class="tm-p" id="tmP">›</span><span id="tmEcho"></span><i class="tm-cur"></i></div><div class="tm-sug" id="tmSug"></div></div>
     <input id="tmIn" class="tm-in" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Command line">`;
-  const $ = id => root.querySelector("#" + id), log = $("tmLog"), live = $("tmLive"), echo = $("tmEcho"), inp = $("tmIn"), scr = $("tm");
-  let busy = false, booted = false, past = [], pi = -1, pending = null, undos = [], lastOut = ""; const calc = makeCalc();
+  const $ = id => root.querySelector("#" + id), log = $("tmLog"), live = $("tmLive"), sug = $("tmSug"), echo = $("tmEcho"), inp = $("tmIn"), scr = $("tm");
+  let busy = false, booted = false, past = [], pi = -1, pending = null, undos = [], lastOut = "", mode = null; const calc = makeCalc();
   const ALS = "console.aliases", userAl = () => { try { return JSON.parse(localStorage.getItem(ALS)) || {}; } catch { return {}; } };
   const setAlias = (k, v) => { const a = userAl(); if (v == null) delete a[k]; else a[k] = v; try { localStorage.setItem(ALS, JSON.stringify(a)); } catch {} };
   const bottom = () => { scr.scrollTop = scr.scrollHeight; }, sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -83,6 +85,7 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
     node.nodeValue = text; cur.remove(); bottom();
   }
   const ask = (prompt, then) => { pending = then; return dim(prompt); };
+  const askInput = (prompt, then, literal = false) => { pending = { type: "input", then, literal }; return dim(prompt); };   // a question answered in free text; "cancel" drops it
 
   const A = () => api, today = () => ymd(new Date());
   const choose = async (label, options, then) => { await print([label, ...options.map((o, i) => `  ${i + 1}  ${o.label}`)]); await dim("type a number, or anything else to cancel"); pending = { type: "choose", options, then }; };
@@ -116,6 +119,7 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
       const gym = A().gym && A().gym(); if (!gym) return err("the gym log is not ready yet.");
       let s = args.replace(/(\d)\s*[x×]\s*(\d)/g, "$1 $2").replace(/(\d)\s*[x×]\s*(\d)/g, "$1 $2"); const toks = s.split(/\s+/).filter(Boolean), nums = [];
       while (toks.length && /^\d+(\.\d+)?$/.test(toks[toks.length - 1]) && nums.length < 3) nums.unshift(parseFloat(toks.pop()));
+      if (!args.trim()) return askInput("which set? exercise, pounds, reps, sets   e.g. bench 135 8 3   (or cancel)", l => exec("set " + l));
       if (nums.length < 2 || !toks.length) return err("usage: set <exercise> <lb> <reps> [sets]   e.g. set bench 135 8 3");
       const [wt, reps, sets = 1] = nums, ranked = rankExercises(toks.join(" "), gym.entries), names = [...new Set([...gym.entries.map(e => e.exercise)])];
       if (!ranked.length) return err(`no exercise matches "${toks.join(" ")}". Yours include: ${names.slice(0, 10).map(x => x.replace(/ \(.*\)| \/.*/g, "")).join(", ")}. exercises lists them all.`);
@@ -129,6 +133,7 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
     },
     async add(args) {
       const cal = A().cal; if (!cal) return err("the calendar is not ready yet.");
+      if (!args.trim()) return askInput("what, and when?   e.g. gym thu 5pm   ·   lunch tomorrow 12:30 for 45m   (or cancel)", l => exec("add " + l));
       const w = parseWhen(args.split(/\s+/).filter(Boolean)); if (!w.title) return err("usage: add <title> [day] [time]   e.g. add gym thu 5pm");
       busy = true; try { const r = await cal.create({ title: w.title, start: w.start, end: w.end }); undos.push({ label: `event ${w.title}`, fn: () => cal.remove(r.id, r.cal) });
         await print(`✓ added: ${w.title}, ${fmtDay(w.start)} ${hhmm(w.start)}–${hhmm(w.end)}${w.hasTime ? "" : " (no time given, so a default slot)"}`); } finally { busy = false; }
@@ -141,8 +146,8 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
       if (list.length > 1 && args.trim()) return choose(`"${args}" matches more than one event:`, list.slice(0, 5).map(e => ({ label: `${fmtDay(e.s)} ${e.allDay ? "all day" : hhmm(e.s)}  ${e.title}`, value: e })), o => go(o.value));
       await go(list[0]);
     },
-    async note(args) { const t = A().tasks; if (!t) return err("Stickynote is not ready yet."); if (!args.trim()) return err("usage: note <text>"); const line = t.append(args.trim()); undos.push({ label: "note", fn: () => t.removeLine(line) }); await print(`✓ added to Stickynote: ${args.trim()}`); },
-    async task(args) { const t = A().tasks; if (!t) return err("Stickynote is not ready yet."); if (!args.trim()) return err("usage: task <text>"); const line = t.append("- [ ] " + args.trim()); undos.push({ label: "task", fn: () => t.removeLine(line) }); await print(`✓ task added to Stickynote: ${args.trim()}`); },
+    async note(args) { const t = A().tasks; if (!t) return err("Stickynote is not ready yet."); if (!args.trim()) return askInput("what should the note say?   (or cancel)", l => exec("note " + l), true); const line = t.append(args.trim()); undos.push({ label: "note", fn: () => t.removeLine(line) }); await print(`✓ added to Stickynote: ${args.trim()}`); },
+    async task(args) { const t = A().tasks; if (!t) return err("Stickynote is not ready yet."); if (!args.trim()) return askInput("what is the task?   (or cancel)", l => exec("task " + l), true); const line = t.append("- [ ] " + args.trim()); undos.push({ label: "task", fn: () => t.removeLine(line) }); await print(`✓ task added to Stickynote: ${args.trim()}`); },
     async timer(args) { const m = parseInt(args); await cmds.start(m ? String(m) : ""); },
     async start(args) {
       const tm = A().timer; if (!tm) return err("the timer is not ready yet.");
@@ -153,7 +158,7 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
     async stop() { const tm = A().timer; if (!tm || !tm.running) return dim("no timer is running."); tm.stop(); await print("✓ timer stopped"); },
     async pause() { const tm = A().timer; if (!tm || !tm.running) return dim("no timer is running."); tm.pause(); await print("✓ timer paused"); },
     async resume() { const tm = A().timer; if (!tm || !tm.running) return dim("no timer is running."); tm.resume(); await print("✓ timer resumed"); },
-    async go(args) { const k = TABS[args.trim().toLowerCase()]; if (!k) return err(`go where? ${[...new Set(Object.keys(TABS))].filter(x => x.length > 2).join(", ")}`); dispatchEvent(new CustomEvent("goto", { detail: k })); },
+    async go(args) { const k = TABS[args.trim().toLowerCase()]; if (!args.trim()) return askInput("go where?   health · prod · gym · cal   (or cancel)", l => exec("go " + l)); if (!k) return err(`go where? ${[...new Set(Object.keys(TABS))].filter(x => x.length > 2).join(", ")}`); dispatchEvent(new CustomEvent("goto", { detail: k })); },
     async today() {
       const cal = A().cal, ctx = window.__dashContext && window.__dashContext(), now = new Date(); const list = cal ? cal.events().filter(e => midnight(e.s) <= midnight(now) && e.e > midnight(now) && e.s < midnight(addDaysD(now, 1))).sort((a, b) => (b.allDay - a.allDay) || a.s - b.s) : [];
       await print([`${fmtDay(now)}${ctx ? `  ·  plan: ${ctx.plan.today}` : ""}`, ...(list.length ? list.map(e => `${e.done ? "✓" : e.allDay || e.e > now ? "·" : "·"} ${e.allDay ? "all day   " : hhmm(e.s) + "–" + hhmm(e.e)}  ${e.title}`) : ["  nothing scheduled"])], "tm-dim");
@@ -173,9 +178,28 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
     },
   };
 
+  /* ---------- calculator mode ---------- */
+  const MODECMD = new Set(["exit", "quit", "q", "back", "leave", "bye", "clc", "clear", "cls", "help", "?", "plot", "roots", "deriv", "integral", "deg", "rad", "prec"]);
+  const mulX = s => (/^[A-Za-z_]\w*\s*\(.*\)\s*=/.test(s) ? s : s.replace(/(\d|\))\s*[x×]\s*(?=[\d(.])/gi, "$1*"));   // 12 x 8 and 12x8 multiply; 2x on its own stays "2 times x"
+  const CALC_HELP = ["CALCULATOR", "  12 x 8     (45+15)/4     2^10     sqrt(2)     sin(pi/2)     10!     15% of 80", "  x or × multiplies. A line that starts with + - * / x ^ continues from the last answer (ans).", "  f(x)=x^2-3x defines a function. plot, roots, deriv, integral, deg, rad and prec work here too.", "  Results are exact to 7 decimals (prec 10 shows more). exit, q or Esc goes back."];
+  const setMode = m => { mode = m; $("tmP").textContent = m ? m.prompt : "›"; scr.classList.toggle("mode", !!m); sugRender(); };
+  async function enterCalc() { setMode({ name: "calc", prompt: "calc ›" }); await print(CALC_HELP, "tm-dim"); }
+  async function modeRun(line) {
+    const m = line.match(/^(\S+)\s*(.*)$/), w = m[1].toLowerCase();
+    if (/^(exit|quit|q|back|leave|bye)$/.test(w)) { setMode(null); return dim("left the calculator."); }
+    if (/^(clc|clear|cls)$/.test(w)) { log.innerHTML = ""; return; }
+    if (w === "help" || w === "?") return print(CALC_HELP, "tm-dim");
+    if (MODECMD.has(w) && isCmd(w)) { busy = true; try { await cmds[w](m[2]); } catch (e) { await err(e.message || String(e)); } busy = false; return; }
+    let t = line.replace(/(\d),(?=\d{3}(\D|$))/g, "$1"); const pc = t.match(/^(-?[\d.]+)\s*%\s*of\s*(-?[\d.]+)$/i); if (pc) t = `${pc[1]}/100*${pc[2]}`;
+    if (/^x(?=\s*[\d(.])/i.test(t)) t = t.replace(/^x\s*/i, "*"); if (/^(?:[+*\/^÷×]|-\s)/.test(t)) t = "ans" + t;   // "+ 5" or "x 3" carries on from the last answer
+    try { await showValue(calc.evaluate(mulX(words2math(t)))); }
+    catch (e) { await err(/^"x" is not defined/.test(e.message || "") ? 'x multiplies between numbers (2 x 3). To use x as a name, set it first, for example  x = 4' : e.message || String(e)); }
+  }
+
   /* ---------- the library: about 130 more commands ---------- */
   const lib = buildLibrary({ print, err, dim, ask, choose, A: api, calc, today, undos, parseWhen, fmtDay, hhmm, midnight, addDaysD, loadWeights, setWeight, delWeight, call: (n, a) => cmds[n](a), log, bottom, lastOut: () => lastOut, history: () => past, aliases: userAl, setAlias, names: () => Object.keys(cmds) });
   Object.assign(cmds, lib.cmds);
+  cmds.calculator = async args => { if (args.trim()) { try { return await showValue(calc.evaluate(mulX(words2math(args.trim())))); } catch (e) { return err(e.message || String(e)); } } await enterCalc(); };
   const allMeta = () => [...CORE.map(([cat, n, use, d, al]) => ({ cat, n, use, d, al: al || [] })), ...lib.meta];
   const ALIAS = Object.fromEntries(allMeta().flatMap(m => m.al.map(a => [a, m.n]))); const isCmd = n => Object.hasOwn(cmds, n);
   const allWords = () => [...Object.keys(cmds), ...Object.keys(ALIAS), ...Object.keys(userAl())];
@@ -226,60 +250,122 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
     const fns = new Set([...Object.keys(calc.FN), ...Object.keys(calc.S.funcs)]), re = /[A-Za-zπτ_][A-Za-z0-9_]*/g, first = v.search(/\S/), ua = userAl(); let out = "", last = 0, m;
     while ((m = re.exec(v))) {
       const w = m[0], low = w.toLowerCase(), at = m.index, after = v.slice(at + w.length);
-      const fn = (at === first && (isCmd(low) || low in ALIAS || low in ua)) || (fns.has(w) && /^\s*\(/.test(after));
+      const known = mode ? MODECMD.has(low) && isCmd(low === "q" || low === "exit" || low === "quit" ? "bye" : low) || /^(exit|quit|q|back|leave|help)$/.test(low) : isCmd(low) || low in ALIAS || low in ua;
+      const fn = (at === first && known) || (fns.has(w) && /^\s*\(/.test(after));
       out += esc(v.slice(last, at)) + (fn ? `<span class="tm-fn">${esc(w)}</span>` : esc(w)); last = at + w.length;
     }
     return out + esc(v.slice(last));
   }
 
+  /* ---------- suggestions under the prompt: what you can type, with its usage, so nothing has to be guessed ---------- */
+  const DEFAULT_CHIPS = ["hi", "sleep", "agenda", "weight 70", "calculator", "help"];
+  function suggestions(v) {
+    if (busy) return {};
+    const t = v.trim().toLowerCase();
+    if (mode) return { rows: [{ use: "12 x 8   (45+15)/4   2^10   15% of 80", d: "x multiplies · ans is the last result · exit leaves", fill: "" }] };
+    if (pending) return {};
+    if (!t) return { chips: DEFAULT_CHIPS };
+    const meta = allMeta(), first = t.split(/\s+/)[0].replace(/[!?.,]+$/, ""), multi = /\s/.test(t), direct = meta.find(m => m.n === first || m.al.includes(first));
+    const row = m => ({ use: m.use, d: m.d, fill: m.n + " " });
+    if (direct && (multi || t === first)) {
+      const more = multi ? [] : meta.filter(m => m !== direct && (m.n.startsWith(first) || m.al.some(a => a.startsWith(first)))).slice(0, 4);
+      return { rows: [direct, ...more].map(row) };
+    }
+    if (!multi) {
+      const pre = meta.filter(m => m.n.startsWith(t) || m.al.some(a => a.startsWith(t))).sort((a, b) => (b.n.startsWith(t) - a.n.startsWith(t))).slice(0, 6);   // everyday commands come first, as listed
+      if (pre.length) return { rows: pre.map(row) };
+    }
+    if (multi && !/^[\d.(+\-]/.test(t)) { const it = interpret(v); if (it && it.run) return { rows: [{ use: it.run, d: "I would read that as", fill: it.run }] }; }
+    const toks = t.match(/[a-z0-9]{2,}/g) || [], hits = findCommands(v, meta).filter(h => !multi || toks.some(w => h.n.startsWith(w) || h.al.some(a => a.startsWith(w)))).slice(0, multi ? 3 : 5); if (hits.length) return { rows: hits.map(row) };
+    const near = allWords().map(c => ({ c, d: dist(first, c) })).sort((a, b) => a.d - b.d)[0];
+    return near && near.d <= (first.length > 6 ? 2 : 1) && /^[a-z]{3,}$/.test(first) ? { rows: [row(meta.find(m => m.n === (ALIAS[near.c] || near.c)) || meta[0])] } : {};
+  }
+  function sugRender() {
+    const { rows, chips } = suggestions(inp.value); sug.hidden = busy || (!rows && !chips);
+    sug.innerHTML = chips ? `<div class="tm-chips">${chips.map(c => `<button class="tm-chip" data-fill="${esc(c)}">${esc(c)}</button>`).join("")}</div>` : (rows || []).map(r => `<div class="tm-sr" data-fill="${esc(r.fill)}"><b class="tm-fn">${esc(r.use)}</b> <span>${esc(r.d)}</span></div>`).join("");
+  }
+  sug.addEventListener("click", e => { const el = e.target.closest("[data-fill]"); if (!el) return; e.stopPropagation(); inp.value = el.dataset.fill; echo.innerHTML = hl(inp.value); sugRender(); inp.focus(); });
+
   /* ---------- reading a line ---------- */
   async function run(line) {
     line = line.trim(); if (!line) return;
     past.unshift(line); pi = -1;
-    const q = document.createElement("div"); q.className = "tm-line tm-q"; q.innerHTML = `<span class="tm-p">›</span> ${hl(line)}`; log.appendChild(q); bottom();
+    const q = document.createElement("div"); q.className = "tm-line tm-q"; q.innerHTML = `<span class="tm-p${mode ? " calc" : ""}">${mode ? mode.prompt : "›"}</span> ${hl(line)}`; log.appendChild(q); bottom();
     if (pending) {   // answering a question the console asked; anything else cancels it and is read as a new command
       const p = pending; pending = null;
-      if (typeof p === "function") { if (/^(y|yes)$/i.test(line)) { busy = true; try { await p(); } catch (e) { await err(e.message || String(e)); } busy = false; return; } if (/^(n|no|cancel)$/i.test(line)) { await dim("cancelled."); return; } }
-      else if (p.type === "choose") { const n = parseInt(line); if (/^\d+$/.test(line) && n >= 1 && n <= p.options.length) { busy = true; try { await p.then(p.options[n - 1]); } catch (e) { await err(e.message || String(e)); } busy = false; return; } if (/^(n|no|cancel)$/i.test(line) || /^\d+$/.test(line)) { await dim("cancelled."); return; } }
+      if (typeof p === "function") { if (/^(y|yes)$/i.test(line)) { busy = true; try { await p(); } catch (e) { await err(e.message || String(e)); } busy = false; sugRender(); return; } if (/^(n|no|cancel)$/i.test(line)) { await dim("cancelled."); return; } }
+      else if (p.type === "choose") { const n = parseInt(line); if (/^\d+$/.test(line) && n >= 1 && n <= p.options.length) { busy = true; try { await p.then(p.options[n - 1]); } catch (e) { await err(e.message || String(e)); } busy = false; sugRender(); return; } if (/^(n|no|cancel)$/i.test(line) || /^\d+$/.test(line)) { await dim("cancelled."); return; } }
+      else if (p.type === "input") {
+        if (/^(cancel|stop|never ?mind|nvm|no|n)$/i.test(line)) { await dim("cancelled."); return; }
+        const w1 = line.split(/\s+/)[0].toLowerCase();
+        if (p.literal || !(isCmd(w1) || w1 in ALIAS)) { busy = true; try { await p.then(line); } catch (e) { await err(e.message || String(e)); } busy = false; live.hidden = false; sugRender(); inp.focus(); return; }
+      }
     }
+    if (mode) { await modeRun(line); sugRender(); return; }
+    await exec(line);
+  }
+
+  async function exec(line, viaIntent = false) {
     const ua = userAl(), w0 = line.split(/\s+/)[0].toLowerCase(); if (ua[w0]) line = ua[w0] + line.slice(w0.length);   // your own aliases
     if (/^-?\d+(\.\d+)?\s*[a-z°"']+\s+(to|in)\s+[a-z°]+$/i.test(line)) line = "convert " + line;   // 5 km to mi
-    const m = line.match(/^(\S+)\s*(.*)$/), word = m[1].toLowerCase(), rest = m[2];
+    const m = line.match(/^(\S+)\s*(.*)$/), word = m[1].toLowerCase().replace(/(?<=[a-z])[!?.,]+$/, ""), rest = m[2];
     const isMath = /^[A-Za-z_]\w*\s*(\([^)]*\))?\s*=[^=]/.test(line);   // a = 5 and f(x) = x^2 are math, not commands
     let name = isMath ? "=" : (ALIAS[word] || word);
     if (/^start\s+\S/i.test(line) || name === "start") name = "start";
-    const near0 = !isCmd(name) && !isMath && /^[a-z]{3,}$/.test(word) && !(word in calc.FN) && !(word in calc.S.vars) && !(word in calc.S.funcs) ? allWords().map(c => ({ c, d: dist(word, c) })).sort((a, b) => a.d - b.d)[0] : null;
-    if (near0 && near0.d <= (word.length > 4 ? 2 : 1)) return err(`unknown command "${word}". did you mean "${ALIAS[near0.c] || near0.c}"?`);   // a typo with numbers after it is not math
+    const mathNames = new Set([...Object.keys(calc.FN), ...Object.keys(calc.S.vars), ...Object.keys(calc.S.funcs), "pi", "e", "tau", "phi", "ans", "x"]);
+    const FREE = new Set(["note", "task", "echo", "upper", "lower", "title", "len", "rev", "slug", "b64", "sha256", "alias", "add", "find", "grep", "pick", "shuffle", "copy", "start", "timer", "set", "weight", "convert"]), words = line.toLowerCase().match(/[a-z']+/g) || [];
+    const sentence = isCmd(name) && !FREE.has(name) && words.length >= 4 && words.slice(1).some(w => /^(i|my|me|did|do|is|are|was|the|what|how|when|should|much|many)$/.test(w));   // "when did i last bench" is a question, not the command "when"
+    if ((!isCmd(name) || sentence) && !isMath && !viaIntent && words.some(w => !mathNames.has(w))) {
+      const it = interpret(line);   // plain English: "how did I sleep", "I weigh 70.4", "bench 135 for 8 x 3"
+      if (it && it.say) return print(it.say, "tm-dim");
+      if (it && it.run) { if (it.run !== "hi") await dim(`→ ${it.run}`); return exec(it.run, true); }
+      const sm = line.match(/^([a-z][a-z' \-]*?)\s+(\d+(?:\.\d+)?)\s+(\d+)(?:\s+(\d+))?$/i);   // "bench 135 8 3" with no command word
+      if (sm) { const g = A().gym && A().gym(), rk = g ? rankExercises(sm[1], g.entries) : []; if (rk.length && rk[0].sc >= 100) { const r = `set ${sm[1]} ${sm[2]} ${sm[3]}${sm[4] ? " " + sm[4] : ""}`; await dim(`→ ${r}`); return exec(r, true); } }
+    }
+    const near0 = !isCmd(name) && !isMath && /^[a-z]{3,}$/.test(word) && !mathNames.has(word) ? allWords().map(c => ({ c, d: dist(word, c) })).sort((a, b) => a.d - b.d)[0] : null;
+    if (near0 && near0.d <= (word.length > 6 ? 2 : 1)) return err(`unknown command "${word}". did you mean "${ALIAS[near0.c] || near0.c}"?`);   // a typo with numbers after it is not math
     if (!isCmd(name) && (isMath || /[\d+\-*/^()=!π]|^(pi|e|tau|phi|ans)\b/i.test(line))) {   // not a command: read it as math
-      try { await showValue(calc.evaluate(line)); } catch (e) { await err(e.message || String(e)); }
+      try { await showValue(calc.evaluate(mulX(line))); } catch (e) { await err(e.message || String(e)); }
       return;
     }
     if (!isCmd(name)) {
-      const near = allWords().map(c => ({ c, d: dist(word, c) })).sort((a, b) => a.d - b.d)[0], tgt = near && (ALIAS[near.c] || near.c);
-      return near && near.d <= (word.length > 4 ? 2 : 1) ? err(`unknown command "${word}". did you mean "${tgt}"?`) : err(`unknown command "${word}". help lists them, help <word> searches.`);
+      const hits = findCommands(line, allMeta()).slice(0, 3);
+      await err(`I did not catch "${line.length > 40 ? line.slice(0, 40) + "…" : line}".`);
+      return hits.length ? print(["closest:", ...hits.map(h => `  ${h.use.padEnd(34)} ${h.d}`)], "tm-dim") : dim("help lists everything; help <word> searches. Plain phrases work too: how did I sleep, what's next, I weigh 70.4.");
     }
-    busy = true; live.hidden = true;
-    try { await cmds[name](name === "start" ? (/^start\b/i.test(line) ? line.replace(/^start\s*/i, "") : rest) : rest); }
-    catch (e) { await err(e && e.message ? e.message : String(e)); }
-    busy = false; live.hidden = false; inp.focus(); bottom();
+    busy = true; live.hidden = true; sug.hidden = true;
+    const args = name === "start" ? (/^start\b/i.test(line) ? line.replace(/^start\s*/i, "") : rest) : rest;
+    try { await cmds[name](args); }
+    catch (e) {
+      const msg = e && e.message ? e.message : String(e);
+      if (/^usage:/i.test(msg) && !args.trim()) { await dim(msg); await askInput("type the arguments now, or cancel.", l => exec(`${name} ${l}`)); }   // a bare command asks instead of failing
+      else await err(msg);
+    }
+    busy = false; live.hidden = false; inp.focus(); bottom(); sugRender();
   }
 
   async function boot() {
     if (booted) return; booted = true;
     await type("DASH // COMMAND LINE", "tm-head"); await type("─────────────────────────────", "tm-head");
-    await dim("weight 70.4   set bench 135 8 3   add gym thu 5pm   done rocketry   note buy shoes   start study now"); await dim("2+2   sqrt(2)   f(x)=x^2-3x+1   plot sin(x), cos(x)   roots x^2-2   integral sin(x) from 0 to pi");
-    await dim(`${allMeta().length} commands: gym stats, sleep and heart numbers, calendar, tasks, converters, fitness and math tools. help lists the groups; help sleep searches.`); await dim("undo takes back the last change. Cmd+K opens this from anywhere."); await print("");
+    await dim("say hi for a briefing, or type what you want in plain words: how did I sleep · what's next · I weigh 70.4 · bench 135 8 3"); await dim("calculator opens a calculator (x multiplies, exit leaves). 2+2, sqrt(2) and plot sin(x) work anywhere.");
+    await dim(`${allMeta().length} commands. The line under the prompt shows what each one needs as you type; Tab completes; a bare command asks for what it needs. help lists the groups.`); await print(""); sugRender();
   }
 
-  inp.addEventListener("input", () => { echo.innerHTML = hl(inp.value); bottom(); });
+  inp.addEventListener("input", () => { echo.innerHTML = hl(inp.value); bottom(); sugRender(); });
   inp.addEventListener("keydown", e => {
     if (e.key === "Enter" && !busy) { const v = inp.value; inp.value = ""; echo.textContent = ""; run(v); }
+    else if (e.key === "Escape" && mode) { e.stopPropagation(); e.preventDefault(); inp.value = ""; echo.textContent = ""; print([""]); setMode(null); dim("left the calculator."); }
     else if (e.key === "Tab") {
       e.preventDefault(); const v = inp.value.trim().toLowerCase();
-      if (v && !/\s/.test(v)) { const hit = [...new Set(allWords())].filter(c => c.startsWith(v)).sort(); if (hit.length === 1) inp.value = hit[0] + " "; else if (hit.length > 1) { let p = hit[0]; hit.forEach(h => { while (!h.startsWith(p)) p = p.slice(0, -1); }); if (p.length > v.length) inp.value = p; else dim(hit.slice(0, 30).join("  ")); } echo.innerHTML = hl(inp.value); }
+      if (v && !/\s/.test(v) && !mode) {
+        const hit = [...new Set(allWords())].filter(c => c.startsWith(v)).sort();
+        if (hit.length === 1) inp.value = hit[0] + " "; else if (hit.length > 1) { let p = hit[0]; hit.forEach(h => { while (!h.startsWith(p)) p = p.slice(0, -1); }); if (p.length > v.length) inp.value = p; else dim(hit.slice(0, 30).join("  ")); }
+        else { const top = suggestions(inp.value).rows; if (top && top[0] && top[0].fill) inp.value = top[0].fill; }   // nothing starts with it: take the best match
+      } else if (!v) { const c = DEFAULT_CHIPS[0]; inp.value = c; }
+      echo.innerHTML = hl(inp.value); sugRender();
     }
-    else if (e.key === "ArrowUp" && past.length) { e.preventDefault(); pi = Math.min(past.length - 1, pi + 1); inp.value = past[pi]; echo.innerHTML = hl(inp.value); }
-    else if (e.key === "ArrowDown") { e.preventDefault(); pi = Math.max(-1, pi - 1); inp.value = pi < 0 ? "" : past[pi]; echo.innerHTML = hl(inp.value); }
+    else if (e.key === "ArrowUp" && past.length) { e.preventDefault(); pi = Math.min(past.length - 1, pi + 1); inp.value = past[pi]; echo.innerHTML = hl(inp.value); sugRender(); }
+    else if (e.key === "ArrowDown") { e.preventDefault(); pi = Math.max(-1, pi - 1); inp.value = pi < 0 ? "" : past[pi]; echo.innerHTML = hl(inp.value); sugRender(); }
   });
   root.addEventListener("click", () => { if (!getSelection().toString()) inp.focus(); });
   addEventListener("tab", e => { if (e.detail === "console") setTimeout(() => { boot(); inp.focus(); }, 450); });
