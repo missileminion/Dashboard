@@ -2,6 +2,7 @@
 // addMore(X) registers them through the same def() as library.js, so help, Tab completion, suggestions and blue highlighting pick them up with no extra wiring.
 import { e1rm } from "./gymlog.js";
 import { gh, ghRead, ghWrite, ghMessage } from "./ghstore.js";
+import { loadProfile, saveProfile, targets, adjustAdvice, findFood, usdaFood, gramsFor, macrosOf, bmr, tdee } from "./macros.js";
 
 export function addMore(X) {
   const { def, print, dim, ask, askInput, choose, err, undos, parseWhen, fmtDay, hhmm, midnight, addDaysD, call, history, H, series, MET, metric, calApi, tasksApi, gymApi, taskList, pickTask, rewrite, TASK, lastKg, loadWeights,
@@ -231,6 +232,39 @@ export function addMore(X) {
   const fact = n => { let r = 1; for (let i = 2; i <= n; i++) r *= i; return r; };
 
   /* ================= SYSTEM ================= */
+  /* ================= MACROS: targets and "how much of this food" (maths in macros.js) ================= */
+  const IDXM = { kcal: 0, protein: 1, fat: 2, carbs: 3, fiber: 4 }, g1 = v => n3(v), MN = { protein: "protein", fat: "fat", carbs: "carbs", fiber: "fiber", kcal: "calories" };
+  def("fit", "macros macro", "macros   |   macros weight 71   |   macros kcal 2500   |   macros bulk 10   |   macros adjust 0.2", "daily protein, fat, carb and fiber targets from your body weight and calories; set them, or ask what to change from your weekly gain", async a => {
+    let p = loadProfile(); const w = a.trim().toLowerCase().split(/\s+/), cmd = w[0] || "", v = parseFloat(w[1]);
+    if (cmd === "weight" || cmd === "kg") { const kg = Number.isFinite(v) ? v : lastKg(); if (!kg) U("usage: macros weight 71   (or log a weigh-in first and use: macros weight)"); p = saveProfile({ ...p, kg }); await print(`✓ body weight ${trim(kg, 1)} kg; protein and fat follow it`); }
+    else if (cmd === "kcal" || cmd === "calories") { if (!Number.isFinite(v)) U("usage: macros kcal 2500   (your maintenance calories)"); p = saveProfile({ ...p, kcal: v }); await print(`✓ maintenance ${thou(v)} kcal`); }
+    else if (cmd === "bulk") { const x = Number.isFinite(v) ? v : 0; p = saveProfile({ ...p, bulk: x / 100 }); await print(x ? `✓ lean bulk +${trim(x, 1)}% on maintenance` : "✓ eating at maintenance"); }
+    else if (cmd === "set") { const n = nums(a); if (n.length < 3) U("usage: macros set 70 183 22   (kg, cm, age)"); p = saveProfile({ ...p, kg: n[0], cm: n[1], age: n[2], sex: /\b(f|female)\b/i.test(a) ? "f" : "m" }); await print("✓ profile saved"); }
+    else if (cmd === "adjust") { if (!Number.isFinite(v)) U("usage: macros adjust 0.2   (kg gained per week, averaged over 2 to 4 weeks)"); const r = adjustAdvice(p, v); await print([`${n3(r.pct)}% of body weight a week`, "  " + r.text, ...(r.add ? [`  new calories about ${thou(Math.round(p.kcal * (1 + p.bulk) + (r.add[0] + r.add[1]) / 2))} (that is ${r.add[0]} to ${r.add[1]} kcal)`] : [])]); return; }
+    else if (cmd === "reset") { saveProfile({}); p = loadProfile(); await print("✓ back to the defaults"); }
+    else if (cmd && cmd !== "show") U("macros weight 71 · kcal 2500 · bulk 10 · set 70 183 22 · adjust 0.2 · reset");
+    const t = targets(p); await print([`${trim(p.kg, 1)} kg · ${p.cm} cm · ${p.age} y/o · ${p.bulk ? `lean bulk +${trim(p.bulk * 100, 1)}%` : "maintenance"} ${thou(Math.round(t.kcal))} kcal`,
+      `  protein  ${t.perKg.protein.toFixed(1)} g/kg   ${g1(t.protein)} g   ${thou(Math.round(t.kcalOf.protein))} kcal`, `  fat      ${t.perKg.fat.toFixed(1)} g/kg   ${g1(t.fat)} g   ${thou(Math.round(t.kcalOf.fat))} kcal`, `  carbs    ${t.perKg.carbs.toFixed(1)} g/kg   ${g1(t.carbs)} g   ${thou(Math.round(t.kcalOf.carbs))} kcal`,
+      `  fiber    ${g1(t.fiber)} g minimum (14 g per 1,000 kcal, never under 25)`, `  BMR ${thou(Math.round(bmr(p)))} · TDEE ${thou(Math.round(tdee(p)))} at 1.55, ${thou(Math.round(tdee(p, 1.725)))} at 1.725`]);
+    await print("try: need chicken breast · need rice for carbs · need salmon have 40p 20c", "tm-dim");
+  });
+  def("fit", "need howmuch", "need chicken breast   |   need rice for carbs   |   need salmon have 40p 20c 10f", "how many grams of a food cover your macro targets (or what is left after what you already ate); usda before the name looks it up in the USDA database", async a => {
+    let q = a.trim(); if (!q) U("usage: need chicken breast   ·   need rice for carbs   ·   need oats have 40p 20c   (p protein, c carbs, f fat, fi fiber)");
+    const t = targets(loadProfile()), have = { protein: 0, fat: 0, carbs: 0, fiber: 0, kcal: 0 }, hm = q.match(/\b(?:have|had|ate|eaten|after)\s+(.*)$/i);
+    if (hm) { q = q.slice(0, hm.index).trim(); for (const m of hm[1].matchAll(/(\d+(?:\.\d+)?)\s*(fi|fib|fiber|fibre|p|protein|f|fat|c|carbs?|k|kcal|cal)\b/gi)) { const u = m[2].toLowerCase(); have[u[0] === "p" ? "protein" : u.startsWith("fi") ? "fiber" : u[0] === "f" ? "fat" : u[0] === "c" && u !== "cal" ? "carbs" : "kcal"] += +m[1]; } }
+    let only = null; const fm = q.match(/\b(?:for|to hit|hit)\s+(protein|fat|carbs?|fiber|fibre|calories|kcal)\b/i); if (fm) { q = q.slice(0, fm.index).trim(); const u = fm[1].toLowerCase(); only = u === "protein" ? "protein" : u === "fat" ? "fat" : u.startsWith("carb") ? "carbs" : u.startsWith("fib") ? "fiber" : "kcal"; }
+    const web = /^usda\s+/i.test(q); q = q.replace(/^usda\s+/i, "").trim(); let food = web ? null : findFood(q), src = "";
+    if (!food) { try { food = await usdaFood(q); src = food ? "USDA FoodData Central" : ""; } catch (e) { if (!web && !findFood(q)) U(`"${q}" is not in my short list, and the USDA look-up failed: ${e.message}`); throw e; } }
+    if (!food) U(`could not find "${q}" in my list or in USDA. Try a plainer name, e.g. chicken breast, rice, oats, salmon, olive oil.`);
+    const per = food.per100, left = { kcal: t.kcal - have.kcal - (have.kcal ? 0 : 4 * have.protein + 9 * have.fat + 4 * have.carbs), protein: t.protein - have.protein, fat: t.fat - have.fat, carbs: t.carbs - have.carbs, fiber: t.fiber - have.fiber };
+    const rows = (only ? [only] : ["protein", "carbs", "fat", "fiber", "kcal"]).map(m => { const g = gramsFor(per, m, Math.max(0, left[m])); return { m, need: Math.max(0, left[m]), g }; });
+    const unit = m => (m === "kcal" ? "kcal" : "g");
+    await print([`${food.name}${src ? `  (${src})` : ""}   per 100 g: ${n3(per[0])} kcal · P ${n3(per[1])} · F ${n3(per[2])} · C ${n3(per[3])} · fiber ${n3(per[4])}${food.mono != null ? ` · mono ${n3(food.mono)} · poly ${n3(food.poly)}` : ""}`,
+      hm ? `already had: ${["protein", "carbs", "fat", "fiber", "kcal"].filter(m => have[m]).map(m => `${trim(have[m], 1)} ${unit(m)} ${m}`).join(", ")}` : "against the full day" , ...rows.map(r => r.g == null ? `  ${MN[r.m].padEnd(9)} ${r.need ? `still ${g1(r.need)} ${unit(r.m)}` : "done"}   (this food has none)` : r.need <= 0 ? `  ${MN[r.m].padEnd(9)} done` : `  ${MN[r.m].padEnd(9)} still ${g1(r.need)} ${unit(r.m)}  →  ${g1(r.g)} g`)]);
+    const pick = only ? rows[0] : rows.filter(r => r.g && r.m !== "kcal" && r.m !== "fiber").sort((x, y) => (per[IDXM[y.m]] * (y.need > 0)) / 1 - (per[IDXM[x.m]] * (x.need > 0)))[0];
+    if (pick && pick.g && pick.need > 0) { const e = macrosOf(per, pick.g), over = []; if (e.fat > left.fat + 1 && pick.m !== "fat") over.push(`${g1(e.fat - Math.max(0, left.fat))} g too much fat`); if (e.carbs > left.carbs + 1 && pick.m !== "carbs") over.push(`${g1(e.carbs - Math.max(0, left.carbs))} g too much carbs`); if (e.protein > left.protein + 1 && pick.m !== "protein") over.push(`${g1(e.protein - Math.max(0, left.protein))} g too much protein`);
+      await print([`eating ${g1(pick.g)} g to cover ${MN[pick.m]} gives ${g1(e.kcal)} kcal: P ${g1(e.protein)} · F ${g1(e.fat)} · C ${g1(e.carbs)} · fiber ${g1(e.fiber)}`, ...(over.length ? ["  but that overshoots: " + over.join(", ") + "; mix foods instead (need ... have ...)"] : [])], "tm-dim"); }
+  });
   def("sys", "backup", "backup", "download your weigh-ins, aliases and notes mirror as a JSON file", async () => {
     const out = { saved: new Date().toISOString(), weights: loadWeights(), aliases: JSON.parse(localStorage.getItem("console.aliases") || "{}") }; const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([JSON.stringify(out, null, 2)], { type: "application/json" })); a.download = `dash-backup-${ymd(new Date())}.json`; a.click(); await print(`✓ downloaded ${a.download}`);
