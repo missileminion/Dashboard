@@ -338,6 +338,11 @@ export function initCalendar(root, { demo = false } = {}) {
       const r = await bridge("create", { calendarId: cal.id, event: { summary: title, start: { dateTime: start.toISOString(), timeZone: TZ }, end: { dateTime: end.toISOString(), timeZone: TZ }, reminders: { useDefault: false, overrides: [] } } });
       await load(); return { id: r.event && r.event.id, cal: cal.id };
     },
+    async update(id, p) {   // move, resize or rename one event: { start, end } as Dates, and/or { title }
+      const ev = events.find(x => x.id === id); if (!ev) throw new Error("That event is not loaded."); if (ev.writable === false) throw new Error("That calendar is read-only.");
+      if (p.title != null) { await bridge("update", { calendarId: ev.cal, id, patch: { summary: (ev.done ? "✓ " : "") + p.title } }); await load(); return ev; }
+      await applyChange(ev, { start: { dateTime: p.start.toISOString(), timeZone: TZ }, end: { dateTime: p.end.toISOString(), timeZone: TZ } }, "this"); return ev;
+    },
     async remove(id, calId) { await bridge("delete", { calendarId: calId, id }); await load(); },
     async setDone(id, want) { const ev = events.find(x => x.id === id); if (!ev) throw new Error("That event is not loaded."); if (want !== undefined && ev.done === want) return ev; await setDone(id); return ev; }
   };

@@ -4,6 +4,7 @@ import { esc, addDays, ymd, n3 } from "./util.js";
 import { PROGRAM, e1rm } from "./gymlog.js";
 import { sunPos } from "./sky.js";
 import { moonState } from "./moon.js";
+import { addMore } from "./library2.js";
 
 const pad = n => String(n).padStart(2, "0"), hmm = m => (m == null ? "—" : `${Math.floor(m / 60)}h ${pad(Math.round(m % 60) % 60)}m`);
 const num = v => (v == null || Number.isNaN(v) ? null : +v), nn = a => a.filter(v => v != null && !Number.isNaN(v));
@@ -493,5 +494,7 @@ export function buildLibrary(c) {
   });
   def("sys", "commands", "commands", "every command name on one screen", async () => { const by = {}; meta.forEach(m => (by[m.cat] ||= []).push(m.n)); await print(Object.entries(by).map(([k, v]) => `${(GROUPS[k] || k).padEnd(18)} ${v.sort().join(" ")}`), "tm-dim"); });
 
+  addMore({ def, print, dim, ask, choose, err, undos, parseWhen, fmtDay, hhmm, midnight, addDaysD, call, history, H, series, MET, metric, calApi, tasksApi, gymApi, taskList, pickTask, rewrite, TASK, lastKg, loadWeights,
+    pad, hmm, num, nn, mean, sdev, trim, thou, spark, barOf, rd, html, U, esc, ymd, addDays, n3, nums, relDays, longDay, copyText, beep, rankExercises, debtNow, ZONES });
   return { cmds: L, meta };
 }
