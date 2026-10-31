@@ -54,11 +54,12 @@ const R1 = {
   sin: [Math.sin, null, cx.sin], cos: [Math.cos, null, cx.cos], tan: [Math.tan, null, cx.tan], asin: [Math.asin, x => Math.abs(x) <= 1, cx.asin], acos: [Math.acos, x => Math.abs(x) <= 1, cx.acos], atan: [Math.atan, null, cx.atan],
   sinh: [Math.sinh, null, cx.sinh], cosh: [Math.cosh, null, cx.cosh], tanh: [Math.tanh, null, cx.tanh], asinh: [Math.asinh], acosh: [Math.acosh, x => x >= 1], atanh: [Math.atanh, x => Math.abs(x) <= 1],
   exp: [Math.exp, null, cx.exp], log: [Math.log, x => x >= 0, cx.log], log2: [Math.log2, x => x >= 0, (a, b) => { const l = cx.log(a, b); return [l[0] / Math.LN2, l[1] / Math.LN2]; }], log10: [Math.log10, x => x >= 0, (a, b) => { const l = cx.log(a, b); return [l[0] / Math.LN10, l[1] / Math.LN10]; }],
-  sqrt: [Math.sqrt, x => x >= 0, cx.sqrt], cbrt: [Math.cbrt], sign: [Math.sign], gamma: [gamma], factorial: [x => (x < 0 || !Number.isInteger(x) ? NaN : gamma(x + 1))],
+  ln: null, sqrt: [Math.sqrt, x => x >= 0, cx.sqrt], cbrt: [Math.cbrt], sign: [Math.sign], gamma: [gamma], factorial: [x => (x < 0 || !Number.isInteger(x) ? NaN : gamma(x + 1))],
   sind: [sind], cosd: [cosd], tand: [tand], asind: [x => Math.asin(x) / D2R, x => Math.abs(x) <= 1], acosd: [x => Math.acos(x) / D2R, x => Math.abs(x) <= 1], atand: [x => Math.atan(x) / D2R],
   sec: [x => 1 / Math.cos(x)], csc: [x => 1 / Math.sin(x)], cot: [x => 1 / Math.tan(x)], secd: [x => 1 / cosd(x)], cscd: [x => 1 / sind(x)], cotd: [x => 1 / tand(x)],
   deg2rad: [x => x * D2R], rad2deg: [x => x / D2R], fix: [Math.trunc], isnan: [x => +Number.isNaN(x)], isinf: [x => +(Math.abs(x) === Infinity)], isfinite: [x => +Number.isFinite(x)],
 };
+R1.ln = R1.log;
 const PARTWISE = { floor: Math.floor, ceil: Math.ceil, round: rnd, fix: Math.trunc };
 
 export function makeMatlab(calc) {
@@ -688,6 +689,8 @@ export function makeMatlab(calc) {
   function run(line) {   // -> array of output lines; errors thrown with MATLAB's wording
     const lines = []; warnings.length = 0; printed.length = 0;
     line = stripComment(line);
+    const sg = line.match(/^\s*(sum|prod)\s*\((.+)\)\s+(?:for\s+([A-Za-z_]\w*)\s+)?from\s+(.+?)\s+to\s+(.+?)\s*;?\s*$/i);   // sum(ln(x)) from 1 to 22
+    if (sg) line = `${sg[1].toLowerCase()}((@(${sg[3] || "x"}) ${sg[2].replace(/(?<!\.)([*\/^])/g, ".$1")})(${sg[4]}:${sg[5]}))`;
     const stmts = splitStatements(line);
     for (const [s, quiet] of stmts) {
       printed.length = 0;

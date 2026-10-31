@@ -71,21 +71,24 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
   const $ = id => root.querySelector("#" + id), log = $("tmLog"), live = $("tmLive"), sug = $("tmSug"), echo = $("tmEcho"), inp = $("tmIn"), scr = $("tm");
   let busy = false, booted = false, past = [], pi = -1, pending = null, undos = [], lastOut = "", mode = null; const calc = makeCalc(), ml = makeMatlab(calc);
   const aiKey = () => { try { return localStorage.getItem("console.aikey") || ""; } catch { return ""; } }, aiModel = () => { try { return localStorage.getItem("console.aimodel") || "gemini-3.8-flash"; } catch { return "gemini-3.8-flash"; } };
+  async function gemini(sys, user, { json = false, temperature = 0 } = {}) {   // one request; thinking is switched off because it only adds seconds here
+    const mk = think => JSON.stringify({ systemInstruction: { parts: [{ text: sys }] }, contents: [{ role: "user", parts: [{ text: user }] }], generationConfig: { temperature, ...(json ? { responseMimeType: "application/json" } : {}), ...(think ? { thinkingConfig: { thinkingBudget: 0 } } : {}) } });
+    const go = async think => { const ac = new AbortController(), to = setTimeout(() => ac.abort(), 20000); try { return await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${aiModel()}:generateContent`, { method: "POST", signal: ac.signal, headers: { "Content-Type": "application/json", "x-goog-api-key": aiKey() }, body: mk(think) }); } catch (e) { throw new Error(e.name === "AbortError" ? "no answer after 20 seconds. check your connection, or try again." : e.message); } finally { clearTimeout(to); } };
+    let res = await go(true); if (res.status === 400) { const j = await res.clone().json().catch(() => ({})); if (/think/i.test((j.error && j.error.message) || "")) res = await go(false); }
+    if (!res.ok) { const j = await res.json().catch(() => ({})), m = (j.error && j.error.message) || res.statusText; throw new Error(res.status === 404 ? `model "${aiModel()}" not found. aimodel <name> changes it (${m})` : res.status === 429 ? "free limit reached for now, try again in a minute" : m); }
+    const j = await res.json(); return (j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts.map(p => p.text).join("")) || "";
+  }
   async function aiTranslate(line) {   // only the typed line and the command list leave the page, never any health data
     const list = allMeta().map(m => `${m.use} : ${m.d}`).join("\n"), now = new Date().toString().slice(0, 21);
-    const sys = `You turn a person's casual sentence into ONE command for their personal dashboard console. Reply with JSON only: {"command": string or null, "say": string or null}. Use "command" when a listed command fits, written exactly in that command's syntax with real values filled in (times like 1900 or 7pm, days like today, tomorrow, thu). Use "say" (one short sentence) only to ask for a missing detail or to say nothing fits. Never invent commands. Now: ${now}.\nCOMMANDS:\n${list}`;
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${aiModel()}:generateContent`, { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": aiKey() }, body: JSON.stringify({ systemInstruction: { parts: [{ text: sys }] }, contents: [{ role: "user", parts: [{ text: line }] }], generationConfig: { responseMimeType: "application/json", temperature: 0 } }) });
-    if (!res.ok) { const j = await res.json().catch(() => ({})); const m = (j.error && j.error.message) || res.statusText; throw new Error(res.status === 404 ? `model "${aiModel()}" not found. aimodel <name> changes it (${m})` : res.status === 429 ? "free limit reached for now, try again in a minute" : m); }
-    const j = await res.json(), t = j.candidates && j.candidates[0] && j.candidates[0].content.parts.map(p => p.text).join("") || "{}"; return JSON.parse(t);
+    const sys = `You turn a person's casual sentence into ONE command for their personal dashboard console, or answer them briefly. Reply with JSON only: {"command": string or null, "say": string or null}. Use "command" when a listed command fits, written exactly in that command's syntax with real values filled in (times like 1900 or 7pm, days like today, tomorrow, thu). If they ask what the console can do or how to use it, use the command "help". Use "say" (one or two short sentences) to answer a general question you can answer from general knowledge, to ask for one missing detail, or to say plainly that nothing fits. You have no live data such as weather. Never invent commands. Now: ${now}.\nCOMMANDS:\n${list}`;
+    const t = await gemini(sys, line, { json: true }); try { return JSON.parse(t || "{}"); } catch { return { say: t.slice(0, 300) }; }
   }
   async function aiAsk(q) {   // the one place health numbers leave the page, and only when you run ask
     const h = A().health && A().health(); if (!h) throw new Error("the health numbers are not loaded yet.");
     const rows = [...Array(14)].map((_, i) => { const d = h.addDays(h.today, -13 + i), x = h.byDate[d] || {}; return `${d}: sleep ${x.sleepMin != null ? (x.sleepMin / 60).toFixed(1) + "h" : "-"}, restingHR ${x.restingHr ?? "-"}, HRV ${x.hrv ?? "-"}, steps ${x.steps ?? "-"}, activeZoneMin ${x.azm ?? "-"}`; });
     const w = loadWeights().slice(-5).map(e => `${e.date} ${e.kg}kg`).join(", ");
     const sys = "You are a concise health-data assistant inside a personal dashboard. Answer the question using only the numbers given, in 2 to 4 short sentences, plain text, no markdown. If the data cannot answer it, say what is missing. You are not a doctor; for symptoms suggest seeing one.";
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${aiModel()}:generateContent`, { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": aiKey() }, body: JSON.stringify({ systemInstruction: { parts: [{ text: sys }] }, contents: [{ role: "user", parts: [{ text: `Today is ${h.today}.\nLast 14 days:\n${rows.join("\n")}\nRecent weights: ${w || "none"}\n\nQuestion: ${q}` }] }], generationConfig: { temperature: 0.3 } }) });
-    if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error((j.error && j.error.message) || res.statusText); }
-    const j = await res.json(); return (j.candidates && j.candidates[0] && j.candidates[0].content.parts.map(p => p.text).join("")) || "no answer.";
+    return (await gemini(sys, `Today is ${h.today}.\nLast 14 days:\n${rows.join("\n")}\nRecent weights: ${w || "none"}\n\nQuestion: ${q}`, { temperature: 0.3 })) || "no answer.";
   }
   const ALS = "console.aliases", userAl = () => { try { return JSON.parse(localStorage.getItem(ALS)) || {}; } catch { return {}; } };
   const setAlias = (k, v) => { const a = userAl(); if (v == null) delete a[k]; else a[k] = v; try { localStorage.setItem(ALS, JSON.stringify(a)); } catch {} };
@@ -95,7 +98,7 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
   async function print(lines, cls = "") {
     lines = [].concat(lines);
     if (cls !== "tm-err") lastOut = lines.map(t => (t && t.html ? t.html.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">") : t)).join("\n");
-    for (const text of lines) { const d = document.createElement("div"); d.className = "tm-line " + cls; if (text && text.html != null) d.innerHTML = text.html; else { if (/^✓/.test(text) && !cls) d.classList.add("tm-ok"); d.textContent = text; } log.appendChild(d); bottom(); if (lines.length > 1 && !reduce) await sleep(lines.length > 40 ? 4 : 26); }
+    for (const text of lines) { const d = document.createElement("div"); d.className = "tm-line " + cls; if (text && text.html != null) d.innerHTML = text.html; else { if (/^✓/.test(text) && !cls) d.classList.add("tm-ok"); d.textContent = text; } log.appendChild(d); bottom(); if (lines.length > 1 && lines.length <= 14 && !reduce) await sleep(9); }
   }
   const err = t => print(t, "tm-err"), dim = t => print(t, "tm-dim");
   async function type(text, cls = "") {   // the boot text only
@@ -233,7 +236,7 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
   /* ---------- the library: about 130 more commands ---------- */
   const lib = buildLibrary({ print, err, dim, ask, choose, A: api, calc, today, undos, parseWhen, fmtDay, hhmm, midnight, addDaysD, loadWeights, setWeight, delWeight, call: (n, a) => cmds[n](a), log, bottom, lastOut: () => lastOut, history: () => past, aliases: userAl, setAlias, names: () => Object.keys(cmds) });
   Object.assign(cmds, lib.cmds);
-  cmds.calculator = async args => { if (args.trim()) { try { return await showValue(calc.evaluate(mulX(words2math(args.trim())))); } catch (e) { return err(e.message || String(e)); } } await enterCalc(); };
+  cmds.calculator = async args => { if (args.trim()) { try { return await print(ml.run(mulX(words2math(args.trim())))); } catch (e) { if (e.partial && e.partial.length) await print(e.partial); return err(e.message || String(e)); } } await enterCalc(); };
   const allMeta = () => [...CORE.map(([cat, n, use, d, al]) => ({ cat, n, use, d, al: al || [] })), ...lib.meta];
   const ALIAS = Object.fromEntries(allMeta().flatMap(m => m.al.map(a => [a, m.n]))); const isCmd = n => Object.hasOwn(cmds, n);
   const allWords = () => [...Object.keys(cmds), ...Object.keys(ALIAS), ...Object.keys(userAl())];
@@ -366,7 +369,7 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
       await dim("asking Gemini to read that…");
       try { const r = await aiTranslate(line);
         if (r.command && isCmd(ALIAS[r.command.split(/\s+/)[0].toLowerCase()] || r.command.split(/\s+/)[0].toLowerCase())) { await dim(`→ ${r.command}`); return exec(r.command, true); }
-        if (r.say) return print(r.say, "tm-dim");
+        return print(r.say || "Gemini had no command for that.", "tm-dim");
       } catch (e) { await err(`Gemini: ${e.message || e}`); }
     }
     if (!isCmd(name)) {
