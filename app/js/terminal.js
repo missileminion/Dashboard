@@ -359,8 +359,8 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
   async function boot() {
     if (booted) return; booted = true;
     await type("DASH // COMMAND LINE", "tm-head"); await type("─────────────────────────────", "tm-head");
-    await dim("say hi for a briefing, or type what you want in plain words: how did I sleep · what's next · I weigh 70.4 · bench 135 8 3"); await dim("calculator opens a calculator (x multiplies, exit leaves). 2+2, sqrt(2) and plot sin(x) work anywhere.");
-    await dim(`${allMeta().length} commands. The line under the prompt shows what each one needs as you type; Tab completes; a bare command asks for what it needs. help lists the groups.`); await print(""); sugRender();
+    await dim("type hi, or help");
+    await print(""); sugRender();
   }
 
   inp.addEventListener("input", () => { echo.innerHTML = hl(inp.value); bottom(); sugRender(); });
