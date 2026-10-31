@@ -425,6 +425,10 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
     else if (e.key === "ArrowDown") { e.preventDefault(); pi = Math.max(-1, pi - 1); inp.value = pi < 0 ? "" : past[pi]; echo.innerHTML = hl(inp.value); sugRender(); }
   });
   root.addEventListener("click", () => { if (!getSelection().toString()) inp.focus(); });
+  // phone keyboard: iOS slides the page up and hides the line being typed, so the console is cut to the visible area above the keyboard and kept at the end
+  const vv = window.visualViewport;
+  if (vv) { let busyFit = false; const fit = () => { if (busyFit) return; busyFit = true; requestAnimationFrame(() => { busyFit = false; const kb = Math.max(0, innerHeight - vv.height - vv.offsetTop); scr.style.bottom = kb > 80 && document.activeElement === inp ? kb + "px" : ""; if (kb > 80) { scrollTo(0, 0); bottom(); } }); };
+    vv.addEventListener("resize", fit); vv.addEventListener("scroll", fit); inp.addEventListener("blur", () => { scr.style.bottom = ""; }); inp.addEventListener("focus", () => setTimeout(fit, 300)); }
   addEventListener("tab", e => { if (e.detail === "console") setTimeout(() => { boot(); inp.focus(); }, 450); });
   if (document.body.dataset.tab === "console") { boot(); setTimeout(() => inp.focus(), 500); }
 }

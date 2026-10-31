@@ -567,5 +567,5 @@ body[data-swipe=l] .hv,body[data-swipe=l] #cal,body[data-swipe=l] #glog,body[dat
   .bar .seg.tabs{display:none!important} body{padding-bottom:calc(46px + env(safe-area-inset-bottom))}
   #pageDots{display:flex;position:fixed;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom));gap:8px;align-items:center;padding:8px 13px;border-radius:100px;background:rgba(14,17,24,.62);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border:1px solid var(--edge);z-index:70;pointer-events:none}
   #pageDots i{display:block;width:6px;height:6px;border-radius:6px;background:rgba(255,255,255,.28);transition:all .3s} #pageDots i.on{width:18px;background:#fff}
-  .cdev{bottom:calc(52px + env(safe-area-inset-bottom))!important} .tm-in{font-size:16px}
+  .cdev{bottom:calc(52px + env(safe-area-inset-bottom))!important} .tm-in{font-size:16px;left:0;top:0;bottom:auto}
 }
