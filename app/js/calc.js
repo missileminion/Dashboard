@@ -24,13 +24,16 @@ export function makeCalc() {
     deg: x => x * 180 / Math.PI, rad: x => x * Math.PI / 180, sec: x => 1 / FN.cos(x), csc: x => 1 / FN.sin(x), cot: x => 1 / FN.tan(x),
   };
   FN.sqrt = x => (x < 0 ? NaN : Math.sqrt(x));
+  const D = Math.PI / 180, half = v => { const h = Math.round(v * 2) / 2; return Math.abs(v - h) < 1e-15 ? h : v; };
+  Object.assign(FN, { sind: x => (((x % 180) + 180) % 180 === 0 ? 0 : half(Math.sin(x * D))), cosd: x => ((((x - 90) % 180) + 180) % 180 === 0 ? 0 : half(Math.cos(x * D))), tand: x => (((x % 180) + 180) % 180 === 0 ? 0 : Math.tan(x * D)),
+    asind: x => Math.asin(x) / D, acosd: x => Math.acos(x) / D, atand: x => Math.atan(x) / D, atan2d: (y, x) => Math.atan2(y, x) / D, deg2rad: x => x * D, rad2deg: x => x / D });
 
   /* ---------- reading the expression ---------- */
   function tokenize(src) {
-    const out = [], re = /\s*(?:(\d+\.?\d*(?:e[+-]?\d+)?|\.\d+(?:e[+-]?\d+)?)|([A-Za-zπτ_][A-Za-z0-9_]*)|(\*\*|[-+*/^()!,=×÷−]))/gy; let m, last = 0;
+    const out = [], re = /\s*(?:(\d+\.?\d*(?:e[+-]?\d+)?|\.\d+(?:e[+-]?\d+)?)|([A-Za-zπτ_][A-Za-z0-9_]*)|(\.[*\/^]|\*\*|[-+*/^()!,=×÷−]))/gy; let m, last = 0;
     src = src.replace(/\s+$/, "");
     while (last < src.length) { re.lastIndex = last; m = re.exec(src); if (!m) throw new Error(`I do not understand "${src.slice(last).trim().slice(0, 12)}"`); last = re.lastIndex;
-      if (m[1] != null) out.push({ k: "n", v: parseFloat(m[1]) }); else if (m[2] != null) out.push({ k: "i", v: m[2] }); else out.push({ k: "o", v: m[3] === "×" ? "*" : m[3] === "÷" ? "/" : m[3] === "−" ? "-" : m[3] === "**" ? "^" : m[3] }); }
+      if (m[1] != null) out.push({ k: "n", v: parseFloat(m[1]) }); else if (m[2] != null) out.push({ k: "i", v: m[2] }); else out.push({ k: "o", v: m[3] === "×" ? "*" : m[3] === "÷" ? "/" : m[3] === "−" ? "-" : m[3] === "**" ? "^" : m[3].length === 2 && m[3][0] === "." ? m[3][1] : m[3] }); }
     return out;
   }
   function parse(src) {   // recursive descent; implicit multiplication (2pi, 3(4+5), (1+2)(3+4)); unary minus binds below ^ so -2^2 = -4

@@ -7,6 +7,7 @@
 import { esc, addDays, ymd } from "./util.js";
 import { loadWeights, setWeight, delWeight } from "./weight.js";
 import { makeCalc } from "./calc.js";
+import { makeMatlab } from "./matlab.js";
 import { buildLibrary, rankExercises, dist, GROUPS } from "./library.js";
 import { interpret, findCommands, words2math } from "./intent.js";
 
@@ -65,7 +66,7 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
   root.innerHTML = `<div class="tm" id="tm"><div class="tm-log" id="tmLog"></div><div class="tm-line tm-live" id="tmLive"><span class="tm-p" id="tmP">›</span><span id="tmEcho"></span><i class="tm-cur"></i></div><div class="tm-sug" id="tmSug"></div></div>
     <input id="tmIn" class="tm-in" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Command line">`;
   const $ = id => root.querySelector("#" + id), log = $("tmLog"), live = $("tmLive"), sug = $("tmSug"), echo = $("tmEcho"), inp = $("tmIn"), scr = $("tm");
-  let busy = false, booted = false, past = [], pi = -1, pending = null, undos = [], lastOut = "", mode = null; const calc = makeCalc();
+  let busy = false, booted = false, past = [], pi = -1, pending = null, undos = [], lastOut = "", mode = null; const calc = makeCalc(), ml = makeMatlab(calc);
   const ALS = "console.aliases", userAl = () => { try { return JSON.parse(localStorage.getItem(ALS)) || {}; } catch { return {}; } };
   const setAlias = (k, v) => { const a = userAl(); if (v == null) delete a[k]; else a[k] = v; try { localStorage.setItem(ALS, JSON.stringify(a)); } catch {} };
   const bottom = () => { scr.scrollTop = scr.scrollHeight; }, sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -179,21 +180,25 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
   };
 
   /* ---------- calculator mode ---------- */
-  const MODECMD = new Set(["exit", "quit", "q", "back", "leave", "bye", "clc", "clear", "cls", "help", "?", "plot", "roots", "deriv", "integral", "deg", "rad", "prec"]);
-  const mulX = s => (/^[A-Za-z_]\w*\s*\(.*\)\s*=/.test(s) ? s : s.replace(/(\d|\))\s*[x×]\s*(?=[\d(.])/gi, "$1*"));   // 12 x 8 and 12x8 multiply; 2x on its own stays "2 times x"
-  const CALC_HELP = ["CALCULATOR", "  12 x 8     (45+15)/4     2^10     sqrt(2)     sin(pi/2)     10!     15% of 80", "  x or × multiplies. A line that starts with + - * / x ^ continues from the last answer (ans).", "  f(x)=x^2-3x defines a function. plot, roots, deriv, integral, deg, rad and prec work here too.", "  Results are exact to 7 decimals (prec 10 shows more). exit, q or Esc goes back."];
+  const MODECMD = new Set(["exit", "quit", "q", "back", "leave", "bye", "clc", "cls", "help", "?", "plot", "prec"]);
+  const mulX = s => (/^[A-Za-z_]\w*\s*\(.*\)\s*=|@/.test(s) ? s : s.replace(/(\d|\))\s*[x×]\s*(?=\d|\(|\.\d)/gi, "$1*"));   // 12 x 8 and 12x8 multiply; 2x on its own stays "2 times x"
+  const CALC_HELP = ["CALCULATOR  (works like MATLAB)", "  2+2    12 x 8    sqrt(2)    10!    15% of 80    x = 5    y = x^2;   (a semicolon hides the result)", "  Angles: sin cos tan use radians. sind cosd tand asind acosd atand use degrees. deg2rad rad2deg convert.", "  Matrices: A = [1 2; 3 4]   A*B   A.*B   A'   A\\b   inv(A)   det(A)   eig(A)   zeros(2,3)   eye(3)   A(2,:)   x = 0:0.5:2   linspace(0,1,5)", "  Complex: sqrt(-4)   (1+2i)*(3-i)   abs(z)   angle(z)    Also: sum mean std sort find cumsum polyfit polyval roots fzero integral sprintf disp", "  f = @(x) x.^2 - 3   then  f(2)  fzero(f, 1)  plot f   |  format long / format short / format  |  who  clear  clc  |  exit or Esc leaves"];
   const setMode = m => { mode = m; $("tmP").textContent = m ? m.prompt : "›"; scr.classList.toggle("mode", !!m); sugRender(); };
   async function enterCalc() { setMode({ name: "calc", prompt: "calc ›" }); await print(CALC_HELP, "tm-dim"); }
   async function modeRun(line) {
     const m = line.match(/^(\S+)\s*(.*)$/), w = m[1].toLowerCase();
     if (/^(exit|quit|q|back|leave|bye)$/.test(w)) { setMode(null); return dim("left the calculator."); }
-    if (/^(clc|clear|cls)$/.test(w)) { log.innerHTML = ""; return; }
+    if (/^(clc|cls)$/.test(w)) { log.innerHTML = ""; return; }
     if (w === "help" || w === "?") return print(CALC_HELP, "tm-dim");
-    if (MODECMD.has(w) && isCmd(w)) { busy = true; try { await cmds[w](m[2]); } catch (e) { await err(e.message || String(e)); } busy = false; return; }
+    if ((w === "deg" || w === "rad") && !m[2]) return print(["sin, cos and tan take radians, as in MATLAB. For degrees use sind, cosd, tand (asind, acosd, atand, atan2d),", "or convert: deg2rad(x) and rad2deg(x).  Example: sind(30) = 0.5   sin(pi/6) = 0.5"], "tm-dim");
+    if ((MODECMD.has(w) || (/^(roots|deriv|integral)$/.test(w) && m[2] && !/^\(/.test(m[2]))) && isCmd(w)) { busy = true; try { await cmds[w](m[2]); } catch (e) { await err(e.message || String(e)); } busy = false; return; }
     let t = line.replace(/(\d),(?=\d{3}(\D|$))/g, "$1"); const pc = t.match(/^(-?[\d.]+)\s*%\s*of\s*(-?[\d.]+)$/i); if (pc) t = `${pc[1]}/100*${pc[2]}`;
-    if (/^x(?=\s*[\d(.])/i.test(t)) t = t.replace(/^x\s*/i, "*"); if (/^(?:[+*\/^÷×]|-\s)/.test(t)) t = "ans" + t;   // "+ 5" or "x 3" carries on from the last answer
-    try { await showValue(calc.evaluate(mulX(words2math(t)))); }
-    catch (e) { await err(/^"x" is not defined/.test(e.message || "") ? 'x multiplies between numbers (2 x 3). To use x as a name, set it first, for example  x = 4' : e.message || String(e)); }
+    if (/\b(plus|minus|times|multiplied by|divided by|over|squared|cubed|percent|square root of|to the)\b/i.test(t) && !/[=\[@]/.test(t)) t = words2math(t);
+    if (!("x" in ml.W.vars) && /^x(?=\s*[\d(.])/i.test(t)) t = t.replace(/^x\s*/i, "*");
+    t = mulX(t);
+    if (/^(?:[+*\/^÷×]|\.[*\/^]|-\s)/.test(t) && ml.W.ans) t = "ans" + t.replace(/^[÷]/, "/").replace(/^[×]/, "*");   // "+ 5" or "x 3" carries on from the last answer
+    try { await print(ml.run(t)); }
+    catch (e) { if (e.partial && e.partial.length) await print(e.partial); await err(e.message || String(e)); }
   }
 
   /* ---------- the library: about 130 more commands ---------- */
@@ -247,7 +252,7 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
 
   // blue text for anything the console recognises as a command or a math function, the moment it is typed
   function hl(v) {
-    const fns = new Set([...Object.keys(calc.FN), ...Object.keys(calc.S.funcs)]), re = /[A-Za-zπτ_][A-Za-z0-9_]*/g, first = v.search(/\S/), ua = userAl(); let out = "", last = 0, m;
+    const fns = new Set([...Object.keys(calc.FN), ...Object.keys(calc.S.funcs), ...ml.names()]), re = /[A-Za-zπτ_][A-Za-z0-9_]*/g, first = v.search(/\S/), ua = userAl(); let out = "", last = 0, m;
     while ((m = re.exec(v))) {
       const w = m[0], low = w.toLowerCase(), at = m.index, after = v.slice(at + w.length);
       const known = mode ? MODECMD.has(low) && isCmd(low === "q" || low === "exit" || low === "quit" ? "bye" : low) || /^(exit|quit|q|back|leave|help)$/.test(low) : isCmd(low) || low in ALIAS || low in ua;
