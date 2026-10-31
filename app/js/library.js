@@ -121,19 +121,12 @@ export function buildLibrary(c) {
     const ms = target - new Date(), mins = Math.round(ms / 6e4); await print(ms < 0 ? `${label} was ${Math.round(-ms / 864e5)} days ago` : mins < 120 ? `${mins} min until ${label}` : ms < 2 * 864e5 ? `${Math.floor(mins / 60)} h ${mins % 60} min until ${label}` : `${Math.ceil(ms / 864e5)} days until ${label} (${trim(ms / 864e5 / 7, 1)} weeks)`);
   });
   def("time", "since", "since <day>", "days since a date", async a => { const w = parseWhen(a.split(/\s+/).filter(Boolean)); if (!w.hasDate) U("usage: since oct 1   or   since 3/14/2026"); const n = Math.round((midnight(new Date()) - midnight(w.start)) / 864e5); await print(`${n} days since ${fmtDay(w.start)} (${trim(n / 7, 1)} weeks)`); });
-  def("time", "between", "between <day> and <day>", "days between two dates", async a => {
-    const parts = a.split(/\s+(?:and|to|until)\s+/i); if (parts.length !== 2) U("usage: between oct 1 and dec 25");
-    const x = parseWhen(parts[0].split(/\s+/)), y = parseWhen(parts[1].split(/\s+/)); if (!x.hasDate || !y.hasDate) U("I could not read both dates.");
-    const n = Math.round((midnight(y.start) - midnight(x.start)) / 864e5); await print(`${Math.abs(n)} days (${trim(Math.abs(n) / 7, 1)} weeks, about ${trim(Math.abs(n) / 30.4375, 1)} months) ${n < 0 ? "earlier" : "later"}`);
-  });
   const shiftBy = (a, sign) => {
     const m = a.match(/^\s*(\d+(?:\.\d+)?)\s*(day|days|d|week|weeks|wk|w|month|months|mo|year|years|y|hour|hours|h)\b\s*(?:from\s+(.+))?$/i); if (!m) U(`usage: ${sign > 0 ? "later" : "ago"} 90 days [from nov 1]`);
     const base = m[3] ? parseWhen(m[3].split(/\s+/)).start : new Date(), n = +m[1] * sign, u = m[2][0].toLowerCase(), d = new Date(base);
     if (u === "d") d.setDate(d.getDate() + n); else if (u === "w") d.setDate(d.getDate() + 7 * n); else if (u === "m") d.setMonth(d.getMonth() + n); else if (u === "y") d.setFullYear(d.getFullYear() + n); else d.setHours(d.getHours() + n);
     return d;
   };
-  def("time", "later", "later 90 days [from day]", "the date a number of days, weeks, months or years ahead", async a => { const d = shiftBy(a, 1); await print(`${longDay(d)}  (${relDays(d)})`); });
-  def("time", "ago", "ago 90 days", "the date a number of days, weeks, months or years back", async a => { const d = shiftBy(a, -1); await print(`${longDay(d)}  (${relDays(d)})`); });
   def("time", "month cal", "month [next|last|nov|11] [year]", "a calendar for this month or another", async a => {
     const t = a.toLowerCase().split(/\s+/).filter(Boolean), now = new Date(); let y = now.getFullYear(), mo = now.getMonth();
     t.forEach(x => { if (x === "next") mo++; else if (x === "last" || x === "prev") mo--; else if (/^\d{4}$/.test(x)) y = +x; else if (/^\d{1,2}$/.test(x) && +x >= 1 && +x <= 12) mo = +x - 1; else if (x in { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 } || x.slice(0, 3) in { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 }) mo = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 }[x.slice(0, 3)]; });
@@ -141,20 +134,6 @@ export function buildLibrary(c) {
     const lines = [esc(" ".repeat(Math.max(0, Math.floor((20 - title.length) / 2))) + title), "Mo Tu We Th Fr Sa Su"]; let row = "   ".repeat(lead);
     for (let d = 1; d <= len; d++) { const isToday = d === now.getDate() && mo === now.getMonth() && y === now.getFullYear(), cell = String(d).padStart(2, " "); row += (isToday ? `<span class="tm-today">${cell}</span>` : cell) + " "; if ((lead + d) % 7 === 0) { lines.push(row.trimEnd()); row = ""; } }
     if (row.trim()) lines.push(row.trimEnd()); await print(lines.map((x, i) => (i < 2 ? html(esc(x)) : html(x))), "tm-dim");
-  });
-  def("time", "sun sunrise sunset", "sun", "sunrise, sunset and daylight at the city chosen on the weather card", async () => {
-    let loc = null; try { loc = JSON.parse(localStorage.getItem("sky.loc")); } catch {} if (!loc || loc.lat == null) U("no location yet. choose a city on the Health tab weather card.");
-    const base = midnight(new Date()), alt = m => sunPos(new Date(+base + m * 6e4).getTime(), loc.lat, loc.lon).alt, TH = -0.833; let rise = null, set = null, noon = 0, best = -99;
-    for (let m = 1; m < 1440; m++) { const a0 = alt(m - 1), a1 = alt(m); if (a0 < TH && a1 >= TH && rise == null) rise = m; if (a0 >= TH && a1 < TH) set = m; if (a1 > best) { best = a1; noon = m; } }
-    const T = m => (m == null ? "—" : hhmm(new Date(+base + m * 6e4))), nowM = (Date.now() - base) / 6e4;
-    if (rise == null || set == null) return print(best > TH ? "the sun does not set today at this location" : "the sun does not rise today at this location", "tm-dim");
-    await print([`sunrise ${T(rise)}   sunset ${T(set)}   solar noon ${T(noon)}`, `daylight ${hmm(set - rise)}, sun peaks ${Math.round(best)}° high`, nowM < rise ? `sunrise in ${hmm(rise - nowM)}` : nowM < set ? `sunset in ${hmm(set - nowM)}` : "the sun has set"], "tm-dim");
-  });
-  def("time", "moon", "moon", "the moon's phase, how lit it is and days to full and new", async () => { const m = moonState(); await print(`${m.name}, ${Math.round(m.lit * 100)}% lit, day ${Math.floor(m.age) + 1} of 29. full moon in ${trim(m.toFull, 1)} days, new moon in ${trim(m.toNew, 1)} days`); });
-  def("time", "age", "age <yyyy-mm-dd>", "how old someone born on a date is, in years, months and days", async a => {
-    const m = a.trim().match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/) || a.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); if (!m) U("usage: age 2003-05-12"); const b = m[1].length === 4 ? new Date(+m[1], +m[2] - 1, +m[3]) : new Date(+m[3], +m[1] - 1, +m[2]), n = new Date();
-    let y = n.getFullYear() - b.getFullYear(), mo = n.getMonth() - b.getMonth(), d = n.getDate() - b.getDate(); if (d < 0) { mo--; d += new Date(n.getFullYear(), n.getMonth(), 0).getDate(); } if (mo < 0) { y--; mo += 12; }
-    await print(`${y} years, ${mo} months, ${d} days  (${thou((midnight(n) - midnight(b)) / 864e5)} days)`);
   });
   // countdown and stopwatch run in the developer panel (bottom right), drawn in dot-matrix digits; end stops them
   const LIVE = { cd: null, sw: null }, stopLive = k => { const x = LIVE[k]; if (x) { LIVE[k] = null; if (x.t) clearTimeout(x.t); timers.remove(k); } };
@@ -235,7 +214,6 @@ export function buildLibrary(c) {
     const n = nums(a)[0] || 22, max = n > 100 ? n : 220 - n, Z = [["1 easy", .5, .6], ["2 aerobic", .6, .7], ["3 tempo", .7, .8], ["4 threshold", .8, .9], ["5 maximum", .9, 1]];
     await print([`max ${Math.round(max)} bpm${n > 100 ? "" : " (220 − age; a measured max is better)"}`, ...Z.map(([nm, lo, hi]) => `  zone ${nm.padEnd(12)} ${Math.round(max * lo)}–${Math.round(max * hi)} bpm`)], "tm-dim");
   });
-  def("fit", "burn", "burn run 5 | walk 8 [kg]", "rough kilocalories for a run or walk of N km (about 1.0 / 0.5 kcal per kg per km)", async a => { const run = !/walk/i.test(a), n = nums(a), km = n[0], kg = n[1] || lastKg(); if (!km || !kg) U("usage: burn run 5 [kg]   ·   burn walk 8 70"); await print(`about ${thou(km * kg * (run ? 1 : .5))} kcal for ${trim(km, 2)} km ${run ? "running" : "walking"} at ${trim(kg, 1)} kg (a rough rule, ±20%)`); });
 
   /* ================= GYM LOG ================= */
   const exMatch = async (q, then) => { const g = gymApi(), ranked = rankExercises(q, g.entries); if (!ranked.length) U(`no exercise matches "${q}".`); if (ranked.length > 1 && ranked[0].sc - ranked[1].sc < 8) return choose(`"${q}" matches more than one exercise:`, ranked.slice(0, 5).map(x => ({ label: x.n, value: x })), o => then(o.value.n, g)); return then(ranked[0].n, g); };
@@ -429,42 +407,20 @@ export function buildLibrary(c) {
   def("math", "factor", "factor 360", "prime factors of a whole number", async a => { const n = +a.trim(); if (!Number.isInteger(n) || n < 2 || n > 9e15) U("usage: factor 360   (a whole number from 2 up to 9e15)"); const f = factor(n), c = {}; f.forEach(p => (c[p] = (c[p] || 0) + 1)); await print(`${n} = ${Object.entries(c).map(([p, k]) => (k > 1 ? `${p}^${k}` : p)).join(" × ")}${f.length === 1 ? "  (prime)" : ""}`); });
   def("math", "prime", "prime 97", "is a number prime, and the next prime after it", async a => { const n = +a.trim(); if (!Number.isInteger(n) || n < 0 || n > 9e15) U("usage: prime 97"); const isP = x => x > 1 && factor(x).length === 1; let nx = n + 1; while (!isP(nx)) nx++; await print(`${n} is ${isP(n) ? "prime" : "not prime"}; the next prime is ${nx}`); });
   def("math", "primes", "primes 50", "all primes up to N (up to 10 000)", async a => { const n = +a.trim(); if (!n || n < 2 || n > 1e4) U("usage: primes 50   (2 to 10000)"); const s = Array(n + 1).fill(true), o = []; for (let i = 2; i <= n; i++) if (s[i]) { o.push(i); for (let j = i * i; j <= n; j += i) s[j] = false; } await print(`${o.length} primes: ${o.join(" ")}`); });
-  def("math", "fib", "fib 20", "the Nth Fibonacci number, and the first N", async a => { const n = +a.trim(); if (!Number.isInteger(n) || n < 1 || n > 78) U("usage: fib 20   (1 to 78, the limit of exact whole numbers)"); const f = [0, 1]; for (let i = 2; i <= n; i++) f.push(f[i - 1] + f[i - 2]); await print([`fib(${n}) = ${f[n]}`, f.slice(0, Math.min(n + 1, 20)).join(" ") + (n > 19 ? " ..." : "")], "tm-dim"); });
   def("math", "stats", "stats 4 8 15 16 23 42", "count, mean, median, spread and range of a list of numbers", async a => {
     const v = allNums(a); if (!v || v.length < 2) U("usage: stats 4 8 15 16 23 42"); const s = [...v].sort((x, y) => x - y), md = s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2, F = x => calc.fmt(x);
     await print([`n ${v.length}   sum ${F(v.reduce((x, y) => x + y, 0))}   mean ${F(mean(v))}   median ${F(md)}`, `min ${F(s[0])}   max ${F(s[s.length - 1])}   range ${F(s[s.length - 1] - s[0])}`, `sample sd ${F(sdev(v))}   variance ${F(sdev(v) ** 2)}`], "tm-dim");
   });
   def("math", "pct", "pct 15 of 80", "a percentage of a number (pct 12 of 80 also works backwards: what percent is 12 of 80)", async a => { const m = a.trim().match(/^(-?\d+(?:\.\d+)?)\s*%?\s*(of|is|from)\s*(-?\d+(?:\.\d+)?)$/i); if (!m) U("usage: pct 15 of 80   ·   pct 12 is 80"); const x = +m[1], y = +m[3]; await print(m[2].toLowerCase() === "of" ? `${trim(x, 6)}% of ${trim(y, 6)} = ${calc.fmt(x * y / 100)}` : `${trim(x, 6)} is ${calc.fmt(x / y * 100)}% of ${trim(y, 6)}`); });
   def("math", "change", "change 80 100", "the percent change from one number to another", async a => { const [x, y] = nums(a); if (x == null || y == null || x === 0) U("usage: change 80 100"); const p = (y / x - 1) * 100; await print(`${x} → ${y}: ${p >= 0 ? "+" : "−"}${calc.fmt(Math.abs(p))}%`); });
-  def("math", "tip", "tip 48.50 [18] [people]", "tip and split a bill (default 18%)", async a => { const [b, p = 18, n = 1] = nums(a); if (!b) U("usage: tip 48.50 20 3"); const t = b * p / 100; await print([`tip ${t.toFixed(2)} at ${p}%, total ${(b + t).toFixed(2)}`, ...(n > 1 ? [`${((b + t) / n).toFixed(2)} each for ${n}`] : [])], "tm-dim"); });
-  def("math", "compound", "compound 1000 5 10", "growth of money: amount, yearly percent, years (compounded yearly)", async a => { const [p, r, y] = nums(a); if (!p || r == null || !y) U("usage: compound 1000 5 10   (amount, percent a year, years)"); const f = p * (1 + r / 100) ** y; await print(`${thou(p)} at ${r}% for ${y} years → ${thou(f)}  (+${thou(f - p)}, ${trim(f / p, 3)}×)`); });
-  def("math", "loan", "loan 20000 6 5", "monthly payment: amount, yearly percent, years", async a => { const [p, r, y] = nums(a); if (!p || r == null || !y) U("usage: loan 20000 6 5   (amount, percent a year, years)"); const i = r / 1200, n = y * 12, pay = i ? p * i / (1 - (1 + i) ** -n) : p / n; await print([`${pay.toFixed(2)} a month for ${n} months`, `total paid ${thou(pay * n)}, of which interest ${thou(pay * n - p)}`], "tm-dim"); });
-  def("math", "fraction frac", "fraction 0.375", "a decimal as the nearest simple fraction", async a => { const x = parseFloat(a); if (Number.isNaN(x)) U("usage: fraction 0.375"); let h1 = 1, h0 = 0, k1 = 0, k0 = 1, b = Math.abs(x); for (let i = 0; i < 20; i++) { const ai = Math.floor(b), h2 = ai * h1 + h0, k2 = ai * k1 + k0; h0 = h1; h1 = h2; k0 = k1; k1 = k2; if (Math.abs(Math.abs(x) - h1 / k1) < 1e-9 || b === ai) break; b = 1 / (b - ai); } await print(`${x < 0 ? "−" : ""}${h1}${k1 === 1 ? "" : "/" + k1}${Math.abs(Math.abs(x) - h1 / k1) > 1e-9 ? "  (nearest, not exact)" : ""}`); });
-  def("math", "quad", "quad 1 -3 2", "roots of ax² + bx + c (give a b c)", async a => { const [p, q, r] = nums(a); if (p == null || q == null || r == null || p === 0) U("usage: quad 1 -3 2   (a, b, c with a not zero)"); const D = q * q - 4 * p * r; await print(D < 0 ? `no real roots; complex: ${calc.fmt(-q / (2 * p))} ± ${calc.fmt(Math.sqrt(-D) / (2 * p))}i` : D === 0 ? `one root: x = ${calc.fmt(-q / (2 * p))}` : `x = ${calc.fmt((-q + Math.sqrt(D)) / (2 * p))}   and   x = ${calc.fmt((-q - Math.sqrt(D)) / (2 * p))}`); });
-  def("math", "sci", "sci 12345.678", "a number in scientific notation", async a => { const x = parseFloat(a); if (Number.isNaN(x)) U("usage: sci 12345.678"); await print(x.toExponential(7).replace(/\.?0+e/, "e").replace("e+", " × 10^").replace("e-", " × 10^-")); });
-  def("math", "roman", "roman 2026", "a number as a roman numeral (and a numeral back to a number)", async a => { const s = a.trim().toUpperCase(); if (/^[IVXLCDM]+$/.test(s)) { const V = { I: 1, V: 5, X: 10, L: 50, C: 100, D: 500, M: 1000 }; let t = 0; for (let i = 0; i < s.length; i++) t += V[s[i]] < (V[s[i + 1]] || 0) ? -V[s[i]] : V[s[i]]; return print(`= ${t}`); } const n = +s; if (!Number.isInteger(n) || n < 1 || n > 3999) U("usage: roman 2026   (1 to 3999)"); let r = "", x = n; [[1000, "M"], [900, "CM"], [500, "D"], [400, "CD"], [100, "C"], [90, "XC"], [50, "L"], [40, "XL"], [10, "X"], [9, "IX"], [5, "V"], [4, "IV"], [1, "I"]].forEach(([v, sy]) => { while (x >= v) { r += sy; x -= v; } }); await print(`= ${r}`); });
 
   /* ================= RANDOM ================= */
   const rnd = () => { const b = new Uint32Array(1); crypto.getRandomValues(b); return b[0] / 4294967296; };
   def("rand", "rand random", "rand [max] | rand 1 100", "a random whole number (default 1 to 100)", async a => { const n = nums(a); let lo = 1, hi = 100; if (n.length === 1) hi = n[0]; else if (n.length >= 2) [lo, hi] = n; if (hi < lo) [lo, hi] = [hi, lo]; await print(`= ${lo + Math.floor(rnd() * (Math.floor(hi) - Math.ceil(lo) + 1))}`); });
-  def("rand", "dice roll", "dice 2d6 [+3]", "roll dice in NdS form (default 1d6)", async a => { const m = (a.trim() || "1d6").match(/^(\d+)?d(\d+)\s*([+-]\s*\d+)?$/i); if (!m) U("usage: dice 2d6   ·   dice d20+3"); const n = +(m[1] || 1), s = +m[2], mod = m[3] ? +m[3].replace(/\s/g, "") : 0; if (n > 100 || s < 2 || s > 1000) U("up to 100 dice with 2 to 1000 sides."); const r = [...Array(n)].map(() => 1 + Math.floor(rnd() * s)); await print(`${r.join(" + ")}${mod ? ` ${mod > 0 ? "+" : "−"} ${Math.abs(mod)}` : ""} = ${r.reduce((x, y) => x + y, 0) + mod}`); });
-  def("rand", "coin flip", "coin", "flip a coin", async () => print(rnd() < .5 ? "heads" : "tails"));
   def("rand", "pick choose", "pick pizza, sushi, tacos", "choose one item from a list separated by commas", async a => { const o = a.split(/,|\bor\b/).map(x => x.trim()).filter(Boolean); if (o.length < 2) U("usage: pick pizza, sushi, tacos"); await print(`→ ${o[Math.floor(rnd() * o.length)]}`); });
-  def("rand", "shuffle", "shuffle a, b, c, d", "put a list in random order", async a => { const o = a.split(/,/).map(x => x.trim()).filter(Boolean); if (o.length < 2) U("usage: shuffle a, b, c, d"); for (let i = o.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; } await print(o.map((x, i) => `  ${i + 1}  ${x}`)); });
-  def("rand", "uuid", "uuid", "a random unique id", async () => print(crypto.randomUUID ? crypto.randomUUID() : "not supported in this browser"));
-  def("rand", "password pw", "password [length]", "a strong random password (default 20 characters, made on this page and shown nowhere else)", async a => { const n = Math.min(128, Math.max(8, +a.trim() || 20)), set = "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%^&*-_=+"; let s = ""; for (let i = 0; i < n; i++) s += set[Math.floor(rnd() * set.length)]; await print(s); });
 
   /* ================= TEXT TOOLS ================= */
   const need = (a, u) => (a.length ? a : U(`usage: ${u}`));
-  def("text", "upper", "upper <text>", "make text UPPERCASE", async a => print(need(a, "upper hello").toUpperCase()));
-  def("text", "lower", "lower <text>", "make text lowercase", async a => print(need(a, "lower HELLO").toLowerCase()));
-  def("text", "title", "title <text>", "Capitalise Each Word", async a => print(need(a, "title hello world").toLowerCase().replace(/\b[a-z]/g, x => x.toUpperCase())));
-  def("text", "len wc", "len <text>", "characters, words and lines in some text", async a => { need(a, "len some text"); await print(`${a.length} characters, ${a.trim().split(/\s+/).length} words, ${a.split("\n").length} line${a.includes("\n") ? "s" : ""}`); });
-  def("text", "rev reverse", "rev <text>", "text backwards", async a => print([...need(a, "rev hello")].reverse().join("")));
-  def("text", "slug", "slug <text>", "a url-friendly slug", async a => print(need(a, "slug Hello World!").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")));
-  def("text", "b64", "b64 encode|decode <text>", "base64 encode or decode (UTF-8 safe)", async a => { const m = a.match(/^(encode|enc|decode|dec)\s+([\s\S]+)$/i); if (!m) U("usage: b64 encode hello   ·   b64 decode aGVsbG8="); try { await print(/^enc/i.test(m[1]) ? btoa(String.fromCharCode(...new TextEncoder().encode(m[2]))) : new TextDecoder().decode(Uint8Array.from(atob(m[2].trim()), ch => ch.charCodeAt(0)))); } catch { U("that is not valid base64."); } });
-  def("text", "sha256 hash", "sha256 <text>", "the SHA-256 hash of some text", async a => { need(a, "sha256 hello"); const h = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(a)); await print([...new Uint8Array(h)].map(b => pad(b.toString(16)).slice(-2)).join("")); });
-  def("text", "echo", "echo <text>", "print text back", async a => print(a));
 
   /* ================= CONSOLE ================= */
   def("sys", "past", "past [n]", "the commands you typed this visit (Up arrow recalls them too)", async a => { const h = history(); await print(h.length ? h.slice(0, parseN(a.split(/\s+/), 15)).reverse().map((x, i) => `  ${x}`) : "nothing typed yet.", "tm-dim"); });
@@ -474,8 +430,6 @@ export function buildLibrary(c) {
   });
   def("sys", "unalias", "unalias ww", "remove one of your aliases", async a => { if (!aliases()[a.trim().toLowerCase()]) U(`no alias called "${a.trim()}".`); c.setAlias(a.trim().toLowerCase(), null); await print("✓ alias removed"); });
   def("sys", "copy", "copy [text]", "copy text, or the last answer, to the clipboard", async a => { const t = a.trim() || lastOut(); if (!t) U("nothing to copy yet."); await print(await copyText(t) ? "✓ copied" : "could not reach the clipboard; the browser blocked it."); });
-  def("sys", "about version", "about", "what this console is", async () => print(["DASH // COMMAND LINE", "  a small parser and your own data, and everything it changes can be undone.", `  ${names().length} commands in ${Object.keys(GROUPS).length} groups. help lists them.`], "tm-dim"));
-  def("sys", "reload refresh", "reload", "reload the dashboard", async () => { location.reload(); });
   def("sys", "bye exit quit", "bye", "inside the calculator, leaves it. Elsewhere the console stays put: use go <page> to switch pages", async () => { await dim("the console stays open. To switch page:"); await print(PAGES); });
   def("sys", "hi hello hey hiya yo sup howdy hola gm morning", "hi", "a quick briefing: last night, today's plan, what is next, what needs doing, and what to try", async () => {
     const now = new Date(), hr = now.getHours(), part = hr < 5 ? "Still up" : hr < 12 ? "Good morning" : hr < 17 ? "Good afternoon" : "Good evening", out = [html(esc(`${part}. ${fmtDay(now)}, ${hhmm(now)}`))], tryRows = [];
@@ -490,8 +444,8 @@ export function buildLibrary(c) {
     try { const g = A.gym && A.gym(), todays = g ? g.entries.filter(e => e.date === ymd(now)) : []; out.push(todays.length ? `  Gym      ${todays.reduce((s, e) => s + (e.sets || 1), 0)} set${todays.reduce((s, e) => s + (e.sets || 1), 0) === 1 ? "" : "s"} logged today` : `  Gym      nothing logged yet today${ctx && ctx.plan.today !== "Run" ? ` (${ctx.plan.today})` : ""}`); } catch {}
     try { if (A.tasks && A.tasks.text) { const open = taskList().filter(t => !t.done).length; out.push(`  Tasks    ${open ? `${open} open` : "none open"}`); } } catch {}
     try { const w = loadWeights(), lw = w[w.length - 1]; if (lw) { const ago = Math.round((midnight(now) - midnight(new Date(lw.date + "T12:00"))) / 864e5); out.push(`  Weight   ${n3(lw.kg)} kg${ago ? `, ${ago} day${ago > 1 ? "s" : ""} ago` : ", logged today"}`); if (ago >= 3) tryRows.push("weight 70.4 logs today's"); } else tryRows.push("weight 70.4 logs your first weigh-in"); } catch {}
-    if (hr < 12) tryRows.unshift("today", "routine"); else if (hr < 18) tryRows.unshift("free", "block 2h study"); else tryRows.unshift("bedtime", "set bench 135 8 3");
-    out.push("", `try: ${[...new Set(tryRows)].slice(0, 4).join("  ·  ")}`, "or just say it: how did I sleep · what's next · I weigh 70.4 · calculator · help");
+    if (hr < 12) tryRows.unshift("today", "routine"); else if (hr < 18) tryRows.unshift("free", "block 2h study"); else tryRows.unshift("bedtime", "agenda");
+    out.push("", `try: ${[...new Set(tryRows)].slice(0, 4).join("  ·  ")}`, "or just say it: how did I sleep · what's next · calculator · help");
     await print(out, "tm-dim");
   });
   def("sys", "commands", "commands", "every command name on one screen", async () => { const by = {}; meta.forEach(m => (by[m.cat] ||= []).push(m.n)); await print(Object.entries(by).map(([k, v]) => `${(GROUPS[k] || k).padEnd(18)} ${v.sort().join(" ")}`), "tm-dim"); });

@@ -1,5 +1,5 @@
 // The command line: an all-black terminal that does things in the dashboard with one short line each.
-//   weight 70.4        set bench 135 8 3        add gym thu 5pm        done rocketry        note buy shoes
+//   add gym thu 5pm        done rocketry        note buy shoes
 //   start study now    timer 25        go gym        today / next / status        undo        clc
 // There is no AI behind it: commands are read by a small parser, answers come straight from your own data, and everything it changes can be undone.
 // Plain-English phrasing ("how did I sleep", "I weigh 70.4") is read by intent.js; calculator is a mode with its own prompt (exit leaves it).
@@ -19,7 +19,7 @@ const MON = { jan: 0, january: 0, feb: 1, february: 1, mar: 2, march: 2, apr: 3,
 const TABS = { health: "health", home: "health", h: "health", prod: "prod", productivity: "prod", timer: "prod", stickynote: "prod", notes: "prod", gym: "gym", gymlog: "gym", log: "gym", cal: "cal", calendar: "cal", console: "console", terminal: "console" };
 // the core commands: [group, name, usage, description, aliases]
 const CORE = [
-  ["log", "weight", "weight 70.4 [yesterday]", "log your weight in kg, or show the last one", ["w"]], ["log", "set", "set bench 135 8 3", "log a gym set: exercise, lb, reps, sets"], ["log", "add", "add gym thu 5pm", "add a calendar event (add lunch tomorrow 12:30 for 45m)", ["ev", "event"]],
+  ["log", "add", "add gym thu 5pm", "add a calendar event (add lunch tomorrow 12:30 for 45m)", ["ev", "event"]],
   ["log", "done", "done rocketry", "mark a calendar event complete", ["d"]], ["log", "note", "note buy shoes", "add a line to Stickynote", ["n"]], ["log", "task", "task buy shoes", "add a checkbox to Stickynote", ["t"]],
   ["log", "rm", "delete set | weight | <event title words>", "delete the last set, today's weight or a calendar event (asks first)", ["delete", "del", "remove"]], ["log", "undo", "undo", "take back the last change"], ["sys", "end", "end", "stop whatever is looping: the calculator, a question being asked, a countdown or stopwatch"], ["sys", "rerun", "rerun [n]", "run your previous command again (rerun 2 for the one before)", ["!!"]],
   ["log", "today", "today", "your day: the plan and the events"], ["log", "next", "next", "your next calendar event"], ["log", "status", "status", "last night, recovery and the plan"], ["log", "go", "go gym", "jump to a tab: health, prod, gym, cal"],
@@ -194,31 +194,6 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
       return hits.length ? print([`matching "${q}"`, ...hits.slice(0, 24).map(line)], "tm-dim") : err(`nothing matches "${q}". help lists the groups.`);
     },
     async clc() { log.innerHTML = ""; },
-    async weight(args) {
-      const toks = args.split(/\s+/).filter(Boolean), num = toks.find(t => /^\d+(\.\d+)?$/.test(t));
-      const all = loadWeights();
-      if (!num) { if (!all.length) return dim("no weigh-ins yet. weight 70.4 logs one."); const l = all[all.length - 1], p = all[all.length - 2]; return print(`${l.kg.toFixed(1)} kg on ${fmtDay(new Date(l.date + "T12:00"))}${p ? `, ${l.kg - p.kg >= 0 ? "+" : "−"}${Math.abs(l.kg - p.kg).toFixed(1)} vs ${fmtDay(new Date(p.date + "T12:00"))}` : ""}`); }
-      const kg = Math.round(parseFloat(num) * 10) / 10; if (kg < 30 || kg > 250) return err("that does not look like a body weight in kg.");
-      const rest = toks.filter(t => t !== num), d = parseWhen(rest), date = d.hasDate ? ymd(d.start) : today(), prev = all.find(e => e.date === date), before = [...all].reverse().find(e => e.date < date);
-      setWeight(date, kg); undos.push({ label: `weight ${kg} kg`, fn: () => (prev ? setWeight(date, prev.kg) : delWeight(date)) });
-      await print(`✓ ${kg.toFixed(1)} kg logged for ${fmtDay(new Date(date + "T12:00"))}${before ? ` (${kg - before.kg >= 0 ? "+" : "−"}${Math.abs(kg - before.kg).toFixed(1)} vs ${fmtDay(new Date(before.date + "T12:00"))})` : ""}`);
-    },
-    async set(args) {
-      const gym = A().gym && A().gym(); if (!gym) return err("the gym log is not ready yet.");
-      let s = args.replace(/(\d)\s*[x×]\s*(\d)/g, "$1 $2").replace(/(\d)\s*[x×]\s*(\d)/g, "$1 $2"); const toks = s.split(/\s+/).filter(Boolean), nums = [];
-      while (toks.length && /^\d+(\.\d+)?$/.test(toks[toks.length - 1]) && nums.length < 3) nums.unshift(parseFloat(toks.pop()));
-      if (!args.trim()) return askInput("which set? exercise, pounds, reps, sets   e.g. bench 135 8 3   (or cancel)", l => exec("set " + l));
-      if (nums.length < 2 || !toks.length) return err("usage: set <exercise> <lb> <reps> [sets]   e.g. set bench 135 8 3");
-      const [wt, reps, sets = 1] = nums, ranked = rankExercises(toks.join(" "), gym.entries), names = [...new Set([...gym.entries.map(e => e.exercise)])];
-      if (!ranked.length) return err(`no exercise matches "${toks.join(" ")}". Yours include: ${names.slice(0, 10).map(x => x.replace(/ \(.*\)| \/.*/g, "")).join(", ")}. exercises lists them all.`);
-      const go = async x => {
-        const last = [...gym.entries].reverse().find(e => e.exercise === x.n), e = gym.add({ date: today(), day: x.day, exercise: x.n, weight: wt, reps, sets });
-        undos.push({ label: `set ${x.n}`, fn: () => gym.remove(e.id), redo: null });
-        await print(`✓ ${x.n}: ${wt} lb × ${reps}${sets > 1 ? " × " + sets : ""}  (${x.day})${last ? `  last: ${last.weight} × ${last.reps}${last.sets > 1 ? " × " + last.sets : ""}` : ""}`);
-      };
-      if (ranked.length > 1 && ranked[0].sc - ranked[1].sc < 8) return choose(`"${toks.join(" ")}" matches more than one exercise:`, ranked.slice(0, 5).map(x => ({ label: x.n, value: x })), o => go(o.value));
-      await go(ranked[0]);
-    },
     async add(args) {
       const cal = A().cal; if (!cal) return err("the calendar is not ready yet.");
       if (!args.trim()) return askInput("what, and when?   e.g. gym thu 5pm   ·   lunch tomorrow 12:30 for 45m   (or cancel)", l => exec("add " + l));
@@ -349,7 +324,7 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
   }
 
   /* ---------- suggestions under the prompt: what you can type, with its usage, so nothing has to be guessed ---------- */
-  const DEFAULT_CHIPS = ["hi", "sleep", "agenda", "weight 70", "calculator", "help"];
+  const DEFAULT_CHIPS = ["hi", "sleep", "agenda", "journal", "calculator", "help"];
   function suggestions(v) {
     if (busy) return {};
     const t = v.trim().toLowerCase();
@@ -411,7 +386,6 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
       const it = interpret(line);   // plain English: "how did I sleep", "I weigh 70.4", "bench 135 for 8 x 3"
       if (it && it.say) return print(it.say, "tm-dim");
       if (it && it.run) { if (it.run !== "hi") await dim(`→ ${it.run}`); return exec(it.run, true); }
-      const sm = line.match(/^([a-z][a-z' \-]*?)\s+(\d+(?:\.\d+)?)\s+(\d+)(?:\s+(\d+))?$/i);   // "bench 135 8 3" with no command word
       if (sm) { const g = A().gym && A().gym(), rk = g ? rankExercises(sm[1], g.entries) : []; if (rk.length && rk[0].sc >= 100) { const r = `set ${sm[1]} ${sm[2]} ${sm[3]}${sm[4] ? " " + sm[4] : ""}`; await dim(`→ ${r}`); return exec(r, true); } }
     }
     const near0 = !isCmd(name) && !isMath && /^[a-z]{3,}$/.test(word) && !mathNames.has(word) ? allWords().map(c => ({ c, d: dist(word, c) })).sort((a, b) => a.d - b.d)[0] : null;
@@ -423,7 +397,7 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
     if (!isCmd(name)) {
       const hits = findCommands(line, allMeta()).slice(0, 3);
       await err(`I did not catch "${line.length > 40 ? line.slice(0, 40) + "…" : line}".`);
-      return hits.length ? print(["closest:", ...hits.map(h => `  ${h.use.padEnd(34)} ${h.d}`)], "tm-dim") : dim("help lists everything; help <word> searches. Plain phrases work too: how did I sleep, what's next, I weigh 70.4.");
+      return hits.length ? print(["closest:", ...hits.map(h => `  ${h.use.padEnd(34)} ${h.d}`)], "tm-dim") : dim("help lists everything; help <word> searches. Plain phrases work too: how did I sleep, what's next.");
     }
     busy = true; live.hidden = true; sug.hidden = true;
     const args = name === "start" ? (/^start\b/i.test(line) ? line.replace(/^start\s*/i, "") : rest) : rest;

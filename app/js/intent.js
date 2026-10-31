@@ -35,9 +35,7 @@ export function interpret(raw) {
     () => R(/active (zone )?minutes|\bazm\b/, () => ({ run: "azm 7" })),
     () => R(/\b(vo2|cardio fitness)\b/, () => ({ run: "vo2 14" })),
     // weight
-    () => R(/(?:i )?(?:weigh(?:ed|s)?|weight(?: is| was| today)?|i'?m|im|i am)\s*(?:about |around |roughly )?(\d{2,3}(?:\.\d+)?)\s*(?:kg|kgs|kilos?)?(?!\s*(?:cm|lb|lbs|years|yo|%))\b.*?(yesterday)?$/, m => (/weigh|weight/.test(t) ? { run: `weight ${m[1]}${/yesterday/.test(t) ? " yesterday" : ""}` } : undefined)),
     () => R(/\b(weight|weigh)\b.*\b(trend|trending|changing|going)\b|am i (gaining|losing)/, () => ({ run: "wtrend" })),
-    () => R(/\bmy weight\b|how much do i weigh|^weigh(t)?$/, () => ({ run: "weight" })),
     // day and calendar
     () => R(/(what('s| is|s)?|how'?s) (on )?(my )?(day|today|schedule|agenda)( like)?( today)?$|what do i have (on )?today|what am i doing today|my day$|today'?s? (schedule|plan|agenda)|what'?s on today|what'?s happening today/, () => ({ run: "today" })),
     () => R(/what do i have (next|on next)|what'?s (up )?next|what'?s coming up|whats next|next (event|thing|class|meeting)|what is next/, () => ({ run: "next" })),
@@ -60,7 +58,6 @@ export function interpret(raw) {
     () => R(/how much (did|have) i (lift|lifted|move|moved|train|trained)( this)? ?(week|month)?|my volume|total volume|tonnage/, m => ({ run: `volume ${m[4] || "week"}` })),
     () => R(/(?:my )?(?:pr|personal (?:best|record)|max|one rep max|1rm) (?:on|for|in)?\s*(?:the )?(.+)/, m => ({ run: `pr ${m[1]}` })),
     () => R(/(?:when|what) (?:did|was) i (?:last )?(?:did |do |lift |train |hit |bench |squat )?(.+?)(?: last)?$|last (?:time|session) (?:i )?(?:did |lifted |benched |squatted )?(.+)/, m => ({ run: `last ${m[1] || m[2]}` })),
-    () => R(/^(?:i )?(?:did|lifted|logged|benched|squatted|pressed|curled|rowed|pulled|hit|got)?\s*([a-z][a-z' \-]*?)\s+(?:at |with |for )?(\d+(?:\.\d+)?)\s*(?:lbs?|pounds?)?\s*(?:for|x|×|by)\s*(\d+)\s*(?:reps?)?(?:\s*(?:x|×|for|by)\s*(\d+)\s*(?:sets?)?)?$/, m => ({ run: `set ${m[1].trim()} ${m[2]} ${m[3]}${m[4] ? " " + m[4] : ""}` })),
     () => R(/(my )?(last|recent|latest) runs?|how far did i run|running (this )?week|my mileage|how (far|much) (have i|did i) run/, m => ({ run: /mileage|far|much|week/.test(t) ? "mileage" : "runs 5" })),
     () => R(/personal bests|all (my )?prs|my prs|my records/, () => ({ run: "prs" })),
     // notes, tasks, timers
