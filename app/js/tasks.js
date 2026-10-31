@@ -217,6 +217,8 @@ export function initTasks(root) {
   // used by the command line: add a line to the note, or take that same line back out
   return {
     append(line) { const doc = view.state.doc.toString(), pre = doc.length && !doc.endsWith("\n") ? "\n" : ""; view.dispatch({ changes: { from: doc.length, insert: pre + line + "\n" } }); return line; },
+    text() { return view.state.doc.toString(); },
+    set(t) { view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: t } }); },
     removeLine(line) { const doc = view.state.doc.toString(), at = doc.lastIndexOf(line + "\n"); if (at >= 0) view.dispatch({ changes: { from: at, to: at + line.length + 1 } }); }
   };
 }

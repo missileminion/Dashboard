@@ -417,7 +417,7 @@ const last2 = k => { for (let i = 0; i < 4; i++) { const v = byDate[addDays(toda
   setTab(TABS.includes(k) ? k : "health");
   const timerApi = initTimer($("timerRoot")), calApi = initCalendar($("calRoot"), { demo: DEMO }), tasksApi = initTasks($("tasksRoot"));
   gymLogApi = initGymLog($("glogRoot"), { demo: DEMO });
-  initTerminal($("consoleRoot"), { demo: DEMO, api: { timer: timerApi, cal: calApi, tasks: tasksApi, gym: () => gymLogApi } });
+  initTerminal($("consoleRoot"), { demo: DEMO, api: { timer: timerApi, cal: calApi, tasks: tasksApi, gym: () => gymLogApi, health: () => ({ days, byDate, today, A, addDays, bad }) } });
   // the command line from anywhere: Cmd/Ctrl+K opens it and, pressed again, returns to the page you were on; Esc on an empty line does the same
   let prevTab = "health";
   addEventListener("goto", e => { if (document.body.dataset.tab !== "console") prevTab = document.body.dataset.tab; setTab(e.detail); });

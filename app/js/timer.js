@@ -245,6 +245,8 @@ export function initTimer(root) {
     pause() { if (S.mode !== "idle" && !paused()) togglePause(); },
     resume() { if (paused()) togglePause(); },
     stop() { Object.assign(S, { pausedAt: null, mode: "idle", startTs: null, allot: prefs.workMin * 60, cur: null }); alerted = overdueAlerted = false; tick(); },
-    get running() { return S.mode !== "idle"; }
+    get running() { return S.mode !== "idle"; },
+    get status() { return { mode: S.mode, paused: paused(), elapsed: elapsedNow(), allot: S.allot }; },
+    get focusSec() { return S.sessions.reduce((t, x) => t + (x.work || 0), 0) + (S.mode === "work" && S.cur ? S.cur.work || 0 : 0); }
   };
 }
