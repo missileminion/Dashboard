@@ -20,7 +20,7 @@ const TABS = { health: "health", home: "health", h: "health", prod: "prod", prod
 const CORE = [
   ["log", "weight", "weight 70.4 [yesterday]", "log your weight in kg, or show the last one", ["w"]], ["log", "set", "set bench 135 8 3", "log a gym set: exercise, lb, reps, sets"], ["log", "add", "add gym thu 5pm", "add a calendar event (add lunch tomorrow 12:30 for 45m)", ["ev", "event"]],
   ["log", "done", "done rocketry", "mark a calendar event complete", ["d"]], ["log", "note", "note buy shoes", "add a line to Stickynote", ["n"]], ["log", "task", "task buy shoes", "add a checkbox to Stickynote", ["t"]],
-  ["log", "rm", "delete set | weight | <event title words>", "delete the last set, today's weight or a calendar event (asks first)", ["delete", "del", "remove"]], ["log", "undo", "undo", "take back the last change"],
+  ["log", "rm", "delete set | weight | <event title words>", "delete the last set, today's weight or a calendar event (asks first)", ["delete", "del", "remove"]], ["log", "undo", "undo", "take back the last change"], ["sys", "aikey", "aikey <key> | off", "turn on the Gemini fallback that turns odd phrasing into a command (the key stays in this browser)"], ["sys", "aimodel", "aimodel [name]", "show or change the Gemini model used by the fallback"],
   ["log", "today", "today", "your day: the plan and the events"], ["log", "next", "next", "your next calendar event"], ["log", "status", "status", "last night, recovery and the plan"], ["log", "go", "go gym", "jump to a tab: health, prod, gym, cal"],
   ["timer", "timer", "timer 25", "start a focus session of that many minutes"], ["timer", "start", "start study now", "start a focus session (a label is optional)"], ["timer", "stop", "stop", "stop the focus timer"], ["timer", "pause", "pause", "pause the focus timer"], ["timer", "resume", "resume", "resume the focus timer"],
   ["math", "calculator", "calculator", "a calculator: sums, x or × multiplies, ans is the last result; exit leaves", ["calc", "calculate"]], ["math", "plot", "plot sin(x), cos(x) from -2pi to 2pi", "graph up to four functions, hover for exact values"], ["math", "roots", "roots x^2-2", "where a function crosses zero"], ["math", "deriv", "deriv x^3 at 2", "the slope of a function at a point"], ["math", "integral", "integral sin(x) from 0 to pi", "the area under a function"],
@@ -70,6 +70,14 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
     <input id="tmIn" class="tm-in" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Command line">`;
   const $ = id => root.querySelector("#" + id), log = $("tmLog"), live = $("tmLive"), sug = $("tmSug"), echo = $("tmEcho"), inp = $("tmIn"), scr = $("tm");
   let busy = false, booted = false, past = [], pi = -1, pending = null, undos = [], lastOut = "", mode = null; const calc = makeCalc(), ml = makeMatlab(calc);
+  const aiKey = () => { try { return localStorage.getItem("console.aikey") || ""; } catch { return ""; } }, aiModel = () => { try { return localStorage.getItem("console.aimodel") || "gemini-2.5-flash"; } catch { return "gemini-2.5-flash"; } };
+  async function aiTranslate(line) {   // only the typed line and the command list leave the page, never any health data
+    const list = allMeta().map(m => `${m.use} : ${m.d}`).join("\n"), now = new Date().toString().slice(0, 21);
+    const sys = `You turn a person's casual sentence into ONE command for their personal dashboard console. Reply with JSON only: {"command": string or null, "say": string or null}. Use "command" when a listed command fits, written exactly in that command's syntax with real values filled in (times like 1900 or 7pm, days like today, tomorrow, thu). Use "say" (one short sentence) only to ask for a missing detail or to say nothing fits. Never invent commands. Now: ${now}.\nCOMMANDS:\n${list}`;
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${aiModel()}:generateContent`, { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": aiKey() }, body: JSON.stringify({ systemInstruction: { parts: [{ text: sys }] }, contents: [{ role: "user", parts: [{ text: line }] }], generationConfig: { responseMimeType: "application/json", temperature: 0 } }) });
+    if (!res.ok) { const j = await res.json().catch(() => ({})); const m = (j.error && j.error.message) || res.statusText; throw new Error(res.status === 404 ? `model "${aiModel()}" not found. aimodel <name> changes it (${m})` : res.status === 429 ? "free limit reached for now, try again in a minute" : m); }
+    const j = await res.json(), t = j.candidates && j.candidates[0] && j.candidates[0].content.parts.map(p => p.text).join("") || "{}"; return JSON.parse(t);
+  }
   const ALS = "console.aliases", userAl = () => { try { return JSON.parse(localStorage.getItem(ALS)) || {}; } catch { return {}; } };
   const setAlias = (k, v) => { const a = userAl(); if (v == null) delete a[k]; else a[k] = v; try { localStorage.setItem(ALS, JSON.stringify(a)); } catch {} };
   const bottom = () => { scr.scrollTop = scr.scrollHeight; }, sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -172,6 +180,8 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
       const c = window.__dashContext && window.__dashContext(); if (!c) return dim("the numbers are not loaded yet.");
       const l = c.lastNight; await print(["LAST NIGHT", l ? `  ${l.sleep}, asleep by ${l.asleepBy}, woke ${l.wokeAt}, quality ${l.quality}` : "  no sleep recorded", `  sleep debt ${c.sleepDebt || "—"}`, "RECOVERY", `  resting heart rate ${c.recovery.restingHrToday ?? "—"} bpm, HRV ${c.recovery.hrvToday ?? "—"} ms, body check: ${c.recovery.bodyCheck}`, `PLAN  today ${c.plan.today}, tomorrow ${c.plan.tomorrow}`], "tm-dim");
     },
+    async aikey(args) { const k = args.trim(); if (!k) return askInput("paste your Gemini API key (or cancel)", l => exec("aikey " + l), true); if (/^(off|clear|remove)$/i.test(k)) { try { localStorage.removeItem("console.aikey"); } catch {} return print("✓ Gemini fallback off, key removed"); } try { localStorage.setItem("console.aikey", k); } catch { return err("this browser would not store the key."); } await print(`✓ Gemini fallback on (${aiModel()}). Odd phrasing is now turned into a command; only your typed line and the command list are sent.`); },
+    async aimodel(args) { const m = args.trim(); if (!m) return print(`model: ${aiModel()}`); try { localStorage.setItem("console.aimodel", m); } catch {} await print(`✓ model set to ${m}`); },
     async undo() { const u = undos.pop(); if (!u) return dim("nothing to undo."); busy = true; try { await u.fn(); await print(`↩ undone: ${u.label}`); } catch (e) { await err(`could not undo ${u.label}: ${e.message || e}`); } finally { busy = false; } },
     async rm(args) {
       let w = args.trim().split(/\s+/)[0].toLowerCase(); const cal = A().cal, gym = A().gym && A().gym();
@@ -339,6 +349,13 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
     if (!isCmd(name) && (isMath || /[\d+\-*/^()=!π]|^(pi|e|tau|phi|ans)\b/i.test(line))) {   // not a command: read it as math
       try { await showValue(calc.evaluate(mulX(line))); } catch (e) { await err(e.message || String(e)); }
       return;
+    }
+    if (!isCmd(name) && !viaIntent && aiKey()) {
+      await dim("asking Gemini to read that…");
+      try { const r = await aiTranslate(line);
+        if (r.command && isCmd(ALIAS[r.command.split(/\s+/)[0].toLowerCase()] || r.command.split(/\s+/)[0].toLowerCase())) { await dim(`→ ${r.command}`); return exec(r.command, true); }
+        if (r.say) return print(r.say, "tm-dim");
+      } catch (e) { await err(`Gemini: ${e.message || e}`); }
     }
     if (!isCmd(name)) {
       const hits = findCommands(line, allMeta()).slice(0, 3);
