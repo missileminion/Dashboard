@@ -129,11 +129,14 @@ export function initCalendar(root, { demo = false } = {}) {
       <div class="basis cal-status" id="calErr">${esc(status)}</div></div>`;
   }
   function draw() {
+    if (drag && drag.moved) { redrawLater = true; return; }   // never rebuild the page under a block that is being dragged
+    const y0 = window.scrollY;
     if (!demo && !(cfg && cfg.url)) { root.innerHTML = setupHTML(); wireSetup(); return; }
     const keep = root.querySelector("#calScroll")?.scrollTop;
     root.innerHTML = head() + mergedAgenda({ days: days(), list: visible(), focus: focusDay(), today: today(), calNames: Object.fromEntries(cals.map(k => [k.id, k.name])) }) + (narrow() ? "" : `<div class="cal-gh2">THE WEEK</div>` + gridHTML()) + `<div class="basis cal-foot">${demo ? "Demo calendar. Changes here stay in this page." : ""}<a class="cal-link" href="labs/index.html">Labs</a> ${!demo ? `<button type="button" class="cal-link" data-a="disconnect">Disconnect</button>` : ""}</div>`;
     wireAgenda(root, { list: visible(), focus: focusDay(), today: today() });
     const sc = root.querySelector("#calScroll"); if (sc) sc.scrollTop = keep ?? (week === addDays(today(), -1) ? Math.max(0, (new Date().getHours() - 2) * HR) : 7 * HR);
+    if (Math.abs(window.scrollY - y0) > 1) window.scrollTo({ top: y0, behavior: "instant" });   // rebuilding the calendar must not move the page
   }
   function wireSetup() {
     const sec = root.querySelector("#calSecret"), len = root.querySelector("#calLen");
@@ -222,7 +225,7 @@ export function initCalendar(root, { demo = false } = {}) {
   /* ---------- drag to move, drag the bottom edge to resize (mouse and pen; on a phone tap an event to edit it) ---------- */
   // The block stays visible and follows the pointer; it snaps to 15 minutes vertically and to the day under the pointer. On a repeating event we ask whether
   // the change is for this one or for this and all following events.
-  let drag = null, justDragged = false;
+  let drag = null, justDragged = false, hold = null, redrawLater = false, lastPtr = { x: 0, y: 0 }, rafId = 0;
   const SNAP = 15, fmtRange = (s, e) => `${hhmm(s)}–${hhmm(e)}`;
   function askScope(title) {
     return new Promise(res => {
@@ -246,39 +249,70 @@ export function initCalendar(root, { demo = false } = {}) {
       status = ""; if (scope === "following") await load(); else { draw(); }
     } catch (err) { ev.s = was.s; ev.e = was.e; status = `Could not save "${ev.title}": ${err.message} It was put back.`; draw(); }
   }
+  // The block you drag is a floating copy fixed to the screen; the original stays put, faded. Where it lands comes from the pointer and from how far the page has scrolled,
+  // so scrolling (wheel, trackpad, or the page edge scrolling for you) never throws it off. Nothing is rebuilt while you drag; a redraw waits until you let go.
+  // Mouse and pen: press and drag. Touch: press and hold for a moment, feel the tick, then drag; a quick swipe still scrolls the page.
+  const startCandidate = (e, el, ev, touch) => {
+    const cols = [...root.querySelectorAll(".cal-col")], c0 = cols.indexOf(el.parentNode); if (c0 < 0) return null; const r = el.getBoundingClientRect();
+    return { el, ev, touch, pid: e.pointerId, mode: e.target.closest("[data-rz]") ? "resize" : "move", x0: e.clientX, y0: e.clientY, sy0: window.scrollY, rect: r, pageTop: r.top + window.scrollY, inset: r.left - cols[c0].getBoundingClientRect().left, cols, idx0: c0, shift: 0, dMin: 0, moved: false, ghost: null };
+  };
+  function lift() {
+    const d = drag; d.moved = true; document.body.classList.add("cal-dragging");
+    const g = d.el.cloneNode(true); g.classList.add("ghost"); g.removeAttribute("data-id");
+    Object.assign(g.style, { left: "0px", top: "0px", right: "auto", bottom: "auto", width: d.rect.width + "px", height: d.rect.height + "px", transform: `translate(${d.rect.left}px, ${d.rect.top}px)` });
+    document.body.appendChild(g); d.ghost = g; d.el.classList.add("lifted"); rafId = requestAnimationFrame(frame);
+  }
+  function place() {
+    const d = drag, dy = lastPtr.y - d.y0 + (window.scrollY - d.sy0), g = d.ghost, sp = g.querySelector("span"); d.dMin = Math.round(dy / HR * 60 / SNAP) * SNAP;
+    if (d.mode === "resize") { g.style.height = Math.max(HR / 4, d.rect.height + d.dMin / 60 * HR) + "px"; g.style.transform = `translate(${d.rect.left}px, ${d.pageTop - window.scrollY}px)`; if (sp) sp.textContent = fmtRange(d.ev.s, new Date(+d.ev.e + d.dMin * 6e4)); return; }
+    const rects = d.cols.map(c => c.getBoundingClientRect()), hit = rects.findIndex(r => lastPtr.x >= r.left && lastPtr.x < r.right); if (hit >= 0) d.shift = hit - d.idx0;
+    const col = rects[d.idx0 + d.shift] || rects[d.idx0]; d.cols.forEach((c, i) => c.classList.toggle("drop", i === d.idx0 + d.shift));
+    g.style.transform = `translate(${col.left + d.inset}px, ${d.pageTop + d.dMin / 60 * HR - window.scrollY}px)`;
+    const st = new Date(d.ev.s); st.setDate(st.getDate() + d.shift); st.setMinutes(st.getMinutes() + d.dMin); if (sp) sp.textContent = fmtRange(st, new Date(+st + (d.ev.e - d.ev.s)));
+  }
+  function frame() {   // once per screen refresh: scroll the page when the block is held near its top or bottom edge, then put the block where it belongs
+    if (!drag || !drag.moved) return; const y = lastPtr.y, Z = 80, B = 120; let v = 0;   // the bottom zone is taller because the Now bar floats there
+    if (y < Z) v = -(Z - y) / Z * 20; else if (y > innerHeight - B) v = (y - (innerHeight - B)) / B * 20;
+    if (v) window.scrollBy({ top: v, behavior: "instant" });
+    place(); rafId = requestAnimationFrame(frame);
+  }
   root.addEventListener("pointerdown", e => {
-    const el = e.target.closest(".cal-ev:not(.ad)"); if (!el || e.pointerType === "touch" || e.button !== 0 || editing || busy) return;
+    const el = e.target.closest(".cal-ev:not(.ad)"); if (!el || e.button !== 0 || editing || busy) return;
     const ev = events.find(x => x.id === el.dataset.id); if (!ev || ev.writable === false) return;
-    const cols = [...root.querySelectorAll(".cal-col")]; if (!cols.length) return;
-    e.preventDefault();
-    drag = { el, ev, mode: e.target.closest("[data-rz]") ? "resize" : "move", x0: e.clientX, y0: e.clientY, rect: el.getBoundingClientRect(), cols, colX: cols.map(c => c.getBoundingClientRect().left), idx0: cols.indexOf(el.parentNode), moved: false, dMin: 0, shift: 0, ghost: null };
-  });
-  // The block you drag is a floating copy outside the scrolling grid (so the page can never jump or shake while you drag); the original stays put, faded.
-  document.addEventListener("pointermove", e => {
-    if (!drag) return; const dy = e.clientY - drag.y0, dx = e.clientX - drag.x0;
-    if (!drag.moved && Math.hypot(dx, dy) < 5) return;
-    if (!drag.moved) {
-      drag.moved = true; document.body.classList.add("cal-dragging"); const g = drag.el.cloneNode(true); g.classList.add("ghost"); g.removeAttribute("data-id");
-      Object.assign(g.style, { left: drag.rect.left + "px", top: drag.rect.top + "px", width: drag.rect.width + "px", height: drag.rect.height + "px", right: "auto", bottom: "auto" });
-      document.body.appendChild(g); drag.ghost = g; drag.el.classList.add("lifted");
+    if (e.pointerType === "touch") {
+      const x = e.clientX, y = e.clientY;
+      hold = { pid: e.pointerId, x, y, t: setTimeout(() => { const d = startCandidate(e, el, ev, true); hold = null; if (!d) return; drag = d; lastPtr = { x, y }; lift(); try { navigator.vibrate && navigator.vibrate(12); } catch {} }, 380) };
+      return;
     }
-    const g = drag.ghost, dMin = Math.round(dy / HR * 60 / SNAP) * SNAP; drag.dMin = dMin;
-    if (drag.mode === "resize") { g.style.height = Math.max(HR / 4, drag.rect.height + dMin / 60 * HR) + "px"; const sp = g.querySelector("span"); if (sp) sp.textContent = fmtRange(drag.ev.s, new Date(+drag.ev.e + dMin * 6e4)); return; }
-    const hit = drag.colX.findIndex((x, i) => e.clientX >= x && e.clientX < x + drag.cols[i].getBoundingClientRect().width); if (hit >= 0) drag.shift = hit - drag.idx0;
-    drag.cols.forEach((c, i) => c.classList.toggle("drop", i === drag.idx0 + drag.shift));
-    g.style.transform = `translate(${drag.colX[drag.idx0 + drag.shift] - drag.colX[drag.idx0]}px, ${dMin / 60 * HR}px)`;
-    const s = new Date(drag.ev.s); s.setDate(s.getDate() + drag.shift); s.setMinutes(s.getMinutes() + dMin); const sp = g.querySelector("span"); if (sp) sp.textContent = fmtRange(s, new Date(+s + (drag.ev.e - drag.ev.s)));
+    const d = startCandidate(e, el, ev, false); if (!d) return; e.preventDefault(); drag = d; lastPtr = { x: e.clientX, y: e.clientY };
+    try { el.setPointerCapture(e.pointerId); } catch {}   // keeps every move coming to us and stops text selection and hover effects while dragging
   });
-  const endDrag = () => { const d = drag; drag = null; document.body.classList.remove("cal-dragging"); if (d) { d.ghost && d.ghost.remove(); d.el.classList.remove("lifted"); d.cols.forEach(c => c.classList.remove("drop")); } return d; };
-  document.addEventListener("pointerup", async () => {
-    const d = endDrag(); if (!d || !d.moved) return;
+  document.addEventListener("pointermove", e => {
+    if (hold && e.pointerId === hold.pid) { if (Math.hypot(e.clientX - hold.x, e.clientY - hold.y) > 10) { clearTimeout(hold.t); hold = null; } return; }   // finger moved first: that is a scroll
+    if (!drag || e.pointerId !== drag.pid) return; lastPtr = { x: e.clientX, y: e.clientY };
+    if (!drag.moved) { if (Math.hypot(lastPtr.x - drag.x0, lastPtr.y - drag.y0) < 5) return; lift(); }
+    place();
+  });
+  window.addEventListener("scroll", () => { if (drag && drag.moved) place(); }, { passive: true });   // the block re-seats itself the moment the page scrolls
+  document.addEventListener("touchmove", e => { if (drag && drag.moved && drag.touch && e.cancelable) e.preventDefault(); }, { passive: false });   // once a block is picked up, the page stays still under your finger
+  root.addEventListener("contextmenu", e => { if (hold || (drag && drag.moved)) e.preventDefault(); });
+  async function finish(cancel) {
+    if (hold) { clearTimeout(hold.t); hold = null; }
+    const d = drag; drag = null; cancelAnimationFrame(rafId); document.body.classList.remove("cal-dragging");
+    if (d) { d.ghost && d.ghost.remove(); d.el.classList.remove("lifted"); d.cols.forEach(c => c.classList.remove("drop")); }
+    if (!d || !d.moved) return;
     justDragged = true; setTimeout(() => (justDragged = false), 0);
+    if (cancel) { if (redrawLater) { redrawLater = false; draw(); } return; }
     let s = new Date(d.ev.s), t = new Date(d.ev.e);
     if (d.mode === "resize") t = new Date(+t + d.dMin * 6e4); else { s.setDate(s.getDate() + d.shift); s.setMinutes(s.getMinutes() + d.dMin); t = new Date(+s + (d.ev.e - d.ev.s)); }
-    if (!(t - s >= SNAP * 6e4) || (+s === +d.ev.s && +t === +d.ev.e)) return;
+    if (!(t - s >= SNAP * 6e4) || (+s === +d.ev.s && +t === +d.ev.e)) { if (redrawLater) { redrawLater = false; draw(); } return; }
+    redrawLater = false;
     let scope = "this"; if (d.ev.recurring) { scope = await askScope(d.ev.title); if (!scope) return; }
     await applyChange(d.ev, { start: { dateTime: s.toISOString(), timeZone: TZ }, end: { dateTime: t.toISOString(), timeZone: TZ } }, scope);
-  });
+  }
+  document.addEventListener("pointerup", () => finish(false));
+  document.addEventListener("pointercancel", () => finish(true));
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && drag && drag.moved) finish(true); });   // Esc puts the block back
   document.addEventListener("click", e => { if (agUi.open && root.isConnected && !e.target.closest(".ag-card") && !e.target.closest(".cal-modal")) toggleCard(root); });   // a click anywhere outside the tasks card folds it
   document.addEventListener("keydown", e => { if (e.key === "Escape" && agUi.open && !editing) toggleCard(root); });
   document.addEventListener("keydown", e => { if (e.key === "Escape" && drag) endDrag(); });

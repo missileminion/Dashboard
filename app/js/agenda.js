@@ -156,5 +156,5 @@ export function wireAgenda(root, ctx) {
     const first = list.filter(e => !e.allDay && onDay(e, focus)).sort((x, y) => x.s - y.s)[0], m = isToday ? mins(new Date()) : first ? mins(first.s) : 9 * 60;
     sc.scrollLeft = Math.max(0, Xm(m) / VW * sc.scrollWidth - sc.clientWidth / 2);
   }
-  if (isToday) timer = setInterval(() => { if (!tl.isConnected) return clearInterval(timer); if (scrub == null) paint(); }, 1000);
+  if (isToday) timer = setInterval(() => { if (!tl.isConnected) return clearInterval(timer); if (scrub == null && !document.body.classList.contains("cal-dragging")) paint(); }, 1000);
 }

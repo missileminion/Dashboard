@@ -536,3 +536,6 @@ body[data-tab=console] .hv,body[data-tab=console] .skybar{display:none!important
 .tm-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:2px} .tm-chip{background:none;border:1px solid rgba(255,255,255,.14);border-radius:100px;padding:4px 13px;color:#8e95ab;font:12.5px "SF Mono",ui-monospace,Menlo,monospace;cursor:pointer;transition:all .25s} .tm-chip:hover{color:#6db8ff;border-color:rgba(109,184,255,.5)}
 .tm.mode .tm-p{color:#6db8ff;text-shadow:0 0 10px rgba(109,184,255,.5)}
 .tm-p.calc{color:#6db8ff;text-shadow:0 0 10px rgba(109,184,255,.5)}
+
+/* calendar drag: no scroll anchoring inside the calendar (it caused the page to jump), and the lifted block is its own compositing layer */
+#calRoot{overflow-anchor:none} .cal-ev.ghost{will-change:transform;contain:layout;-webkit-touch-callout:none} .cal-ev:not(.ad){-webkit-touch-callout:none}
