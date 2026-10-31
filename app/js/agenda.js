@@ -126,6 +126,7 @@ export function agendaHTML(ctx) {
 }
 
 // paint and wire (runs after the HTML is in the page)
+let capH = 0;
 export function wireAgenda(root, ctx) {
   const tl = root.querySelector("#agTl"), pathEl = root.querySelector("#agPath"), cap = root.querySelector("#agCap"), stats = root.querySelector("#agStats"), sc = root.querySelector("#agScroll"); if (!tl) return;
   const { focus, list, today } = ctx, loc = place(), isToday = focus === today;
@@ -140,7 +141,7 @@ export function wireAgenda(root, ctx) {
     if (scrub != null) { line = `${light(focus, m, loc).toUpperCase()} · SUN ${a >= 0 ? "+" : "−"}${Math.abs(a).toFixed(0)}°<br>${cur ? `<b>${esc(cur.title)}</b>` : "FREE"}`; }
     else if (now) { const fut = dayEv.filter(e => e.e > now).sort((x, y) => x.s - y.s), c = fut.find(e => e.s <= now), nx = fut.find(e => e.s > now); line = c ? `NOW · UNTIL ${hhmm(c.e)}<br><b>${esc(c.title)}</b>` : nx ? `NEXT IN ${Math.floor((nx.s - now) / 36e5) ? Math.floor((nx.s - now) / 36e5) + "H " : ""}${Math.round(((nx.s - now) / 6e4) % 60)}M<br><b>${esc(nx.title)}</b>` : "NOTHING MORE TODAY"; }
     else { const d = new Date(focus + "T12:00:00"); line = `${d.toLocaleDateString("en-US", { weekday: "long", month: "short" }).toUpperCase()}<br><b>${dayEv.length} EVENT${dayEv.length === 1 ? "" : "S"}</b>${dayEv.length ? ` · ${hoursOn(list, focus).toFixed(1)} H` : ""}`; }
-    cap.innerHTML = line;
+    cap.innerHTML = line; if (cap.offsetHeight > capH) capH = cap.offsetHeight; cap.style.minHeight = capH + "px";   // the caption only ever grows, so a longer title on one line of the day cannot make the page below it jump
     const dl = B.dl == null ? "—" : B.dl > 0 ? hm(B.dl / 60) : B.dl < 0 ? "IN " + hm(-B.dl / 60) : "OVER";
     const label = scrub != null || !now ? (scrub != null ? "FROM " + hhmm(when) : "WHOLE DAY") : "LEFT TODAY";
     const st = (k, v, red) => `<div><span>${k}</span><b${red ? ` class="ag-red"` : ""}>${v}</b></div>`;

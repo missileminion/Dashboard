@@ -65,8 +65,10 @@ export function initCalendar(root, { demo = false } = {}) {
   // A finished event wears a check mark at the front of its title ("✓ Title") in Google Calendar itself, so it shows on every device and in every calendar app.
   const DONE = /^✓\s*/;
   const norm = (e, c) => { const allDay = e.allDay, done = DONE.test(e.title || ""); return { id: e.id, cal: c.id, color: EVC[e.colorId] || c.color, writable: c.writable, title: done ? e.title.replace(DONE, "") : e.title, allDay, s: allDay ? new Date(e.start + "T00:00:00") : new Date(e.start), e: allDay ? new Date(e.end + "T00:00:00") : new Date(e.end), location: e.location, desc: e.description, recurring: e.recurring, done }; };
+  let lastSig = "";   // what was last drawn; identical data is never redrawn
+  const sigOf = () => JSON.stringify([week, view, status, calsOpen, [...hidden], cals.map(c => [c.id, c.name, c.color]), events.map(e => [e.id, +e.s, +e.e, e.title, e.done, e.color, e.allDay, e.location, e.recurring])]);
   async function load() {
-    const my = ++token, key = "w" + week; busy = true; draw();
+    const my = ++token, key = "w" + week; busy = true; if (sigOf() !== lastSig) draw();   // a background refresh redraws nothing until the answer differs, so the page never rebuilds under your finger
     try {
       if (!cals.length || demo) { cals = (await bridge("calendars")).calendars; put(CALS, cals); }
       const vis = cals.filter(c => !hidden.has(c.id)), { timeMin, timeMax } = range();
@@ -81,7 +83,7 @@ export function initCalendar(root, { demo = false } = {}) {
       const c = get(CACHE, {})[key]; if (c) events = c.events.map(e => ({ ...e, s: new Date(e.s), e: new Date(e.e) }));
       status = `${c ? "Showing the saved copy. " : ""}Could not reach your calendar: ${err.message}`;
     }
-    busy = false; draw();
+    busy = false; if (sigOf() !== lastSig) draw();
   }
 
   /* ---------- layout helpers ---------- */
@@ -129,6 +131,7 @@ export function initCalendar(root, { demo = false } = {}) {
       <div class="basis cal-status" id="calErr">${esc(status)}</div></div>`;
   }
   function draw() {
+    lastSig = sigOf();
     if (drag && drag.moved) { redrawLater = true; return; }   // never rebuild the page under a block that is being dragged
     const y0 = window.scrollY;
     if (!demo && !(cfg && cfg.url)) { root.innerHTML = setupHTML(); wireSetup(); return; }
