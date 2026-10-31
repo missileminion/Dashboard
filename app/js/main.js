@@ -425,7 +425,7 @@ const last2 = k => { for (let i = 0; i < 4; i++) { const v = byDate[addDays(toda
   addEventListener("keydown", e => {
     const cur = document.body.dataset.tab;
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); if (cur === "console") setTab(prevTab); else { prevTab = cur; setTab("console"); } }
-    else if (e.key === "Escape" && cur === "console" && !document.getElementById("tmIn").value) setTab(prevTab);
+    
   });
   renderWeightEntry();
   initSky({ demo: DEMO });

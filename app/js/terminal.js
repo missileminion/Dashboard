@@ -20,7 +20,7 @@ const TABS = { health: "health", home: "health", h: "health", prod: "prod", prod
 const CORE = [
   ["log", "weight", "weight 70.4 [yesterday]", "log your weight in kg, or show the last one", ["w"]], ["log", "set", "set bench 135 8 3", "log a gym set: exercise, lb, reps, sets"], ["log", "add", "add gym thu 5pm", "add a calendar event (add lunch tomorrow 12:30 for 45m)", ["ev", "event"]],
   ["log", "done", "done rocketry", "mark a calendar event complete", ["d"]], ["log", "note", "note buy shoes", "add a line to Stickynote", ["n"]], ["log", "task", "task buy shoes", "add a checkbox to Stickynote", ["t"]],
-  ["log", "rm", "rm set | weight | event <title>", "delete the last set, today's weight or an event (asks first)", ["delete", "del", "remove"]], ["log", "undo", "undo", "take back the last change"],
+  ["log", "rm", "delete set | weight | <event title words>", "delete the last set, today's weight or a calendar event (asks first)", ["delete", "del", "remove"]], ["log", "undo", "undo", "take back the last change"],
   ["log", "today", "today", "your day: the plan and the events"], ["log", "next", "next", "your next calendar event"], ["log", "status", "status", "last night, recovery and the plan"], ["log", "go", "go gym", "jump to a tab: health, prod, gym, cal"],
   ["timer", "timer", "timer 25", "start a focus session of that many minutes"], ["timer", "start", "start study now", "start a focus session (a label is optional)"], ["timer", "stop", "stop", "stop the focus timer"], ["timer", "pause", "pause", "pause the focus timer"], ["timer", "resume", "resume", "resume the focus timer"],
   ["math", "calculator", "calculator", "a calculator: sums, x or × multiplies, ans is the last result; exit leaves", ["calc", "calculate"]], ["math", "plot", "plot sin(x), cos(x) from -2pi to 2pi", "graph up to four functions, hover for exact values"], ["math", "roots", "roots x^2-2", "where a function crosses zero"], ["math", "deriv", "deriv x^3 at 2", "the slope of a function at a point"], ["math", "integral", "integral sin(x) from 0 to pi", "the area under a function"],
@@ -49,6 +49,9 @@ function parseWhen(tokens) {
     else if (w === "for" && /^\d+(\.\d+)?\s*(h|hr|hrs|hours?|m|min|mins|minutes?)$/.test((tokens[i + 1] || "").toLowerCase())) used.add(i);
     else if (/^\d+(\.\d+)?(h|hr|hrs|hours?|m|min|mins|minutes?)$/.test(w) && (tokens[i - 1] || "").toLowerCase() === "for") { const n = parseFloat(w); dur = /^h/.test(w.replace(/^[\d.]+/, "")) ? n * 60 : n; used.add(i); }
     else if (R.test(w) && start == null) { const m = w.match(R); const endAp = m[6] || null; end = toMin(m[4], m[5], endAp, null); start = toMin(m[1], m[2], m[3], endAp); if (start > end) start -= 12 * 60; used.add(i); }
+    else if (/^\d{1,2}(?::\d{2})?$/.test(w) && start == null && /^(am|pm)$/.test((tokens[i + 1] || "").toLowerCase())) { const m = w.match(/^(\d{1,2})(?::(\d{2}))?$/); start = toMin(m[1], m[2], tokens[i + 1].toLowerCase(), null); used.add(i); used.add(i + 1); }   // 9 pm
+    else if (/^\d{3,4}$/.test(w) && start == null && +w.slice(0, -2) < 24 && +w.slice(-2) < 60 && (i > 0 || tokens.length === 1)) { start = +w.slice(0, -2) * 60 + +w.slice(-2); used.add(i); }   // 2100 or 930
+    else if ((w === "noon" || w === "midday" || w === "midnight") && start == null) { start = w === "midnight" ? 0 : 720; used.add(i); }
     else if (T.test(w) && start == null && (/am|pm|:/.test(w) || (tokens[i - 1] || "").toLowerCase() === "at")) { const m = w.match(T); start = toMin(m[1], m[2], m[3], null); used.add(i); }
   });
   const title = tokens.filter((_, i) => !used.has(i)).join(" ").trim();
@@ -171,11 +174,15 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
     },
     async undo() { const u = undos.pop(); if (!u) return dim("nothing to undo."); busy = true; try { await u.fn(); await print(`↩ undone: ${u.label}`); } catch (e) { await err(`could not undo ${u.label}: ${e.message || e}`); } finally { busy = false; } },
     async rm(args) {
-      const w = args.trim().split(/\s+/)[0].toLowerCase(), cal = A().cal, gym = A().gym && A().gym();
+      let w = args.trim().split(/\s+/)[0].toLowerCase(); const cal = A().cal, gym = A().gym && A().gym();
+      if (!args.trim()) return askInput("delete what?   set (last set) · weight · or words from an event title   (or cancel)", l => exec("rm " + l));
+      if (/^(last|latest)$/.test(w)) { args = args.trim().slice(w.length).trim() || "set"; w = args.split(/\s+/)[0].toLowerCase(); }
+      if (/^(sets?|lift)$/.test(w)) w = "set"; if (/^(weigh-?ins?|weights?)$/.test(w)) w = "weight"; if (w === "event" || w === "events") w = "event";
       if (w === "set") { const e = gym && gym.entries.length ? [...gym.entries].sort((a, b) => b.id - a.id)[0] : null; if (!e) return err("no sets to delete."); return ask(`delete ${e.exercise} ${e.weight} lb × ${e.reps}${e.sets > 1 ? " × " + e.sets : ""} from ${e.date}? (y/n)`, async () => { gym.remove(e.id); undos.push({ label: `deleted set ${e.exercise}`, fn: () => gym.add({ date: e.date, day: e.day, exercise: e.exercise, weight: e.weight, reps: e.reps, sets: e.sets }) }); await print("✓ set deleted"); }); }
       if (w === "weight") { const all = loadWeights(), e = all.find(x => x.date === today()) || all[all.length - 1]; if (!e) return err("no weigh-ins to delete."); return ask(`delete the ${e.kg.toFixed(1)} kg weigh-in from ${e.date}? (y/n)`, async () => { delWeight(e.date); undos.push({ label: "deleted weigh-in", fn: () => setWeight(e.date, e.kg) }); await print("✓ weigh-in deleted"); }); }
-      if (w === "event") { const q = args.trim().slice(5).trim(); const list = cal && q ? cal.find(q) : []; if (!list.length) return err(q ? `no event in view matches "${q}".` : "usage: rm event <words from the title>"); const ev = list[0]; return ask(`delete "${ev.title}" (${fmtDay(ev.s)}) from Google Calendar? This cannot be undone. (y/n)`, async () => { await cal.remove(ev.id, ev.cal); await print("✓ event deleted"); }); }
-      await err("rm what? rm set, rm weight, rm event <title>");
+      if (w === "event" || cal) { const q = (w === "event" ? args.trim().slice(5) : args).trim(); let list = cal && q ? cal.find(q) : []; if (!list.length && cal && q) { const t = parseWhen(q.split(/\s+/)).title; if (t && t !== q) list = cal.find(t).filter(e => !w || true); }
+        if (list.length > 1) { const pick = list.slice(0, 5); return choose(`"${q}" matches more than one event:`, pick.map(e => ({ label: `${fmtDay(e.s)} ${e.allDay ? "all day" : hhmm(e.s)}  ${e.title}`, value: e })), o => ask(`delete "${o.value.title}" (${fmtDay(o.value.s)}) from Google Calendar? This cannot be undone. (y/n)`, async () => { await cal.remove(o.value.id, o.value.cal); await print("✓ event deleted"); })); } if (!list.length) return err(q ? `no event in view matches "${q}".` : "usage: rm event <words from the title>"); const ev = list[0]; return ask(`delete "${ev.title}" (${fmtDay(ev.s)}) from Google Calendar? This cannot be undone. (y/n)`, async () => { await cal.remove(ev.id, ev.cal); await print("✓ event deleted"); }); }
+      await err("delete what? delete set, delete weight, or delete <words from an event title>");
     },
   };
 

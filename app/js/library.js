@@ -473,7 +473,7 @@ export function buildLibrary(c) {
   def("sys", "copy", "copy [text]", "copy text, or the last answer, to the clipboard", async a => { const t = a.trim() || lastOut(); if (!t) U("nothing to copy yet."); await print(await copyText(t) ? "✓ copied" : "could not reach the clipboard; the browser blocked it."); });
   def("sys", "about version", "about", "what this console is", async () => print(["DASH // COMMAND LINE", "  no AI behind it: a small parser, your own data, and everything it changes can be undone.", `  ${names().length} commands in ${Object.keys(GROUPS).length} groups. help lists them.`], "tm-dim"));
   def("sys", "reload refresh", "reload", "reload the dashboard", async () => { location.reload(); });
-  def("sys", "bye exit quit", "bye", "close the console and go back to the page you were on (inside the calculator, exit leaves the calculator)", async () => { dispatchEvent(new CustomEvent("leaveconsole")); });
+  def("sys", "bye exit quit", "bye", "inside the calculator, leaves it. Elsewhere the console stays put: use go <page> to switch pages", async () => { await dim("the console stays open. go health · go gym · go cal · go prod switches page."); });
   def("sys", "hi hello hey hiya yo sup howdy hola gm morning", "hi", "a quick briefing: last night, today's plan, what is next, what needs doing, and what to try", async () => {
     const now = new Date(), hr = now.getHours(), part = hr < 5 ? "Still up" : hr < 12 ? "Good morning" : hr < 17 ? "Good afternoon" : "Good evening", out = [html(esc(`${part}. ${fmtDay(now)}, ${hhmm(now)}`))], tryRows = [];
     const ctx = window.__dashContext && window.__dashContext(); let h = null; try { h = A.health && A.health(); } catch {}
