@@ -427,6 +427,24 @@ const last2 = k => { for (let i = 0; i < 4; i++) { const v = byDate[addDays(toda
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); if (cur === "console") setTab(prevTab); else { prevTab = cur; setTab("console"); } }
     
   });
+  // phone: swipe left or right to cycle through the pages (the bottom bar is replaced by a row of dots showing where you are)
+  {
+    const phone = matchMedia("(max-width:700px), (pointer:coarse) and (hover:none) and (max-width:1100px)"), dots = document.createElement("div");
+    dots.id = "pageDots"; dots.setAttribute("aria-hidden", "true"); dots.innerHTML = TABS.map(t => `<i data-t="${t}"></i>`).join(""); document.body.appendChild(dots);
+    const mark = () => dots.querySelectorAll("i").forEach(i => i.classList.toggle("on", i.dataset.t === document.body.dataset.tab)); addEventListener("tab", mark); mark();
+    const SKIP = "input,textarea,select,[contenteditable],.cal-ev,.gl-wheel,.cal-sheet,.cdev,.ag-path,.tm-plot,.tm-view";   // things that use horizontal touches themselves
+    const hScroll = el => { for (; el && el !== document.body; el = el.parentElement) { const o = getComputedStyle(el).overflowX; if ((o === "auto" || o === "scroll") && el.scrollWidth > el.clientWidth + 2) return true; } return false; };
+    let sx = 0, sy = 0, st = 0, ok = false;
+    addEventListener("touchstart", e => { const t = e.touches[0]; ok = phone.matches && e.touches.length === 1 && t.clientX > 24 && t.clientX < innerWidth - 24 && !e.target.closest(SKIP) && !hScroll(e.target); sx = t.clientX; sy = t.clientY; st = Date.now(); }, { passive: true });
+    addEventListener("touchcancel", () => { ok = false; }, { passive: true });
+    addEventListener("touchend", e => {
+      if (!ok) return; ok = false; const t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy;
+      if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 1.8 || Date.now() - st > 800) return;
+      const dir = dx < 0 ? 1 : -1, next = TABS[(TABS.indexOf(document.body.dataset.tab) + dir + TABS.length) % TABS.length];
+      document.body.dataset.swipe = dir > 0 ? "l" : "r"; setTimeout(() => { delete document.body.dataset.swipe; }, 450);
+      dispatchEvent(new CustomEvent("goto", { detail: next })); scrollTo(0, 0);
+    }, { passive: true });
+  }
   renderWeightEntry();
   initSky({ demo: DEMO });
   initWeather($("weatherRoot"));

@@ -67,7 +67,7 @@ function addDaysD(d, n) { const x = new Date(d); x.setDate(x.getDate() + n); ret
 
 export function initTerminal(root, { demo = false, api = {} } = {}) {
   root.innerHTML = `<div class="tm" id="tm"><div class="tm-log" id="tmLog"></div><div class="tm-line tm-live" id="tmLive"><span class="tm-p" id="tmP">›</span><span id="tmEcho"></span><i class="tm-cur"></i></div><div class="tm-sug" id="tmSug"></div></div>
-    <input id="tmIn" class="tm-in" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Command line">`;
+    <textarea id="tmIn" class="tm-in" rows="1" name="console-line" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="send" data-lpignore="true" data-1p-ignore data-form-type="other" aria-label="Command line"></textarea>`;
   const $ = id => root.querySelector("#" + id), log = $("tmLog"), live = $("tmLive"), sug = $("tmSug"), echo = $("tmEcho"), inp = $("tmIn"), scr = $("tm");
   let busy = false, booted = false, past = [], pi = -1, pending = null, undos = [], lastOut = "", halt = false, curLine = ""; const calc = makeCalc();
   try { localStorage.removeItem("console.aikey"); localStorage.removeItem("console.aimodel"); } catch {}   // the Gemini fallback was removed; forget the old key
@@ -405,8 +405,9 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
     await print(""); sugRender();
   }
 
-  inp.addEventListener("input", () => { echo.innerHTML = hl(inp.value); bottom(); sugRender(); });
+  inp.addEventListener("input", () => { if (/\n/.test(inp.value)) inp.value = inp.value.replace(/\n/g, " "); echo.innerHTML = hl(inp.value); bottom(); sugRender(); });
   inp.addEventListener("keydown", e => {
+    if (e.key === "Enter") e.preventDefault();
     if (e.key === "Enter" && busy && /^\s*end\s*$/i.test(inp.value)) { inp.value = ""; echo.textContent = ""; halt = true; [...timers.values()].forEach(sp => { if (sp.loop && sp.stop) sp.stop(); }); }
     else if (e.key === "Enter" && !busy) { const v = inp.value; inp.value = ""; echo.textContent = ""; run(v); }
     else if (e.key === "Tab") {
