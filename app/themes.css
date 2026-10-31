@@ -539,3 +539,21 @@ body[data-tab=console] .hv,body[data-tab=console] .skybar{display:none!important
 
 /* calendar drag: no scroll anchoring inside the calendar (it caused the page to jump), and the lifted block is its own compositing layer */
 #calRoot{overflow-anchor:none} .cal-ev.ghost{will-change:transform;contain:layout;-webkit-touch-callout:none} .cal-ev:not(.ad){-webkit-touch-callout:none}
+
+/* console: dot-matrix charts, link buttons under them, and the developer dock (errors, timers, examples) at the bottom right */
+.tm-dots{display:block;max-width:100%} .tm-chart{margin:8px 0 4px;min-height:0} .tm-hb{display:flex;flex-direction:column;gap:5px;margin:2px 0} .tm-hbr{display:flex;align-items:center;gap:14px} .tm-hbl{color:#7f8aa3;font-size:13px;text-shadow:none;white-space:pre} .tm-hbv{font-size:13px;color:#e6f0ff;white-space:pre}
+.tm-btns{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 2px} .tm-btn{background:none;border:1px solid rgba(255,255,255,.18);border-radius:100px;padding:5px 15px;color:#cfd3e0;font:12.5px "SF Mono",ui-monospace,Menlo,monospace;cursor:pointer;text-shadow:none;transition:all .25s} .tm-btn:hover{color:#6db8ff;border-color:rgba(109,184,255,.55)}
+.tm-plot .tm-dots{margin:0 auto;cursor:crosshair} .tm-axl{display:flex;justify-content:space-between;font-size:10.5px;color:#7a7f90;text-shadow:none;margin:2px 4px 0}
+.cdev{position:absolute;right:22px;bottom:18px;z-index:6;display:flex;flex-direction:column;align-items:flex-end;gap:10px;font:12.5px "SF Mono",ui-monospace,Menlo,monospace;text-shadow:none;cursor:default}
+.cdev-btn{background:rgba(10,12,20,.82);border:1px solid rgba(255,255,255,.16);border-radius:100px;padding:6px 15px;color:#8e95ab;font:inherit;cursor:pointer;display:flex;align-items:center;gap:9px;backdrop-filter:blur(8px);transition:all .25s} .cdev-btn:hover{color:#e6f0ff;border-color:rgba(255,255,255,.35)} .cdev-btn.run{color:#e6f0ff;border-color:rgba(109,184,255,.5)}
+.cdev-n{background:#ff5a64;color:#0b0e18;border-radius:100px;font-weight:600;font-size:11px;padding:0 7px;line-height:17px} .cdev-n[hidden]{display:none}
+.cdev-panel{width:min(470px,calc(100vw - 44px));max-height:min(60vh,520px);display:flex;flex-direction:column;background:rgba(10,12,20,.94);border:1px solid rgba(255,255,255,.14);border-radius:18px;backdrop-filter:blur(14px);overflow:hidden} .cdev-panel[hidden]{display:none}
+.cdev-tabs{display:flex;gap:4px;padding:8px 8px 0;border-bottom:1px solid rgba(255,255,255,.08)} .cdev-tabs button{background:none;border:0;color:#7f8aa3;font:inherit;padding:7px 12px 9px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px} .cdev-tabs button.on{color:#e6f0ff;border-color:#6db8ff} .cdev-tabs button:hover{color:#e6f0ff}
+.cdev-body{overflow-y:auto;padding:12px 14px 14px;display:flex;flex-direction:column;gap:12px;scrollbar-width:thin}
+.cdev-empty{color:#7f8aa3;line-height:1.7;padding:10px 0}
+.cdev-trow{display:flex;align-items:center;gap:14px} .cdev-dg{flex:0 0 auto;min-width:96px} .cdev-tx{flex:1;display:flex;flex-direction:column;min-width:0} .cdev-tx b{font-weight:500;color:#e6f0ff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .cdev-tx span{color:#7f8aa3;font-size:11.5px}
+.cdev-x,.cdev-bar button{background:none;border:1px solid rgba(255,255,255,.18);border-radius:100px;padding:3px 12px;color:#cfd3e0;font:inherit;cursor:pointer} .cdev-x:hover,.cdev-bar button:hover{color:#ff5a64;border-color:rgba(255,90,100,.55)} .cdev-bar button[data-a=copy]:hover{color:#6db8ff;border-color:rgba(109,184,255,.55)}
+.cdev-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:#7f8aa3;font-size:11.5px} .cdev-bar span{flex:1;min-width:140px}
+.cdev-err{border-left:2px solid #ff5a64;padding:1px 0 1px 11px;display:flex;flex-direction:column;gap:2px} .cdev-meta{color:#7f8aa3;font-size:11px} .cdev-in{color:#e6f0ff;word-break:break-word} .cdev-in span{color:#ff2d37;margin-right:6px} .cdev-msg{color:#ff5a64;word-break:break-word;line-height:1.5}
+.cdev-h{color:#7f8aa3;font-size:11px;letter-spacing:.12em;text-transform:uppercase;margin-top:6px} .cdev-ex{cursor:pointer;display:flex;flex-direction:column;gap:1px;padding:2px 0} .cdev-ex b{font-weight:500;word-break:break-word} .cdev-ex span{color:#7f8aa3;font-size:11.5px;line-height:1.45} .cdev-ex:hover span{color:#a9aec0}
+@media (max-width:700px){.cdev{right:14px;bottom:12px}}

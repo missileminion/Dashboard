@@ -1,18 +1,19 @@
-// The command library: about 130 small commands for the console, in 14 groups. Every one reads your own data or does plain arithmetic; there is no AI and nothing leaves the page.
+// The command library: about 130 small commands for the console, in 14 groups. Every one reads your own data or does plain arithmetic; nothing leaves the page. Charts are dot-matrix (dots.js); a chart line is {node, text} and a link to a page is {buttons:[{label, go}]}.
 // buildLibrary(ctx) returns { cmds, meta }. meta drives help, Tab completion, "did you mean" and the blue highlighting of recognised commands.
 import { esc, addDays, ymd, n3 } from "./util.js";
 import { PROGRAM, e1rm } from "./gymlog.js";
 import { sunPos } from "./sky.js";
 import { moonState } from "./moon.js";
 import { addMore } from "./library2.js";
+import { dotCols, dotHBars, dotStack, C } from "./dots.js";
 
 const pad = n => String(n).padStart(2, "0"), hmm = m => (m == null ? "—" : `${Math.floor(m / 60)}h ${pad(Math.round(m % 60) % 60)}m`);
 const num = v => (v == null || Number.isNaN(v) ? null : +v), nn = a => a.filter(v => v != null && !Number.isNaN(v));
 const mean = a => { a = nn(a); return a.length ? a.reduce((x, y) => x + y, 0) / a.length : null; };
 const sdev = a => { a = nn(a); if (a.length < 2) return null; const m = mean(a); return Math.sqrt(a.reduce((s, v) => s + (v - m) ** 2, 0) / (a.length - 1)); };
 const trim = (v, d = 2) => String(+(+v).toFixed(d)), thou = v => Math.round(v).toLocaleString("en-US");
-const SPARK = "▁▂▃▄▅▆▇█", spark = a => { const v = nn(a); if (!v.length) return ""; const lo = Math.min(...v), hi = Math.max(...v); return a.map(x => (x == null ? "·" : SPARK[Math.round((x - lo) / (hi - lo || 1) * 7)])).join(""); };
-const barOf = (v, lo, hi, w = 14) => (v == null ? "" : "█".repeat(Math.max(1, Math.round((v - lo) / (hi - lo || 1) * w))));
+const chart = (node, text = "") => ({ node, text }), link = (go, label) => ({ buttons: [{ label, go }] }), PAGES = { buttons: [{ label: "Health", go: "health" }, { label: "Productivity", go: "prod" }, { label: "Gym log", go: "gym" }, { label: "Calendar", go: "cal" }] };
+const clk = s => { s = Math.max(0, Math.round(s)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60; return h ? `${h}:${pad(m)}:${pad(x)}` : `${pad(m)}:${pad(x)}`; };
 const secT = s => { s = Math.round(s); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60; return h ? `${h}:${pad(m)}:${pad(x)}` : `${m}:${pad(x)}`; };
 const rd = (s, b) => (b ? `<span class="tm-red">${esc(s)}</span>` : esc(s));
 const html = s => ({ html: s });
@@ -58,7 +59,7 @@ const GROUPS = { log: "Log", gym: "Gym log", health: "Health numbers", body: "Bo
 export { GROUPS };
 
 export function buildLibrary(c) {
-  const { print, err, dim, ask, choose, A, calc, today, undos, parseWhen, fmtDay, hhmm, midnight, addDaysD, loadWeights, setWeight, delWeight, call, log, bottom, lastOut, history, aliases, names } = c;
+  const { print, err, dim, ask, choose, A, calc, today, undos, parseWhen, fmtDay, hhmm, midnight, addDaysD, loadWeights, setWeight, delWeight, call, log, bottom, lastOut, history, aliases, names, timers } = c;
   const L = {}, meta = [];
   const def = (cat, nm, use, d, fn) => { const [n, ...al] = nm.split(" "); L[n] = fn; meta.push({ n, cat, use, d, al }); };
   const H = () => { const h = A.health && A.health(); if (!h || !h.days || !h.days.length) U("the health numbers are not loaded yet."); return h; };
@@ -155,21 +156,22 @@ export function buildLibrary(c) {
     let y = n.getFullYear() - b.getFullYear(), mo = n.getMonth() - b.getMonth(), d = n.getDate() - b.getDate(); if (d < 0) { mo--; d += new Date(n.getFullYear(), n.getMonth(), 0).getDate(); } if (mo < 0) { y--; mo += 12; }
     await print(`${y} years, ${mo} months, ${d} days  (${thou((midnight(n) - midnight(b)) / 864e5)} days)`);
   });
-  // live countdown and stopwatch: one updating line in the console
-  const LIVE = { cd: null, sw: null }, stopLive = k => { if (LIVE[k]) { clearInterval(LIVE[k].iv); LIVE[k] = null; } };
-  def("timer", "countdown", "countdown 90s | 5m | 1h30m | stop", "a quick countdown in the console that beeps when done (use start for focus sessions)", async a => {
+  // countdown and stopwatch run in the developer panel (bottom right), drawn in dot-matrix digits; end stops them
+  const LIVE = { cd: null, sw: null }, stopLive = k => { const x = LIVE[k]; if (x) { LIVE[k] = null; if (x.t) clearTimeout(x.t); timers.remove(k); } };
+  def("timer", "countdown", "countdown 90s | 5m | 1h30m | stop", "a quick countdown that beeps when done, shown in the developer panel (use start for focus sessions)", async a => {
     if (/^(stop|cancel|off)$/i.test(a.trim())) { if (!LIVE.cd) return dim("no countdown is running."); stopLive("cd"); return print("✓ countdown cancelled"); }
     const sec = parseClock(a.trim()); if (!sec || sec <= 0) U("usage: countdown 90s   countdown 5m   countdown 1:30   countdown stop"); stopLive("cd");
-    const line = document.createElement("div"); line.className = "tm-line tm-wait-line"; log.appendChild(line); const end = Date.now() + sec * 1000;
-    const tick = () => { const left = Math.max(0, Math.ceil((end - Date.now()) / 1000)); line.textContent = `⏱ ${secT(left)} left`; if (left <= 0) { stopLive("cd"); line.textContent = `✓ ${secT(sec)} countdown finished`; line.classList.add("tm-ok"); beep(); } };
-    LIVE.cd = { iv: setInterval(tick, 250) }; tick(); bottom();
+    const end = Date.now() + sec * 1000, t = setTimeout(() => { stopLive("cd"); beep(); print(`✓ ${secT(sec)} countdown finished`); }, sec * 1000); LIVE.cd = { t };
+    timers.add("cd", { label: "countdown", loop: true, get: () => ({ text: clk((end - Date.now()) / 1000), sub: `of ${secT(sec)}`, red: end - Date.now() < 10000 }), stop: () => stopLive("cd") });
+    await print(`✓ countdown ${secT(sec)} started. It shows in the developer panel; end stops it.`);
   });
-  def("timer", "stopwatch sw", "stopwatch [lap | stop]", "start a stopwatch; lap records a split, stop prints the total", async a => {
+  def("timer", "stopwatch sw", "stopwatch [lap | stop]", "start a stopwatch in the developer panel; lap records a split, stop prints the total", async a => {
     const w = a.trim().toLowerCase();
     if (w === "lap") { if (!LIVE.sw) U("no stopwatch is running. type stopwatch to start one."); const t = (Date.now() - LIVE.sw.t0) / 1000, lap = t - LIVE.sw.last; LIVE.sw.last = t; LIVE.sw.laps++; return print(`lap ${LIVE.sw.laps}  ${secT(lap)}   total ${secT(t)}`); }
     if (w === "stop" || w === "reset") { if (!LIVE.sw) return dim("no stopwatch is running."); const t = (Date.now() - LIVE.sw.t0) / 1000; stopLive("sw"); return print(`✓ stopped at ${secT(t)}`); }
-    stopLive("sw"); const line = document.createElement("div"); line.className = "tm-line"; log.appendChild(line); const t0 = Date.now();
-    LIVE.sw = { t0, last: 0, laps: 0, iv: setInterval(() => { line.textContent = `⏱ ${secT((Date.now() - t0) / 1000)}   (stopwatch lap, stopwatch stop)`; }, 200) }; line.textContent = "⏱ 0:00"; bottom();
+    stopLive("sw"); const t0 = Date.now(); LIVE.sw = { t0, last: 0, laps: 0 };
+    timers.add("sw", { label: "stopwatch", loop: true, get: () => ({ text: clk((Date.now() - t0) / 1000), sub: LIVE.sw ? `${LIVE.sw.laps} lap${LIVE.sw.laps === 1 ? "" : "s"}` : "" }), stop: () => stopLive("sw") });
+    await print("✓ stopwatch started. It shows in the developer panel. stopwatch lap · stopwatch stop · end");
   });
 
   /* ================= CONVERT AND PACE ================= */
@@ -259,7 +261,7 @@ export function buildLibrary(c) {
   def("gym", "lift", "lift bench [sessions]", "a mini chart of an exercise's estimated max, session by session", async a => {
     const n = parseN(a.split(/\s+/), 20), q = a.replace(/\b\d+\b/g, "").trim(); if (!q) U("usage: lift bench 20");
     await exMatch(q, async (name, g) => { const by = {}; g.entries.filter(e => e.exercise === name).forEach(e => { by[e.date] = Math.max(by[e.date] || 0, e1rm(e.weight, e.reps)); }); const ds = Object.keys(by).sort().slice(-n), v = ds.map(d => by[d]); if (v.length < 2) return dim(`${name}: need at least two sessions.`);
-      await print([name, `  ${spark(v)}`, `  ${trim(v[0], 1)} → ${trim(v[v.length - 1], 1)} lb estimated max over ${v.length} sessions (${v[v.length - 1] >= v[0] ? "+" : "−"}${trim(Math.abs(v[v.length - 1] / v[0] - 1) * 100, 1)}%), ${ds[0]} to ${ds[ds.length - 1]}`], "tm-dim"); });
+      await print([name, chart(dotCols(v), v.map(x => trim(x, 1)).join(" ")), `  ${trim(v[0], 1)} → ${trim(v[v.length - 1], 1)} lb estimated max over ${v.length} sessions (${v[v.length - 1] >= v[0] ? "+" : "−"}${trim(Math.abs(v[v.length - 1] / v[0] - 1) * 100, 1)}%), ${ds[0]} to ${ds[ds.length - 1]}`, link("gym", "Open Gym log")], "tm-dim"); });
   });
   def("gym", "log sets", "log [day]", "every set logged on a day (default today) and its total", async a => {
     const g = gymApi(), d = dateOf(a.split(/\s+/).filter(Boolean)), key = ymd(d.date), es = g.entries.filter(e => e.date === key).sort((x, y) => x.id - y.id);
@@ -268,7 +270,7 @@ export function buildLibrary(c) {
   def("gym", "volume vol", "volume [week | month | 30 | all]", "total lifted (weight × reps × sets) over a period, by day", async a => {
     const g = gymApi(), w = a.trim().toLowerCase() || "week", days = w === "all" ? 3650 : w === "month" ? 30 : w === "week" ? 7 : /^\d+$/.test(w) ? +w : 7, from = addDays(ymd(new Date()), -(days - 1)), es = g.entries.filter(e => e.date >= from); if (!es.length) return dim("nothing logged in that period.");
     const by = {}; es.forEach(e => { by[e.date] = (by[e.date] || 0) + e.weight * e.reps * (e.sets || 1); }); const ds = Object.keys(by).sort(), tot = Object.values(by).reduce((s, x) => s + x, 0), mx = Math.max(...Object.values(by));
-    await print([...(ds.length <= 14 ? ds.map(d => `  ${dayName(d).padEnd(7)} ${thou(by[d]).padStart(8)} lb  ${barOf(by[d], 0, mx)}`) : []), `${thou(tot)} lb across ${ds.length} session days, ${es.reduce((s, e) => s + (e.sets || 1), 0)} sets (${thou(tot / ds.length)} lb per session)`], "tm-dim");
+    await print([...(ds.length <= 14 ? [chart(dotHBars(ds.map(d => ({ label: dayName(d), value: by[d], text: `${thou(by[d])} lb` })), { max: mx }), ds.map(d => `${dayName(d)} ${thou(by[d])} lb`).join("\n"))] : []), `${thou(tot)} lb across ${ds.length} session days, ${es.reduce((s, e) => s + (e.sets || 1), 0)} sets (${thou(tot / ds.length)} lb per session)`, link("gym", "Open Gym log")], "tm-dim");
   });
   def("gym", "gymdays", "gymdays [week | month]", "the days you logged lifting this week or month", async a => {
     const g = gymApi(), n = /month/i.test(a) ? 30 : 7, from = addDays(ymd(new Date()), -(n - 1)), ds = [...new Set(g.entries.filter(e => e.date >= from).map(e => e.date))].sort();
@@ -298,9 +300,9 @@ export function buildLibrary(c) {
   /* ================= HEALTH NUMBERS ================= */
   const showMetric = async (m, n) => {
     const s = series(m, n), v = nn(s.map(x => x.v)); if (!v.length) return dim(`no ${m.label} recorded in the last ${n} days.`); const lo = Math.min(...v), hi = Math.max(...v);
-    const rows = s.filter(x => x.v != null || n <= 14).map(x => html(`  ${esc(dayName(x.date).padEnd(7))} ${x.v == null ? esc("—".padEnd(9)) : rd(m.fmt(x.v).padEnd(9), m.bad && m.bad(x.v))} ${esc(barOf(x.v, lo * .9, hi))}`));
-    const avg = mean(v), body = n > 21 ? [html(esc(`  ${spark(s.map(x => x.v))}`))] : rows;
-    await print([...body, html(esc(`${m.label}: average ${m.fmt(avg)}, lowest ${m.fmt(lo)}, highest ${m.fmt(hi)}, over ${v.length} of ${n} days`))], "tm-dim");
+    const base = lo * .9, bad = x => !!(m.bad && m.bad(x)), shown = s.filter(x => x.v != null || n <= 14), avg = mean(v);
+    const node = n > 21 ? dotCols(s.map(x => x.v), { red: bad }) : dotHBars(shown.map(x => ({ label: dayName(x.date), value: x.v == null ? null : x.v - base, text: x.v == null ? "—" : m.fmt(x.v), bad: x.v != null && bad(x.v), color: x.v != null && bad(x.v) ? C.red : undefined })), { max: hi - base });
+    await print([chart(node, shown.map(x => `${dayName(x.date)} ${x.v == null ? "—" : m.fmt(x.v)}`).join("\n")), html(esc(`${m.label}: average ${m.fmt(avg)}, lowest ${m.fmt(lo)}, highest ${m.fmt(hi)}, over ${v.length} of ${n} days`)), link("health", "Open Health")], "tm-dim");
   };
   def("health", "show", "show <metric> [days]", `a day-by-day table of any number the dashboard holds (${Object.keys(MET).join(", ")})`, async a => { const t = a.split(/\s+/).filter(Boolean), m = needMetric(t[0]); await showMetric(m, parseN(t.slice(1), 14)); });
   [["sleep", "sleep [days]", "nights of sleep, with the average"], ["rhr", "rhr [days]", "resting heart rate by day"], ["hrv", "hrv [days]", "overnight HRV by day"], ["steps", "steps [days]", "steps by day"], ["azm", "azm [days]", "active zone minutes by day"], ["spo2", "spo2 [days]", "blood oxygen by day"], ["vo2", "vo2 [days]", "VO2 max by day"], ["temp", "temp [days]", "skin temperature against your baseline"]].forEach(([k, use, d]) => def("health", k, use, d, async a => showMetric({ key: k, ...MET[k] }, parseN(a.split(/\s+/), 7))));
@@ -313,7 +315,7 @@ export function buildLibrary(c) {
   def("math", "sum total", "sum 4 8 15   |   sum steps 7", "the sum of some numbers, or a metric's total over N days (steps, azm, run, volume)", async a => { const ns = allNums(a); if (ns) return print(`= ${calc.fmt(ns.reduce((s, x) => s + x, 0))}`); const { m, n } = statNums("", a), v = nn(series(m, n).map(x => x.v)); if (!v.length) return dim("no data."); await print(`${m.label}, last ${n} days: total ${m.fmt(v.reduce((s, x) => s + x, 0))}`); });
   def("health", "trend", "trend <metric> [days]", "a mini chart and slope of any metric (default 28 days)", async a => {
     const t = a.split(/\s+/).filter(Boolean), m = needMetric(t[0]), n = parseN(t.slice(1), 28), s = series(m, n), v = s.map(x => x.v), half = Math.floor(n / 2), a1 = mean(v.slice(0, half)), a2 = mean(v.slice(half)); if (nn(v).length < 4) return dim(`not enough ${m.label} in ${n} days.`);
-    const sl = slope(v.map(x => disp(m, x))); await print([`${m.label}, last ${n} days`, `  ${spark(v)}`, `  first half ${m.fmt(a1)}, second half ${m.fmt(a2)}  (${a2 >= a1 ? "+" : "−"}${trim(Math.abs(a2 / a1 - 1) * 100, 1)}%)${sl != null ? `   slope ${sl >= 0 ? "+" : "−"}${trim(Math.abs(sl) * 7, 2)}${unitWord(m)} a week` : ""}`], "tm-dim");
+    const sl = slope(v.map(x => disp(m, x))); await print([`${m.label}, last ${n} days`, chart(dotCols(v, { red: x => !!(m.bad && m.bad(x)) }), v.filter(x => x != null).map(x => m.fmt(x)).join(" ")), `  first half ${m.fmt(a1)}, second half ${m.fmt(a2)}  (${a2 >= a1 ? "+" : "−"}${trim(Math.abs(a2 / a1 - 1) * 100, 1)}%)${sl != null ? `   slope ${sl >= 0 ? "+" : "−"}${trim(Math.abs(sl) * 7, 2)}${unitWord(m)} a week` : ""}`, link("health", "Open Health")], "tm-dim");
   });
   def("health", "compare", "compare <metric> [days]", "the last N days against the N before (default 7)", async a => {
     const t = a.split(/\s+/).filter(Boolean), m = needMetric(t[0]), n = parseN(t.slice(1), 7), s = series(m, n * 2), x = mean(s.slice(n).map(q => q.v)), y = mean(s.slice(0, n).map(q => q.v)); if (x == null || y == null) return dim(`not enough ${m.label} across ${n * 2} days.`);
@@ -333,7 +335,7 @@ export function buildLibrary(c) {
   });
   def("body", "stages", "stages", "last night's deep, REM, light and awake time", async () => {
     const h = H(), d = [...h.days].reverse().find(x => x.deepMin != null && x.sleepMin); if (!d) return dim("no stage data yet."); const tot = d.sleepMin, P = v => `${trim(v / tot * 100, 0)}%`;
-    await print([`${dayName(d.date)}: ${hmm(tot)} asleep, ${hmm(d.awakeMin)} awake in bed`, `  deep ${hmm(d.deepMin)} (${P(d.deepMin)})   REM ${hmm(d.remMin)} (${P(d.remMin)})   light ${hmm(d.lightMin)} (${P(d.lightMin)})`], "tm-dim");
+    await print([`${dayName(d.date)}: ${hmm(tot)} asleep, ${hmm(d.awakeMin)} awake in bed`, `  deep ${hmm(d.deepMin)} (${P(d.deepMin)})   REM ${hmm(d.remMin)} (${P(d.remMin)})   light ${hmm(d.lightMin)} (${P(d.lightMin)})`, chart(dotStack([{ label: "deep", value: d.deepMin || 0, color: C.blue }, { label: "REM", value: d.remMin || 0, color: C.yel }, { label: "light", value: d.lightMin || 0, color: C.lit }, { label: "awake", value: d.awakeMin || 0, color: C.grey }])), link("health", "Open Health")], "tm-dim");
   });
   const debtNow = () => { const h = H(), endD = [h.today, h.addDays(h.today, -1)].find(d => h.byDate[d]?.sleepMin != null) || h.addDays(h.today, -1); return { h, sf: h.A.shortfall7(h.byDate, endD, h.addDays) }; };
   def("body", "debt", "debt", "your sleep debt, from the 28-night model, and whether it is high", async () => { const { h, sf } = debtNow(); if (sf.nights < 3) return dim("need at least 3 recent nights to work out sleep debt."); await print([html(`sleep debt ${rd(hmm(sf.hours * 60), h.bad("sleepDebtHours", sf.hours))}  over ${sf.nights} nights counted. A short night adds its shortfall; a long one repays half, and debt fades about 7% a night.`)], "tm-dim"); });
@@ -360,7 +362,7 @@ export function buildLibrary(c) {
   def("body", "wtrend", "wtrend [days]", "which way your weight is moving, per week (default last 28 days)", async a => {
     const n = parseN(a.split(/\s+/), 28), from = addDays(ymd(new Date()), -(n - 1)), w = loadWeights().filter(e => e.date >= from); if (w.length < 3) return dim("need 3 or more weigh-ins in that window.");
     const d0 = new Date(w[0].date + "T12:00:00"), p = w.map(e => [(new Date(e.date + "T12:00:00") - d0) / 864e5, e.kg]), mx = mean(p.map(q => q[0])), my = mean(p.map(q => q[1])), den = p.reduce((s, q) => s + (q[0] - mx) ** 2, 0), sl = den ? p.reduce((s, q) => s + (q[0] - mx) * (q[1] - my), 0) / den : 0;
-    await print([`  ${spark(w.map(e => e.kg))}`, `${sl >= 0 ? "+" : "−"}${Math.abs(sl * 7).toFixed(2)} kg a week over ${w.length} weigh-ins (${n3(w[0].kg)} → ${n3(w[w.length - 1].kg)} kg)`], "tm-dim");
+    await print([chart(dotCols(w.map(e => e.kg)), w.map(e => n3(e.kg)).join(" ")), `${sl >= 0 ? "+" : "−"}${Math.abs(sl * 7).toFixed(2)} kg a week over ${w.length} weigh-ins (${n3(w[0].kg)} → ${n3(w[w.length - 1].kg)} kg)`, link("health", "Open Health")], "tm-dim");
   });
 
   /* ================= CALENDAR ================= */
@@ -472,9 +474,9 @@ export function buildLibrary(c) {
   });
   def("sys", "unalias", "unalias ww", "remove one of your aliases", async a => { if (!aliases()[a.trim().toLowerCase()]) U(`no alias called "${a.trim()}".`); c.setAlias(a.trim().toLowerCase(), null); await print("✓ alias removed"); });
   def("sys", "copy", "copy [text]", "copy text, or the last answer, to the clipboard", async a => { const t = a.trim() || lastOut(); if (!t) U("nothing to copy yet."); await print(await copyText(t) ? "✓ copied" : "could not reach the clipboard; the browser blocked it."); });
-  def("sys", "about version", "about", "what this console is", async () => print(["DASH // COMMAND LINE", "  no AI behind it: a small parser, your own data, and everything it changes can be undone.", `  ${names().length} commands in ${Object.keys(GROUPS).length} groups. help lists them.`], "tm-dim"));
+  def("sys", "about version", "about", "what this console is", async () => print(["DASH // COMMAND LINE", "  a small parser and your own data, and everything it changes can be undone.", `  ${names().length} commands in ${Object.keys(GROUPS).length} groups. help lists them.`], "tm-dim"));
   def("sys", "reload refresh", "reload", "reload the dashboard", async () => { location.reload(); });
-  def("sys", "bye exit quit", "bye", "inside the calculator, leaves it. Elsewhere the console stays put: use go <page> to switch pages", async () => { await dim("the console stays open. go health · go gym · go cal · go prod switches page."); });
+  def("sys", "bye exit quit", "bye", "inside the calculator, leaves it. Elsewhere the console stays put: use go <page> to switch pages", async () => { await dim("the console stays open. To switch page:"); await print(PAGES); });
   def("sys", "hi hello hey hiya yo sup howdy hola gm morning", "hi", "a quick briefing: last night, today's plan, what is next, what needs doing, and what to try", async () => {
     const now = new Date(), hr = now.getHours(), part = hr < 5 ? "Still up" : hr < 12 ? "Good morning" : hr < 17 ? "Good afternoon" : "Good evening", out = [html(esc(`${part}. ${fmtDay(now)}, ${hhmm(now)}`))], tryRows = [];
     const ctx = window.__dashContext && window.__dashContext(); let h = null; try { h = A.health && A.health(); } catch {}
@@ -495,6 +497,6 @@ export function buildLibrary(c) {
   def("sys", "commands", "commands", "every command name on one screen", async () => { const by = {}; meta.forEach(m => (by[m.cat] ||= []).push(m.n)); await print(Object.entries(by).map(([k, v]) => `${(GROUPS[k] || k).padEnd(18)} ${v.sort().join(" ")}`), "tm-dim"); });
 
   addMore({ def, print, dim, ask, choose, err, undos, parseWhen, fmtDay, hhmm, midnight, addDaysD, call, history, H, series, MET, metric, calApi, tasksApi, gymApi, taskList, pickTask, rewrite, TASK, lastKg, loadWeights,
-    pad, hmm, num, nn, mean, sdev, trim, thou, spark, barOf, rd, html, U, esc, ymd, addDays, n3, nums, relDays, longDay, copyText, beep, rankExercises, debtNow, ZONES });
+    pad, hmm, num, nn, mean, sdev, trim, thou, chart, link, dotHBars, timers, clk, rd, html, U, esc, ymd, addDays, n3, nums, relDays, longDay, copyText, beep, rankExercises, debtNow, ZONES });
   return { cmds: L, meta };
 }

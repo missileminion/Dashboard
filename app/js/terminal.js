@@ -10,6 +10,7 @@ import { makeCalc } from "./calc.js";
 import { makeMatlab } from "./matlab.js";
 import { buildLibrary, rankExercises, dist, GROUPS } from "./library.js";
 import { interpret, findCommands, words2math } from "./intent.js";
+import { dotPlot, dotDigits, C } from "./dots.js";
 
 const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const pad = n => String(n).padStart(2, "0"), hhmm = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
@@ -20,7 +21,7 @@ const TABS = { health: "health", home: "health", h: "health", prod: "prod", prod
 const CORE = [
   ["log", "weight", "weight 70.4 [yesterday]", "log your weight in kg, or show the last one", ["w"]], ["log", "set", "set bench 135 8 3", "log a gym set: exercise, lb, reps, sets"], ["log", "add", "add gym thu 5pm", "add a calendar event (add lunch tomorrow 12:30 for 45m)", ["ev", "event"]],
   ["log", "done", "done rocketry", "mark a calendar event complete", ["d"]], ["log", "note", "note buy shoes", "add a line to Stickynote", ["n"]], ["log", "task", "task buy shoes", "add a checkbox to Stickynote", ["t"]],
-  ["log", "rm", "delete set | weight | <event title words>", "delete the last set, today's weight or a calendar event (asks first)", ["delete", "del", "remove"]], ["log", "undo", "undo", "take back the last change"], ["sys", "aikey", "aikey <key> | off", "turn on the Gemini fallback that turns odd phrasing into a command (the key stays in this browser)"], ["sys", "aimodel", "aimodel [name]", "show or change the Gemini model used by the fallback"], ["sys", "ai", "ai <sentence>", "have Gemini turn a sentence into a command and run it (needs aikey)"], ["sys", "ask", "ask <question about your data>", "ask Gemini about your last 14 days (sends a small summary of them; needs aikey)"], ["sys", "rerun", "rerun [n]", "run your previous command again (rerun 2 for the one before)", ["!!"]],
+  ["log", "rm", "delete set | weight | <event title words>", "delete the last set, today's weight or a calendar event (asks first)", ["delete", "del", "remove"]], ["log", "undo", "undo", "take back the last change"], ["sys", "end", "end", "stop whatever is looping: the calculator, a question being asked, a countdown or stopwatch"], ["sys", "rerun", "rerun [n]", "run your previous command again (rerun 2 for the one before)", ["!!"]],
   ["log", "today", "today", "your day: the plan and the events"], ["log", "next", "next", "your next calendar event"], ["log", "status", "status", "last night, recovery and the plan"], ["log", "go", "go gym", "jump to a tab: health, prod, gym, cal"],
   ["timer", "timer", "timer 25", "start a focus session of that many minutes"], ["timer", "start", "start study now", "start a focus session (a label is optional)"], ["timer", "stop", "stop", "stop the focus timer"], ["timer", "pause", "pause", "pause the focus timer"], ["timer", "resume", "resume", "resume the focus timer"],
   ["math", "calculator", "calculator", "a calculator: sums, x or × multiplies, ans is the last result; exit leaves", ["calc", "calculate"]], ["math", "plot", "plot sin(x), cos(x) from -2pi to 2pi", "graph up to four functions, hover for exact values"], ["math", "roots", "roots x^2-2", "where a function crosses zero"], ["math", "deriv", "deriv x^3 at 2", "the slope of a function at a point"], ["math", "integral", "integral sin(x) from 0 to pi", "the area under a function"],
@@ -69,38 +70,27 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
   root.innerHTML = `<div class="tm" id="tm"><div class="tm-log" id="tmLog"></div><div class="tm-line tm-live" id="tmLive"><span class="tm-p" id="tmP">›</span><span id="tmEcho"></span><i class="tm-cur"></i></div><div class="tm-sug" id="tmSug"></div></div>
     <input id="tmIn" class="tm-in" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Command line">`;
   const $ = id => root.querySelector("#" + id), log = $("tmLog"), live = $("tmLive"), sug = $("tmSug"), echo = $("tmEcho"), inp = $("tmIn"), scr = $("tm");
-  let busy = false, booted = false, past = [], pi = -1, pending = null, undos = [], lastOut = "", mode = null; const calc = makeCalc(), ml = makeMatlab(calc);
-  const aiKey = () => { try { return localStorage.getItem("console.aikey") || ""; } catch { return ""; } }, aiModel = () => { try { return localStorage.getItem("console.aimodel") || "gemini-3.8-flash"; } catch { return "gemini-3.8-flash"; } };
-  async function gemini(sys, user, { json = false, temperature = 0 } = {}) {   // one request; thinking is switched off because it only adds seconds here
-    const mk = think => JSON.stringify({ systemInstruction: { parts: [{ text: sys }] }, contents: [{ role: "user", parts: [{ text: user }] }], generationConfig: { temperature, ...(json ? { responseMimeType: "application/json" } : {}), ...(think ? { thinkingConfig: { thinkingBudget: 0 } } : {}) } });
-    const go = async think => { const ac = new AbortController(), to = setTimeout(() => ac.abort(), 20000); try { return await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${aiModel()}:generateContent`, { method: "POST", signal: ac.signal, headers: { "Content-Type": "application/json", "x-goog-api-key": aiKey() }, body: mk(think) }); } catch (e) { throw new Error(e.name === "AbortError" ? "no answer after 20 seconds. check your connection, or try again." : e.message); } finally { clearTimeout(to); } };
-    let res = await go(true); if (res.status === 400) { const j = await res.clone().json().catch(() => ({})); if (/think/i.test((j.error && j.error.message) || "")) res = await go(false); }
-    if (!res.ok) { const j = await res.json().catch(() => ({})), m = (j.error && j.error.message) || res.statusText; throw new Error(res.status === 404 ? `model "${aiModel()}" not found. aimodel <name> changes it (${m})` : res.status === 429 ? "free limit reached for now, try again in a minute" : m); }
-    const j = await res.json(); return (j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts.map(p => p.text).join("")) || "";
-  }
-  async function aiTranslate(line) {   // only the typed line and the command list leave the page, never any health data
-    const list = allMeta().map(m => `${m.use} : ${m.d}`).join("\n"), now = new Date().toString().slice(0, 21);
-    const sys = `You turn a person's casual sentence into ONE command for their personal dashboard console, or answer them briefly. Reply with JSON only: {"command": string or null, "say": string or null}. Use "command" when a listed command fits, written exactly in that command's syntax with real values filled in (times like 1900 or 7pm, days like today, tomorrow, thu). If they ask what the console can do or how to use it, use the command "help". Use "say" (one or two short sentences) to answer a general question you can answer from general knowledge, to ask for one missing detail, or to say plainly that nothing fits. You have no live data such as weather. Never invent commands. Now: ${now}.\nCOMMANDS:\n${list}`;
-    const t = await gemini(sys, line, { json: true }); try { return JSON.parse(t || "{}"); } catch { return { say: t.slice(0, 300) }; }
-  }
-  async function aiAsk(q) {   // the one place health numbers leave the page, and only when you run ask
-    const h = A().health && A().health(); if (!h) throw new Error("the health numbers are not loaded yet.");
-    const rows = [...Array(14)].map((_, i) => { const d = h.addDays(h.today, -13 + i), x = h.byDate[d] || {}; return `${d}: sleep ${x.sleepMin != null ? (x.sleepMin / 60).toFixed(1) + "h" : "-"}, restingHR ${x.restingHr ?? "-"}, HRV ${x.hrv ?? "-"}, steps ${x.steps ?? "-"}, activeZoneMin ${x.azm ?? "-"}`; });
-    const w = loadWeights().slice(-5).map(e => `${e.date} ${e.kg}kg`).join(", ");
-    const sys = "You are a concise health-data assistant inside a personal dashboard. Answer the question using only the numbers given, in 2 to 4 short sentences, plain text, no markdown. If the data cannot answer it, say what is missing. You are not a doctor; for symptoms suggest seeing one.";
-    return (await gemini(sys, `Today is ${h.today}.\nLast 14 days:\n${rows.join("\n")}\nRecent weights: ${w || "none"}\n\nQuestion: ${q}`, { temperature: 0.3 })) || "no answer.";
-  }
+  let busy = false, booted = false, past = [], pi = -1, pending = null, undos = [], lastOut = "", mode = null, halt = false, curLine = ""; const calc = makeCalc(), ml = makeMatlab(calc);
+  try { localStorage.removeItem("console.aikey"); localStorage.removeItem("console.aimodel"); } catch {}   // the Gemini fallback was removed; forget the old key
   const ALS = "console.aliases", userAl = () => { try { return JSON.parse(localStorage.getItem(ALS)) || {}; } catch { return {}; } };
   const setAlias = (k, v) => { const a = userAl(); if (v == null) delete a[k]; else a[k] = v; try { localStorage.setItem(ALS, JSON.stringify(a)); } catch {} };
   const bottom = () => { scr.scrollTop = scr.scrollHeight; }, sleep = ms => new Promise(r => setTimeout(r, ms));
 
   // output: commands answer at once; several lines appear one after another, quickly, so it still reads like a terminal
+  // a line is text, {html}, {node, text} (a chart) or {buttons:[{label, go}]} (links that switch page when you press them)
   async function print(lines, cls = "") {
     lines = [].concat(lines);
-    if (cls !== "tm-err") lastOut = lines.map(t => (t && t.html ? t.html.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">") : t)).join("\n");
-    for (const text of lines) { const d = document.createElement("div"); d.className = "tm-line " + cls; if (text && text.html != null) d.innerHTML = text.html; else { if (/^✓/.test(text) && !cls) d.classList.add("tm-ok"); d.textContent = text; } log.appendChild(d); bottom(); if (lines.length > 1 && lines.length <= 14 && !reduce) await sleep(9); }
+    if (cls !== "tm-err") lastOut = lines.map(t => (t && t.html ? t.html.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">") : t && (t.node || t.buttons) ? t.text || "" : t)).filter(t => t !== "").join("\n");
+    for (const text of lines) {
+      if (halt) break;
+      const d = document.createElement("div"); d.className = "tm-line " + cls;
+      if (text && text.node) { d.className = "tm-line tm-chart"; d.appendChild(text.node); }
+      else if (text && text.buttons) { d.className = "tm-line tm-btns"; text.buttons.forEach(b => { const k = document.createElement("button"); k.type = "button"; k.className = "tm-btn"; k.textContent = b.label; k.addEventListener("click", e => { e.stopPropagation(); if (b.go) dispatchEvent(new CustomEvent("goto", { detail: b.go })); }); d.appendChild(k); }); }
+      else if (text && text.html != null) d.innerHTML = text.html; else { if (/^✓/.test(text) && !cls) d.classList.add("tm-ok"); d.textContent = text; }
+      log.appendChild(d); bottom(); if (lines.length > 1 && lines.length <= 14 && !reduce) await sleep(9);
+    }
   }
-  const err = t => print(t, "tm-err"), dim = t => print(t, "tm-dim");
+  const err = t => { devLog(t); return print(t, "tm-err"); }, dim = t => print(t, "tm-dim");
   async function type(text, cls = "") {   // the boot text only
     const line = document.createElement("div"); line.className = "tm-line " + cls; log.appendChild(line);
     if (reduce) { line.textContent = text; return; }
@@ -112,6 +102,80 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
   const askInput = (prompt, then, literal = false) => { pending = { type: "input", then, literal }; return dim(prompt); };   // a question answered in free text; "cancel" drops it
 
   const A = () => api, today = () => ymd(new Date());
+
+  /* ---------- the developer dock: errors worth fixing, command examples, and every running timer ---------- */
+  const DEV = "console.devlog", SEEN = "console.devseen", timers = new Map(), fmtClock = sec => { sec = Math.max(0, Math.round(sec)); const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), x = sec % 60; return h ? `${h}:${pad(m)}:${pad(x)}` : `${pad(m)}:${pad(x)}`; };
+  let errs = [], lastSeen = 0, dtab = "timers", trows = new Map(); try { errs = JSON.parse(localStorage.getItem(DEV)) || []; lastSeen = +localStorage.getItem(SEEN) || 0; } catch {}
+  const when = t => { const d = new Date(t); return `${ymd(d)} ${hhmm(d)}`; };
+  const devLog = t => {   // every error the console shows is kept here (this browser only), with what was typed
+    const msg = [].concat(t).join(" ").trim(); if (!msg) return; const last = errs[errs.length - 1];
+    if (last && last.line === curLine && last.msg === msg) { last.n = (last.n || 1) + 1; last.t = Date.now(); } else errs.push({ t: Date.now(), line: curLine, msg, calc: !!mode });
+    errs = errs.slice(-300); try { localStorage.setItem(DEV, JSON.stringify(errs)); } catch {} if (dock) { if (dtab === "errors" && !panel.hidden) renderErrors(); tickDock(); }
+  };
+  root.insertAdjacentHTML("beforeend", `<div class="cdev" id="cdev"><div class="cdev-panel" hidden><div class="cdev-tabs"><button type="button" data-p="timers">Timers</button><button type="button" data-p="errors">Errors</button><button type="button" data-p="examples">Examples</button></div><div class="cdev-body"></div></div><button class="cdev-btn" type="button"><span class="cdev-t">developer</span><b class="cdev-n" hidden></b></button></div>`);
+  const dock = root.querySelector("#cdev"), panel = dock.querySelector(".cdev-panel"), body = dock.querySelector(".cdev-body"), dbtn = dock.querySelector(".cdev-btn"), dt = dock.querySelector(".cdev-t"), dn = dock.querySelector(".cdev-n");
+  const timersApi = { add(id, spec) { timers.set(id, spec); dockOpen("timers"); }, remove(id) { timers.delete(id); tickDock(); }, has: id => timers.has(id) };
+  function collect() {
+    const out = [], tm = A().timer;
+    if (tm && tm.running) { const st = tm.status, left = st.allot - st.elapsed, over = left < 0; out.push({ id: "focus", label: st.mode === "work" ? "focus session" : "break", text: (over ? "-" : "") + fmtClock(Math.abs(left)), sub: st.paused ? "paused" : over ? "over time" : "left", color: over ? C.red : C.lit }); }
+    timers.forEach((sp, id) => { const g = sp.get(); out.push({ id, label: sp.label, text: g.text, sub: g.sub || "", color: g.red ? C.red : C.lit }); });
+    return out;
+  }
+  const stopTimer = id => { if (id === "focus") { const tm = A().timer; tm && tm.stop(); } else { const sp = timers.get(id); if (sp && sp.stop) sp.stop(); } tickDock(); };
+  function renderTimers() {
+    const list = collect();
+    if (!list.length) { if (!body.querySelector(".cdev-empty")) { body.innerHTML = `<div class="cdev-empty">no timers running.<br>timer 25 · countdown 5m · stopwatch · remind 20m call mom</div>`; trows.clear(); } return; }
+    body.querySelector(".cdev-empty")?.remove();
+    for (const [id, r] of trows) if (!list.some(x => x.id === id)) { r.el.remove(); trows.delete(id); }
+    list.forEach(x => {
+      let r = trows.get(x.id);
+      if (!r) { const el = document.createElement("div"); el.className = "cdev-trow"; el.innerHTML = `<div class="cdev-dg"></div><div class="cdev-tx"><b></b><span></span></div><button class="cdev-x" type="button">stop</button>`; body.appendChild(el); r = { el, text: null, color: null, dg: el.querySelector(".cdev-dg"), b: el.querySelector("b"), sp: el.querySelector("span") }; trows.set(x.id, r); el.querySelector(".cdev-x").addEventListener("click", () => stopTimer(x.id)); }
+      if (r.text !== x.text || r.color !== x.color) { r.dg.replaceChildren(dotDigits(x.text, { color: x.color, pitch: 4.2 })); r.text = x.text; r.color = x.color; }
+      r.b.textContent = x.label; r.sp.textContent = x.sub;
+    });
+  }
+  const errText = () => `DASH CONSOLE ERRORS (${errs.length})\n\n` + errs.map((e, i) => `${i + 1}. ${when(e.t)}${e.calc ? " [calculator]" : ""}${e.n > 1 ? ` x${e.n}` : ""}\n   typed:  ${e.line}\n   result: ${e.msg}`).join("\n\n");
+  function renderErrors() {
+    lastSeen = Date.now(); try { localStorage.setItem(SEEN, String(lastSeen)); } catch {}
+    body.innerHTML = `<div class="cdev-bar"><button type="button" data-a="copy">copy all</button><button type="button" data-a="clear">clear</button><span>${errs.length} logged. Paste them to Claude to tune the commands.</span></div>` +
+      (errs.length ? [...errs].reverse().map(e => `<div class="cdev-err"><div class="cdev-meta">${when(e.t)}${e.n > 1 ? ` · ×${e.n}` : ""}${e.calc ? " · calculator" : ""}</div><div class="cdev-in"><span>›</span> ${esc(e.line || "")}</div><div class="cdev-msg">${esc(e.msg)}</div></div>`).join("") : `<div class="cdev-empty">no errors yet.<br>When a command fails it is logged here with what you typed.</div>`);
+    tickDock();
+  }
+  function renderExamples() {
+    const meta = allMeta(), used = [...new Set(past)].slice(0, 10);
+    body.innerHTML = (used.length ? `<div class="cdev-h">you typed recently</div>` + used.map(l => `<div class="cdev-ex" data-fill="${esc(l)}"><b class="tm-fn">${esc(l)}</b></div>`).join("") : "") +
+      Object.entries(GROUPS).map(([k, label]) => { const ms = meta.filter(m => m.cat === k); return ms.length ? `<div class="cdev-h">${esc(label)}</div>` + ms.map(m => `<div class="cdev-ex" data-fill="${esc(m.n + " ")}"><b class="tm-fn">${esc(m.use)}</b><span>${esc(m.d)}</span></div>`).join("") : ""; }).join("");
+  }
+  function renderDock() {
+    dock.querySelectorAll(".cdev-tabs button").forEach(b => b.classList.toggle("on", b.dataset.p === dtab));
+    body.innerHTML = ""; trows.clear(); body.scrollTop = 0;
+    if (dtab === "timers") renderTimers(); else if (dtab === "errors") renderErrors(); else renderExamples();
+  }
+  function dockOpen(tab) { if (tab) dtab = tab; panel.hidden = false; renderDock(); tickDock(); }
+  function tickDock() {
+    const list = collect(), unseen = errs.filter(e => e.t > lastSeen).length;
+    dt.textContent = list.length ? (list.length === 1 ? `${list[0].text} · ${list[0].label}` : `${list.length} timers`) : "developer";
+    dbtn.classList.toggle("run", !!list.length); dn.hidden = !unseen || (dtab === "errors" && !panel.hidden); dn.textContent = unseen;
+    if (!panel.hidden && dtab === "timers") renderTimers();
+  }
+  dbtn.addEventListener("click", () => { if (!panel.hidden) { panel.hidden = true; return; } const unseen = errs.some(e => e.t > lastSeen); dockOpen(collect().length ? "timers" : unseen ? "errors" : dtab); });
+  dock.querySelector(".cdev-tabs").addEventListener("click", e => { const b = e.target.closest("button"); if (b) { dtab = b.dataset.p; renderDock(); tickDock(); } });
+  body.addEventListener("click", e => {
+    const a = e.target.closest("[data-a]"), f = e.target.closest("[data-fill]");
+    if (a && a.dataset.a === "copy") { const t = errText(), done = () => { a.textContent = "copied ✓"; setTimeout(() => { a.textContent = "copy all"; }, 1400); }; (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(done, () => { const ta = document.createElement("textarea"); ta.value = t; document.body.appendChild(ta); ta.select(); try { document.execCommand("copy"); done(); } catch {} ta.remove(); }); }
+    if (a && a.dataset.a === "clear") { errs = []; try { localStorage.removeItem(DEV); } catch {} renderErrors(); }
+    if (f) { inp.value = f.dataset.fill; echo.innerHTML = hl(inp.value); sugRender(); panel.hidden = true; inp.focus(); }
+  });
+  dock.addEventListener("click", e => e.stopPropagation());
+  setInterval(tickDock, 250);
+
+  // end: stop whatever is looping (a question being asked, the calculator, a countdown or stopwatch)
+  async function endAll(hadQuestion) {
+    const done = []; if (hadQuestion) done.push("the open question"); if (mode) { setMode(null); done.push("the calculator"); }
+    [...timers.values()].forEach(sp => { if (sp.loop) { done.push(sp.label); if (sp.stop) sp.stop(); } });
+    const tm = A().timer; if (!done.length) return dim(tm && tm.running ? "nothing is looping. The focus timer is still going: stop ends it." : "nothing is running to end.");
+    await print(`✓ ended: ${done.join(", ")}`);
+  }
   const choose = async (label, options, then) => { await print([label, ...options.map((o, i) => `  ${i + 1}  ${o.label}`)]); await dim("type a number, or anything else to cancel"); pending = { type: "choose", options, then }; };
 
   /* ---------- the commands ---------- */
@@ -120,7 +184,7 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
       const q = (args || "").trim().toLowerCase(), meta = allMeta(), line = m => `  ${m.use.padEnd(38)} ${m.d}`;
       if (!q) {
         const rows = Object.entries(GROUPS).map(([k, label]) => { const ms = meta.filter(m => m.cat === k); return ms.length ? `help ${k.padEnd(8)} ${label.padEnd(20)} ${ms.map(m => m.n).slice(0, 9).join(" ")}${ms.length > 9 ? " …" : ""}` : null; }).filter(Boolean);
-        return print(["COMMANDS", `${meta.length} of them, in ${rows.length} groups`, "", ...rows, "", "help <group> lists a group in full. help <command> explains one. help <word> searches (try: help sleep).", "MATH is built in: type 2+2, sqrt(2), f(x)=x^2-3x, plot sin(x). Commands turn blue when recognised.", "Cmd+K opens and closes this from any page. Up arrow recalls, Tab completes, undo takes back changes."], "tm-dim");
+        return print(["COMMANDS", `${meta.length} of them, in ${rows.length} groups`, "", ...rows, "", "help <group> lists a group in full. help <command> explains one. help <word> searches (try: help sleep).", "MATH is built in: type 2+2, sqrt(2), f(x)=x^2-3x, plot sin(x). Commands turn blue when recognised.", "Cmd+K opens and closes this from any page. Up arrow recalls, Tab completes, undo takes back changes, end stops a loop.", "The developer button (bottom right) keeps your errors to paste, shows running timers, and lists command examples."], "tm-dim");
       }
       if (q === "all") return print(Object.entries(GROUPS).flatMap(([k, label]) => { const ms = meta.filter(m => m.cat === k); return ms.length ? ["", label.toUpperCase(), ...ms.map(line)] : []; }), "tm-dim");
       if (GROUPS[q]) return print([GROUPS[q].toUpperCase(), ...meta.filter(m => m.cat === q).map(line)], "tm-dim");
@@ -177,7 +241,7 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
       const tm = A().timer; if (!tm) return err("the timer is not ready yet.");
       const words = args.replace(/\bnow\b/gi, "").trim().split(/\s+/).filter(Boolean), minTok = words.find(w => /^\d+$/.test(w) || /^\d+m(in)?$/.test(w)), min = minTok ? parseInt(minTok) : undefined, label = words.filter(w => w !== minTok).join(" ") || "focus";
       const was = tm.running; const mins = tm.start(min); undos.push({ label: "timer start", fn: () => tm.stop() });
-      await print(`✓ ${label}: focus session started, ${mins} min${was ? " (the earlier session was replaced)" : ""}`); await dim("go prod to watch it.");
+      await print(`✓ ${label}: focus session started, ${mins} min${was ? " (the earlier session was replaced)" : ""}`); dockOpen("timers");
     },
     async stop() { const tm = A().timer; if (!tm || !tm.running) return dim("no timer is running."); tm.stop(); await print("✓ timer stopped"); },
     async pause() { const tm = A().timer; if (!tm || !tm.running) return dim("no timer is running."); tm.pause(); await print("✓ timer paused"); },
@@ -192,11 +256,8 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
       const c = window.__dashContext && window.__dashContext(); if (!c) return dim("the numbers are not loaded yet.");
       const l = c.lastNight; await print(["LAST NIGHT", l ? `  ${l.sleep}, asleep by ${l.asleepBy}, woke ${l.wokeAt}, quality ${l.quality}` : "  no sleep recorded", `  sleep debt ${c.sleepDebt || "—"}`, "RECOVERY", `  resting heart rate ${c.recovery.restingHrToday ?? "—"} bpm, HRV ${c.recovery.hrvToday ?? "—"} ms, body check: ${c.recovery.bodyCheck}`, `PLAN  today ${c.plan.today}, tomorrow ${c.plan.tomorrow}`], "tm-dim");
     },
-    async aikey(args) { const k = args.trim(); if (!k) return askInput("paste your Gemini API key (or cancel)", l => exec("aikey " + l), true); if (/^(off|clear|remove)$/i.test(k)) { try { localStorage.removeItem("console.aikey"); } catch {} return print("✓ Gemini fallback off, key removed"); } try { localStorage.setItem("console.aikey", k); } catch { return err("this browser would not store the key."); } await print(`✓ Gemini fallback on (${aiModel()}). Odd phrasing is now turned into a command; only your typed line and the command list are sent.`); },
-    async ai(args) { if (!aiKey()) return err("no Gemini key yet. aikey <key> turns it on."); if (!args.trim()) return askInput("say what you want, in your own words (or cancel)", l => exec("ai " + l), true); await dim("asking Gemini…"); const r = await aiTranslate(args.trim()); if (r.command && isCmd(ALIAS[r.command.split(/\s+/)[0].toLowerCase()] || r.command.split(/\s+/)[0].toLowerCase())) { await dim(`→ ${r.command}`); return exec(r.command, true); } await print(r.say || "no command fits that.", "tm-dim"); },
-    async ask(args) { if (!aiKey()) return err("no Gemini key yet. aikey <key> turns it on."); if (!args.trim()) return askInput("what do you want to know about your last 14 days? (or cancel)", l => exec("ask " + l), true); await dim("sending a 14-day summary of your numbers to Gemini…"); busy = true; try { await print(await aiAsk(args.trim())); } catch (e) { await err(`Gemini: ${e.message || e}`); } finally { busy = false; } },
+    async end() { await endAll(false); },
     async rerun(args) { const n = +args.trim() || 1, h = past.filter(l => !/^(rerun|!!)\b/.test(l)), l = h[n - 1]; if (!l) return err("nothing to repeat yet."); await dim(`→ ${l}`); return exec(l, true); },
-    async aimodel(args) { const m = args.trim(); if (!m) return print(`model: ${aiModel()}`); try { localStorage.setItem("console.aimodel", m); } catch {} await print(`✓ model set to ${m}`); },
     async undo() { const u = undos.pop(); if (!u) return dim("nothing to undo."); busy = true; try { await u.fn(); await print(`↩ undone: ${u.label}`); } catch (e) { await err(`could not undo ${u.label}: ${e.message || e}`); } finally { busy = false; } },
     async rm(args) {
       let w = args.trim().split(/\s+/)[0].toLowerCase(); const cal = A().cal, gym = A().gym && A().gym();
@@ -234,7 +295,7 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
   }
 
   /* ---------- the library: about 130 more commands ---------- */
-  const lib = buildLibrary({ print, err, dim, ask, choose, A: api, calc, today, undos, parseWhen, fmtDay, hhmm, midnight, addDaysD, loadWeights, setWeight, delWeight, call: (n, a) => cmds[n](a), log, bottom, lastOut: () => lastOut, history: () => past, aliases: userAl, setAlias, names: () => Object.keys(cmds) });
+  const lib = buildLibrary({ print, err, dim, ask, choose, A: api, calc, today, undos, parseWhen, fmtDay, hhmm, midnight, addDaysD, loadWeights, setWeight, delWeight, call: (n, a) => cmds[n](a), log, bottom, lastOut: () => lastOut, history: () => past, aliases: userAl, setAlias, names: () => Object.keys(cmds), timers: timersApi });
   Object.assign(cmds, lib.cmds);
   cmds.calculator = async args => { if (args.trim()) { try { return await print(ml.run(mulX(words2math(args.trim())))); } catch (e) { if (e.partial && e.partial.length) await print(e.partial); return err(e.message || String(e)); } } await enterCalc(); };
   const allMeta = () => [...CORE.map(([cat, n, use, d, al]) => ({ cat, n, use, d, al: al || [] })), ...lib.meta];
@@ -260,17 +321,10 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
     async plot(args) {
       if (!args.trim()) return err("usage: plot sin(x), x^2/4 from -2pi to 2pi");
       const { src, a, b } = range(args), fs = top(src).map(cleanName); if (!fs.length || fs.length > 4) return err("plot one to four functions of x, separated by commas.");
-      const P = calc.plot(fs, a, b), box = document.createElement("div"); box.className = "tm-plot";
-      box.innerHTML = `<div class="tm-leg">${P.legend.map(l => `<span><i style="background:${l.c}"></i>${esc(l.q)}</span>`).join("")}</div>${P.svg}<div class="tm-read">move over the graph for exact values</div>`; log.appendChild(box);
-      const svg = box.querySelector("svg"), cross = svg.querySelector(".tm-cross"), read = box.querySelector(".tm-read");
-      svg.addEventListener("pointermove", e => {
-        const r = svg.getBoundingClientRect(), vx = (e.clientX - r.left) / r.width * P.W; if (vx < P.L || vx > P.W - P.R) { cross.style.display = "none"; return; }
-        const x = P.a + (vx - P.L) / (P.W - P.L - P.R) * (P.b - P.a); cross.style.display = ""; cross.querySelector(".v").setAttribute("x1", vx); cross.querySelector(".v").setAttribute("x2", vx);
-        const ys = P.fs.map(o => o.f(x)); ys.forEach((y, k) => { const c = cross.querySelector(".d" + k); if (Number.isFinite(y)) { c.setAttribute("cx", vx); c.setAttribute("cy", P.Y(y)); c.style.display = ""; } else c.style.display = "none"; });
-        read.textContent = `x = ${calc.fmt(x, 7)}    ` + ys.map((y, k) => `${fs.length > 1 ? "f" + (k + 1) : "y"} = ${calc.fmt(y, 7)}`).join("    ");
-      });
-      svg.addEventListener("pointerleave", () => { cross.style.display = "none"; });
-      bottom();
+      const P = calc.plot(fs, a, b), dp = dotPlot(P.fs.map(o => o.f), a, b);
+      dp.legendEl.innerHTML = P.legend.map((l, k) => `<span><i style="background:${dp.colors[k % 4]}"></i>${esc(l.q)}</span>`).join("");
+      dp.setHover((x, ys) => { dp.read.textContent = `x = ${calc.fmt(x, 7)}    ` + ys.map((y, k) => `${fs.length > 1 ? "f" + (k + 1) : "y"} = ${calc.fmt(y, 7)}`).join("    "); });
+      log.appendChild(dp.box); bottom();
       const lines = P.fs.map((o, k) => { const r = calc.roots(o.f, a, b).slice(0, 8); return r.length ? `roots${fs.length > 1 ? " of " + fs[k] : ""}: ${r.map(v => calc.fmt(v)).join(", ")}` : null; }).filter(Boolean);
       if (lines.length) await print(lines, "tm-dim");
     },
@@ -326,8 +380,9 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
   /* ---------- reading a line ---------- */
   async function run(line) {
     line = line.trim(); if (!line) return;
-    past.unshift(line); pi = -1;
+    past.unshift(line); pi = -1; curLine = line;
     const q = document.createElement("div"); q.className = "tm-line tm-q"; q.innerHTML = `<span class="tm-p${mode ? " calc" : ""}">${mode ? mode.prompt : "›"}</span> ${hl(line)}`; log.appendChild(q); bottom();
+    if (/^end$/i.test(line)) { const q = !!pending; pending = null; await endAll(q); sugRender(); return; }
     if (pending) {   // answering a question the console asked; anything else cancels it and is read as a new command
       const p = pending; pending = null;
       if (typeof p === "function") { if (/^(y|yes)$/i.test(line)) { busy = true; try { await p(); } catch (e) { await err(e.message || String(e)); } busy = false; sugRender(); return; } if (/^(n|no|cancel)$/i.test(line)) { await dim("cancelled."); return; } }
@@ -365,13 +420,6 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
       try { await showValue(calc.evaluate(mulX(line))); } catch (e) { await err(e.message || String(e)); }
       return;
     }
-    if (!isCmd(name) && !viaIntent && aiKey()) {
-      await dim("asking Gemini to read that…");
-      try { const r = await aiTranslate(line);
-        if (r.command && isCmd(ALIAS[r.command.split(/\s+/)[0].toLowerCase()] || r.command.split(/\s+/)[0].toLowerCase())) { await dim(`→ ${r.command}`); return exec(r.command, true); }
-        return print(r.say || "Gemini had no command for that.", "tm-dim");
-      } catch (e) { await err(`Gemini: ${e.message || e}`); }
-    }
     if (!isCmd(name)) {
       const hits = findCommands(line, allMeta()).slice(0, 3);
       await err(`I did not catch "${line.length > 40 ? line.slice(0, 40) + "…" : line}".`);
@@ -379,12 +427,14 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
     }
     busy = true; live.hidden = true; sug.hidden = true;
     const args = name === "start" ? (/^start\b/i.test(line) ? line.replace(/^start\s*/i, "") : rest) : rest;
+    halt = false;
     try { await cmds[name](args); }
     catch (e) {
       const msg = e && e.message ? e.message : String(e);
       if (/^usage:/i.test(msg) && !args.trim()) { await dim(msg); await askInput("type the arguments now, or cancel.", l => exec(`${name} ${l}`)); }   // a bare command asks instead of failing
       else await err(msg);
     }
+    if (halt) { halt = false; await dim("ended."); }
     busy = false; live.hidden = false; inp.focus(); bottom(); sugRender();
   }
 
@@ -397,7 +447,8 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
 
   inp.addEventListener("input", () => { echo.innerHTML = hl(inp.value); bottom(); sugRender(); });
   inp.addEventListener("keydown", e => {
-    if (e.key === "Enter" && !busy) { const v = inp.value; inp.value = ""; echo.textContent = ""; run(v); }
+    if (e.key === "Enter" && busy && /^\s*end\s*$/i.test(inp.value)) { inp.value = ""; echo.textContent = ""; halt = true; [...timers.values()].forEach(sp => { if (sp.loop && sp.stop) sp.stop(); }); }
+    else if (e.key === "Enter" && !busy) { const v = inp.value; inp.value = ""; echo.textContent = ""; run(v); }
     else if (e.key === "Escape" && mode) { e.stopPropagation(); e.preventDefault(); inp.value = ""; echo.textContent = ""; print([""]); setMode(null); dim("left the calculator."); }
     else if (e.key === "Tab") {
       e.preventDefault(); const v = inp.value.trim().toLowerCase();

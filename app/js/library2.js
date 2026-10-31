@@ -4,7 +4,7 @@ import { e1rm } from "./gymlog.js";
 
 export function addMore(X) {
   const { def, print, dim, ask, choose, err, undos, parseWhen, fmtDay, hhmm, midnight, addDaysD, call, history, H, series, MET, metric, calApi, tasksApi, gymApi, taskList, pickTask, rewrite, TASK, lastKg, loadWeights,
-    pad, hmm, num, nn, mean, sdev, trim, thou, spark, barOf, rd, html, U, esc, ymd, addDays, n3, nums, relDays, longDay, copyText, beep, rankExercises, debtNow } = X;
+    pad, hmm, num, nn, mean, sdev, trim, thou, chart, link, dotHBars, timers, clk, rd, html, U, esc, ymd, addDays, n3, nums, relDays, longDay, copyText, beep, rankExercises, debtNow } = X;
   const minOf = d => d.getHours() * 60 + d.getMinutes(), at = (day, m) => { const d = new Date(midnight(day)); d.setMinutes(m); return d; };
   const evLine = e => `${e.allDay ? "all day" : `${hhmm(e.s)}–${hhmm(e.e)}`}  ${e.title}`;
   const parseDur = t => { const m = String(t || "").trim().toLowerCase().match(/^(?:(\d+(?:\.\d+)?)\s*h(?:ours?|rs?)?)?\s*(?:(\d+)\s*m(?:in(?:ute)?s?)?)?$|^(\d+)$/); if (!m || !t.trim()) return null; return m[3] ? +m[3] : (+m[1] || 0) * 60 + (+m[2] || 0); };
@@ -66,7 +66,7 @@ export function addMore(X) {
     for (let k = 0; k < 14; k++) { const day = midnight(addDaysD(n, k)); let t = Math.max(8 * 60, k === 0 ? Math.ceil((minOf(n) + 1) / 15) * 15 : 0); const todays = evs.filter(e => midnight(e.s).getTime() === day.getTime() || (e.s < day && e.e > day));
       for (const e of todays) { const s = e.s < day ? 0 : minOf(e.s), en = e.e > addDaysD(day, 1) ? 1440 : (midnight(e.e).getTime() === day.getTime() ? minOf(e.e) : 1440); if (s - t >= need) break; t = Math.max(t, en); }
       if (t + need <= 22 * 60) { const s = at(day, t); return print(`${fmtDay(s)} ${hhmm(s)}–${hhmm(new Date(+s + need * 6e4))}  (${dur2(need)} free)`); } }
-    await print("no slot that long in view. switch to a lighter week on the Calendar page.", "tm-dim");
+    await print(["no slot that long in view.", link("cal", "Open Calendar")], "tm-dim");
   });
   def("cal", "conflicts clashes", "conflicts", "events in view that overlap each other", async () => {
     const e = timed().sort((x, y) => x.s - y.s), out = []; for (let i = 0; i < e.length; i++) for (let j = i + 1; j < e.length && e[j].s < e[i].e; j++) out.push(`${fmtDay(e[j].s)}  ${e[i].title} (${hhmm(e[i].s)}–${hhmm(e[i].e)})  overlaps  ${e[j].title} (${hhmm(e[j].s)}–${hhmm(e[j].e)})`);
@@ -74,7 +74,8 @@ export function addMore(X) {
   });
   def("cal", "workload busyness", "workload", "hours of scheduled events per day in view, as bars", async () => {
     const e = timed(), by = {}; e.forEach(x => { const k = +midnight(x.s); by[k] = (by[k] || 0) + (x.e - x.s) / 36e5; }); const ks = Object.keys(by).sort(), mx = Math.max(1, ...Object.values(by));
-    await print(ks.length ? [...ks.map(k => `${new Date(+k).toLocaleDateString("en-US", { weekday: "short", day: "numeric" }).padEnd(8)} ${trim(by[k], 1).padStart(4)} h  ${barOf(by[k], 0, mx, 24)}`), `total ${trim(Object.values(by).reduce((s, v) => s + v, 0), 1)} h`] : "no events in view", "tm-dim");
+    const lab = k => new Date(+k).toLocaleDateString("en-US", { weekday: "short", day: "numeric"});
+    await print(ks.length ? [chart(dotHBars(ks.map(k => ({ label: lab(k), value: by[k], text: `${trim(by[k], 1)} h` })), { max: mx }), ks.map(k => `${lab(k)} ${trim(by[k], 1)} h`).join("\n")), `total ${trim(Object.values(by).reduce((s, v) => s + v, 0), 1)} h`, link("cal", "Open Calendar")] : "no events in view", "tm-dim");
   });
   def("cal", "freeday", "freeday", "the lightest day in view", async () => {
     const last = Math.max(...calApi().events().map(e => +midnight(e.s))), days = [...Array(7)].map((_, i) => midnight(addDaysD(new Date(), i))).filter(d => +d <= last), hrs = d => timed().filter(e => midnight(e.s).getTime() === d.getTime()).reduce((s, e) => s + (e.e - e.s) / 36e5, 0), best = days.map(d => ({ d, h: hrs(d) })).sort((x, y) => x.h - y.h)[0];
@@ -193,7 +194,11 @@ export function addMore(X) {
 
   /* ================= REMINDERS ================= */
   const REM = []; let remN = 0;
-  const startRem = (ms, text) => { const id = ++remN, due = Date.now() + ms, t = setTimeout(() => { REM.splice(REM.findIndex(r => r.id === id), 1); beep(); print([`⏰ ${text || "reminder"}`], "tm-ok"); try { if ("Notification" in window && Notification.permission === "granted") new Notification(text || "reminder"); } catch {} }, ms); REM.push({ id, due, text, t }); return id; };
+  const dropRem = r => { clearTimeout(r.t); const i = REM.indexOf(r); if (i >= 0) REM.splice(i, 1); timers.remove("rem" + r.id); };
+  const startRem = (ms, text) => {   // waits in the developer panel as a countdown; at the end it beeps and says so here
+    const id = ++remN, due = Date.now() + ms, r = { id, due, text, t: setTimeout(() => { dropRem(r); beep(); print([`⏰ ${text || "reminder"}`], "tm-ok"); try { if ("Notification" in window && Notification.permission === "granted") new Notification(text || "reminder"); } catch {} }, ms) };
+    REM.push(r); timers.add("rem" + id, { label: text || "reminder", get: () => ({ text: clk((due - Date.now()) / 1000), sub: `reminder at ${hhmm(new Date(due))}` }), stop: () => dropRem(r) }); return id;
+  };
   def("timer", "remind remindme", "remind 20m call mom", "a reminder in the console after a delay (it is lost if you reload the page)", async a => {
     const m = a.trim().match(/^(?:in\s+)?(\d+(?:\.\d+)?\s*(?:h(?:ours?|rs?)?|m(?:in(?:ute)?s?)?|s(?:ec(?:ond)?s?)?))\s*(.*)$/i); if (!m) U("usage: remind 20m call mom   (units: s, m, h)");
     const v = parseFloat(m[1]), u = m[1].replace(/[\d.\s]/g, "")[0].toLowerCase(), ms = v * (u === "h" ? 36e5 : u === "m" ? 6e4 : 1e3); startRem(ms, m[2].trim()); await print(`✓ I will remind you in ${m[1].replace(/\s+/g, " ")}${m[2] ? `: ${m[2]}` : ""}`);
@@ -203,7 +208,7 @@ export function addMore(X) {
     const t = new Date(); t.setHours(hr, +(m[2] || 0), 0, 0); if (t <= new Date()) t.setDate(t.getDate() + 1); startRem(t - Date.now(), m[4].trim() || "alarm"); await print(`✓ alarm set for ${fmtDay(t)} ${hhmm(t)}${m[4] ? `: ${m[4].trim()}` : ""}`);
   });
   def("timer", "reminders", "reminders", "reminders and alarms that are waiting", async () => { await print(REM.length ? REM.map(r => `  ${String(r.id).padStart(2)}  ${hhmm(new Date(r.due))}  ${r.text || "reminder"}`) : "none waiting", "tm-dim"); });
-  def("timer", "unremind", "unremind <number | all>", "cancel a reminder", async a => { const k = a.trim(); if (!k) U("usage: unremind 2   or   unremind all"); const hit = /^all$/i.test(k) ? [...REM] : REM.filter(r => r.id === +k); if (!hit.length) U("no such reminder."); hit.forEach(r => { clearTimeout(r.t); REM.splice(REM.indexOf(r), 1); }); await print(`✓ cancelled ${hit.length}`); });
+  def("timer", "unremind", "unremind <number | all>", "cancel a reminder", async a => { const k = a.trim(); if (!k) U("usage: unremind 2   or   unremind all"); const hit = /^all$/i.test(k) ? [...REM] : REM.filter(r => r.id === +k); if (!hit.length) U("no such reminder."); hit.forEach(dropRem); await print(`✓ cancelled ${hit.length}`); });
 
   /* ================= TEXT ================= */
   const words = s => s.replace(/([a-z0-9])([A-Z])/g, "$1 $2").split(/[^A-Za-z0-9]+/).filter(Boolean).map(w => w.toLowerCase());
