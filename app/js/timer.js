@@ -8,7 +8,7 @@ const V = n => `var(--t-${n})`;
 const T = {
   en: { ready: "Ready", focus: "Focus", overtime: "Overtime", break_: "Break", longBreak: "Long break", breakOver: "Break over", startFocus: "Start focus", breakBtn: "Break",
     earned: t => `+${t} extra break earned`, includes: t => `includes +${t} earned`, breakUp: "Break time is up", timeSpent: "Time spent",
-    chartDesc: "Focus and break per session. Brighter tops mark time beyond the plan.", totFocus: "Total focus", totBreak: "Total break", totExtra: "Earned extra",
+    chartDesc: "Focus and break per session. Dashed lines are the planned lengths; a different colour on top is time beyond the plan.", totFocus: "Total focus", totBreak: "Total break", totExtra: "Earned extra",
     empty: "Complete a session to see your rhythm here.", lgFocus: "Focus", lgFocusOT: "Focus overtime", lgBreak: "Break", lgBreakOT: "Break overrun",
     reset: "Reset all", confirmReset: "Confirm reset", developer: "Developer", chimePreview: "Chime preview", play: "Play",
     ch1: "Focus complete", ch1d: "Rising triad · plays when focus time is up", ch2: "Break complete", ch2d: "Descending pair · plays when break ends", ch3: "Break overrun", ch3d: "Low double knock · reminder while over",
@@ -146,23 +146,21 @@ export function initTimer(root) {
   /* ---------- chart ---------- */
   function drawChart(rows) {
     if (!rows.length) return (el.tmChart.innerHTML = `<div class="tm-empty">${esc(t().empty)}</div>`);
-    // Line chart: one point per session for focus and for break. The y axis never drops below the planned
-    // session length, so a short first session doesn't fill the chart. Overtime shows as an amber dot, break overrun as a red dot.
+    // Paired columns, one pair per session: focus then break. Time beyond the plan stacks on top in its own colour (focus overtime, break overrun),
+    // and dashed lines mark the planned focus and break lengths, so a column that clears its line is a session that ran long.
     const CW = 640, CH = 190, L = 34, R = 10, top = 12, bot = 22, n = rows.length;
-    const plan = Math.max(prefs.workMin, prefs.brkMin) * 60 * 1.2, raw = Math.max(plan, ...rows.map(r => Math.max(r.work + r.workOver, r.brk + r.brkOver)));
+    const planW = prefs.workMin * 60, planB = prefs.brkMin * 60, raw = Math.max(Math.max(planW, planB) * 1.2, ...rows.map(r => Math.max(r.work + r.workOver, r.brk + r.brkOver)));
     const step = [300, 600, 900, 1800, 3600, 7200].find(s => raw / s <= 5) || 7200, max = Math.ceil(raw / step) * step;
-    const yOf = v => CH - bot - (v / max) * (CH - bot - top);
-    const xOf = i => n === 1 ? (L + CW - R) / 2 : L + 14 + (i * (CW - L - R - 28)) / (n - 1);
+    const yOf = v => CH - bot - (v / max) * (CH - bot - top), slot = (CW - L - R) / n, bw = Math.max(4, Math.min(26, slot * 0.34));
     let s = `<svg viewBox="0 0 ${CW} ${CH}" style="height:190px;margin-top:12px">`;
     for (let v = 0; v <= max; v += step) s += `<line x1="${L}" y1="${yOf(v)}" x2="${CW - R}" y2="${yOf(v)}" stroke="${v ? "var(--grid-minor)" : "var(--line)"}"/><text x="${L - 6}" y="${yOf(v) + 3.5}" text-anchor="end" font-size="10" fill="var(--tx3)">${v / 60}m</text>`;
-    const line = (f, col) => `<polyline points="${rows.map((r, i) => `${xOf(i)},${yOf(f(r))}`).join(" ")}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
-    s += line(r => r.work + r.workOver, V("work")) + line(r => r.brk + r.brkOver, V("brk"));
+    const col = (x, base, over, c, co) => (base > 0 ? `<rect x="${x}" y="${yOf(base)}" width="${bw}" height="${Math.max(1, yOf(0) - yOf(base))}" rx="2" fill="${c}"/>` : "") + (over > 0 ? `<rect x="${x}" y="${yOf(base + over)}" width="${bw}" height="${Math.max(1, yOf(base) - yOf(base + over))}" rx="2" fill="${co}"/>` : "");
     rows.forEach((r, i) => {
-      const x = xOf(i), w = r.work + r.workOver, b = r.brk + r.brkOver;
-      s += `<circle cx="${x}" cy="${yOf(w)}" r="3.5" fill="${r.workOver > 0 ? V("extra") : V("work")}"/>`;
-      if (b > 0) s += `<circle cx="${x}" cy="${yOf(b)}" r="3.5" fill="${r.brkOver > 0 ? V("over") : V("brk")}"/>`;
-      s += `<text x="${x}" y="${CH - 5}" text-anchor="middle" font-size="10" fill="var(--tx3)">${i + 1}</text>`;
+      const cx = L + slot * (i + 0.5);
+      s += col(cx - bw - 1, r.work, r.workOver, V("work"), V("extra")) + col(cx + 1, r.brk, r.brkOver, V("brk"), V("over"));
+      s += `<text x="${cx}" y="${CH - 5}" text-anchor="middle" font-size="10" fill="var(--tx3)">${i + 1}</text>`;
     });
+    [[planW, V("work")], [planB, V("brk")]].forEach(([v, c]) => { if (v > 0 && v <= max) s += `<line x1="${L}" y1="${yOf(v)}" x2="${CW - R}" y2="${yOf(v)}" stroke="${c}" stroke-width="1" stroke-dasharray="4 4" opacity=".7"/>`; });
     el.tmChart.innerHTML = s + "</svg>";
   }
 
