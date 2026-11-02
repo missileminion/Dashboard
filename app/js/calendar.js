@@ -260,7 +260,7 @@ export function initCalendar(root, { demo = false } = {}) {
     return { el, ev, touch, pid: e.pointerId, mode: e.target.closest("[data-rz]") ? "resize" : "move", x0: e.clientX, y0: e.clientY, sy0: window.scrollY, rect: r, pageTop: r.top + window.scrollY, inset: r.left - cols[c0].getBoundingClientRect().left, cols, idx0: c0, shift: 0, dMin: 0, moved: false, ghost: null };
   };
   function lift() {
-    const d = drag; d.moved = true; document.body.classList.add("cal-dragging");
+    const d = drag; d.moved = true; d.liftT = performance.now(); document.body.classList.add("cal-dragging");
     const g = d.el.cloneNode(true); g.classList.add("ghost"); g.removeAttribute("data-id");
     Object.assign(g.style, { left: "0px", top: "0px", right: "auto", bottom: "auto", width: d.rect.width + "px", height: d.rect.height + "px", transform: `translate(${d.rect.left}px, ${d.rect.top}px)` });
     document.body.appendChild(g); d.ghost = g; d.el.classList.add("lifted"); rafId = requestAnimationFrame(frame);
@@ -276,6 +276,7 @@ export function initCalendar(root, { demo = false } = {}) {
   function frame() {   // once per screen refresh: scroll the page when the block is held near its top or bottom edge, then put the block where it belongs
     if (!drag || !drag.moved) return; const y = lastPtr.y, Z = 80, B = 120; let v = 0;   // the bottom zone is taller because the Now bar floats there
     if (y < Z) v = -(Z - y) / Z * 20; else if (y > innerHeight - B) v = (y - (innerHeight - B)) / B * 20;
+    const k = Math.min(1, Math.max(0, (performance.now() - drag.liftT - 450) / 600)); v *= k * k;   // edge scrolling waits for a beat after pick-up and then eases in, so grabbing a block near the screen edge does not make the page lurch
     if (v) window.scrollBy({ top: v, behavior: "instant" });
     place(); rafId = requestAnimationFrame(frame);
   }
