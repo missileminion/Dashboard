@@ -71,9 +71,16 @@ export function addMore(X) {
       try { await ghWrite(JPATH, out, f && f.sha, `journal ${ymd(now)} ${hhmm(now)}`); return; } catch (e) { if (tries === 0 && (e.status === 409 || e.status === 422)) continue; throw e; }
     }
   }
-  def("log", "journal j", "journal [what you want to write]", "write a journal entry to journal.md on GitHub, stamped with day and time; the first one each day asks how the day was, 0 to 5", async a => {
+  def("log", "journal j", "journal [what you want to write]   |   journal history [days]", "write a journal entry to journal.md on GitHub, stamped with day and time; the first one each day asks how the day was, 0 to 5", async a => {
     if (!gh.on) { await print(link("gym", "Open Gym log")); U("no GitHub repo is connected yet. Connect it on the Gym log page first (the journal uses the same repo and token)."); }
     let f; try { f = await ghRead(JPATH); } catch (e) { U(ghMessage(e)); }
+    const hm = a.trim().match(/^(?:history|hist|all|list|past|read)(?:\s+(\d+))?$/i);
+    if (hm) {   // every past day, newest first: the heading with its 0 to 5 rating, then that day's entries
+      if (!f || !/^## /m.test(f.text)) return dim("nothing in the journal yet. Type journal to write the first entry.");
+      const days = f.text.split(/^## /m).slice(1).map(b => { const [h, ...rest] = b.split("\n"), m = h.match(/^(.*?)(?:\s+·\s+(\d)\/5)?\s*$/); return { day: m[1], rating: m[2] == null ? null : +m[2], lines: rest.map(l => l.trim()).filter(Boolean) }; }).reverse();
+      const shown = hm[1] ? days.slice(0, +hm[1]) : days, rated = days.filter(d => d.rating != null), avg = rated.length ? rated.reduce((n, d) => n + d.rating, 0) / rated.length : null;
+      return print([`${days.length} day${days.length === 1 ? "" : "s"} in the journal${avg != null ? `, average ${n3(avg)}/5` : ""}${hm[1] && days.length > shown.length ? `  (showing the latest ${shown.length}; journal history for all)` : ""}`, "", ...shown.flatMap(d => [`${d.day}${d.rating != null ? `  ·  ${d.rating}/5` : ""}`, ...d.lines.map(l => "  " + l.replace(/\*\*(\d\d:\d\d)\*\*/, "$1")), ""])]);
+    }
     const first = !f || !f.text.includes("## " + jHead(new Date())), text = a.trim();
     const finish = async (rating, body) => { if (!body) U("nothing to save."); try { await jSave(rating, body); } catch (e) { U(ghMessage(e)); } await print(`✓ saved to ${JPATH}: ${jHead(new Date())}, ${hhmm(new Date())}${rating != null ? `, day ${rating}/5` : ""}`); };
     if (!first) return text ? finish(null, text) : askInput("write your entry (or cancel)", t => finish(null, t.trim()), true);

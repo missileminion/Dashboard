@@ -80,21 +80,29 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
   async function print(lines, cls = "") {
     lines = [].concat(lines);
     if (cls !== "tm-err") lastOut = lines.map(t => (t && t.html ? t.html.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">") : t && (t.node || t.buttons) ? t.text || "" : t)).filter(t => t !== "").join("\n");
+    const total = lines.reduce((n, t) => n + (typeof t === "string" ? t.length : 0), 0), pace = Math.min(26, Math.max(3, 3500 / Math.max(1, total)));   // about 26 ms a character, quicker for long answers so a big list never takes more than a few seconds
     for (const text of lines) {
       if (halt) break;
       const d = document.createElement("div"); d.className = "tm-line " + cls;
       if (text && text.node) { d.className = "tm-line tm-chart"; d.appendChild(text.node); }
       else if (text && text.buttons) { d.className = "tm-line tm-btns"; text.buttons.forEach(b => { const k = document.createElement("button"); k.type = "button"; k.className = "tm-btn"; k.textContent = b.label; k.addEventListener("click", e => { e.stopPropagation(); if (b.go) dispatchEvent(new CustomEvent("goto", { detail: b.go })); else if (b.say != null) run(String(b.say)); }); d.appendChild(k); }); }
-      else if (text && text.html != null) d.innerHTML = text.html; else { if (/^✓/.test(text) && !cls) d.classList.add("tm-ok"); d.textContent = text; }
-      log.appendChild(d); bottom(); if (lines.length > 1 && lines.length <= 14 && !reduce) await sleep(9);
+      else if (text && text.html != null) d.innerHTML = text.html; else { if (/^✓/.test(text) && !cls) d.classList.add("tm-ok"); d.textContent = ""; d.dataset.full = text; }
+      log.appendChild(d); bottom();
+      if (d.dataset.full != null) await typeInto(d, d.dataset.full, pace); else if (lines.length > 1 && lines.length <= 14 && !reduce) await sleep(9);
     }
+  }
+  async function typeInto(d, text, ms) {   // answers appear a character at a time, with the cursor riding the end of the line
+    if (reduce || !text) { d.textContent = text; return; }
+    const node = document.createTextNode(""), cur = document.createElement("i"); cur.className = "tm-cur"; d.append(node, cur); const chunk = ms < 6 ? Math.ceil(6 / ms) : 1;
+    for (let i = 0; i < text.length && !halt; i += chunk) { node.nodeValue = text.slice(0, i + chunk); bottom(); await sleep(Math.max(ms, 6)); }
+    node.nodeValue = text; cur.remove(); bottom();
   }
   const err = t => { devLog(t); return print(t, "tm-err"); }, dim = t => print(t, "tm-dim");
   async function type(text, cls = "") {   // the boot text only
     const line = document.createElement("div"); line.className = "tm-line " + cls; log.appendChild(line);
     if (reduce) { line.textContent = text; return; }
     const cur = document.createElement("i"); cur.className = "tm-cur"; line.appendChild(cur); const node = document.createTextNode(""); line.insertBefore(node, cur);
-    for (let i = 0; i < text.length; i += 2) { node.nodeValue = text.slice(0, i + 2); bottom(); await sleep(14); }
+    for (let i = 0; i < text.length; i++) { node.nodeValue = text.slice(0, i + 1); bottom(); await sleep(28); }
     node.nodeValue = text; cur.remove(); bottom();
   }
   const ask = (prompt, then) => { pending = then; return dim(prompt); };
@@ -135,7 +143,7 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
       r.b.textContent = x.label; r.sp.textContent = x.sub;
     });
   }
-  const errText = () => `DASH CONSOLE ERRORS (${errs.length})\n\n` + errs.map((e, i) => `${i + 1}. ${when(e.t)}\n   typed:  ${e.line}\n   result: ${e.msg}\n   trying to do: ${e.note || "no user comment"}`).join("\n\n");
+  const errText = () => `HAL 9000 ERRORS (${errs.length})\n\n` + errs.map((e, i) => `${i + 1}. ${when(e.t)}\n   typed:  ${e.line}\n   result: ${e.msg}\n   trying to do: ${e.note || "no user comment"}`).join("\n\n");
   function renderErrors() {
     lastSeen = Date.now(); try { localStorage.setItem(SEEN, String(lastSeen)); } catch {}
     body.innerHTML = `<div class="cdev-bar"><button type="button" data-a="copy">copy all</button><button type="button" data-a="clear">clear</button><span>${errs.length} logged. Paste them to Claude to tune the commands.</span></div>` +
@@ -402,7 +410,7 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
 
   async function boot() {
     if (booted) return; booted = true;
-    await type("DASH // COMMAND LINE", "tm-head"); await type("─────────────────────────────", "tm-head");
+    await type("HAL 9000", "tm-head"); await type("─────────────────────────────", "tm-head");
     await dim("type hi, or help");
     await print(""); sugRender();
   }
@@ -425,6 +433,9 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
     else if (e.key === "ArrowDown") { e.preventDefault(); pi = Math.max(-1, pi - 1); inp.value = pi < 0 ? "" : past[pi]; echo.innerHTML = hl(inp.value); sugRender(); }
   });
   root.addEventListener("click", () => { if (!getSelection().toString()) inp.focus(); });
+  // the cursor blinks on the clock: lit for the first half of every wall-clock second, dark for the second half
+  const blinkSync = () => root.querySelectorAll(".tm-cur").forEach(c => c.getAnimations().forEach(a => { try { a.startTime = -(performance.timeOrigin % 1000); } catch {} }));
+  setInterval(blinkSync, 1000); new MutationObserver(() => requestAnimationFrame(blinkSync)).observe(root, { childList: true, subtree: true }); blinkSync();
   // phone keyboard: iOS slides the page up and hides the line being typed, so the console is cut to the visible area above the keyboard and kept at the end
   const vv = window.visualViewport;
   if (vv) { let busyFit = false; const fit = () => { if (busyFit) return; busyFit = true; requestAnimationFrame(() => { busyFit = false; const kb = Math.max(0, innerHeight - vv.height - vv.offsetTop); scr.style.bottom = kb > 80 && document.activeElement === inp ? kb + "px" : ""; if (kb > 80) { scrollTo(0, 0); bottom(); } }); };
