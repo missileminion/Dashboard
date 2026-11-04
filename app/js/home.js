@@ -1,4 +1,4 @@
-// The right half of the Home tab: your links as plain text in groups (HAL is the left half), over a field of plus signs. It is only links; nothing is fetched from anywhere.
+// The right half of the Home tab: your links as plain text in groups (HAL is the left half), beside HAL. It is only links; nothing is fetched from anywhere.
 // The links below are public (this file is on GitHub). Anything private goes in through the pencil button: those links are kept in this browser only.
 const GROUPS = [
   ["School", [["Canvas", "https://coastdistrict.instructure.com/"], ["MATLAB", "https://grader.mathworks.com/courses/176768-engr-a220-23180-programming-and-problem-solving-in-matlab-fall-2026"], ["Drive", "https://drive.google.com/drive/u/3/"]]],
@@ -40,16 +40,7 @@ export function initHome(root) {
   render();
   edit.addEventListener("click", () => { const on = wrap.classList.toggle("editing"); add.hidden = note.hidden = !on; });
   add.addEventListener("submit", e => { e.preventDefault(); const f = new FormData(add); let u = String(f.get("url") || "").trim(), n = String(f.get("name") || "").trim(), g = String(f.get("group") || "").trim() || "Other"; if (!u) return; if (!/^[a-z][a-z0-9+.-]*:|^\.{0,2}\/|^\?/i.test(u)) u = "https://" + u; if (!n) n = (() => { try { return new URL(u, location.href).hostname.replace(/^www\./, ""); } catch { return u; } })(); wr(EXTRA, [...rd(EXTRA, []), [g, n, u]]); add.reset(); render(); });
-
-  // the plus-sign field: a small plus every 50px, a larger one every 250px; drawn on a canvas behind the page and shown only on this tab
-  const cv = document.createElement("canvas"); cv.className = "hm-field"; cv.setAttribute("aria-hidden", "true"); document.body.appendChild(cv); const g = cv.getContext("2d");
-  const draw = () => {
-    if (document.body.dataset.tab !== "home") return;
-    const dpr = Math.min(2, devicePixelRatio || 1), W = innerWidth, H = innerHeight;
-    cv.width = W * dpr; cv.height = H * dpr; g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H); const glow = g.createRadialGradient(W / 2, H * .42, 0, W / 2, H * .42, Math.max(W, H) * .62); glow.addColorStop(0, "rgba(255,255,255,.07)"); glow.addColorStop(1, "rgba(255,255,255,0)"); g.fillStyle = glow; g.fillRect(0, 0, W, H); g.lineCap = "round"; g.strokeStyle = "#fff";
-    const plus = (x, y, r, a, w) => { g.globalAlpha = a; g.lineWidth = w; g.beginPath(); g.moveTo(x - r, y); g.lineTo(x + r, y); g.moveTo(x, y - r); g.lineTo(x, y + r); g.stroke(); }, ox = (W % 50) / 2, oy = (H % 50) / 2;
-    for (let j = 0, y = oy; y < H; y += 50, j++) for (let i = 0, x = ox; x < W; x += 50, i++) (i % 5 === 0 && j % 5 === 0) ? plus(x, y, 6, .55, 1.4) : plus(x, y, 3, .18, 1);
-  };
-  addEventListener("tab", e => { if (e.detail === "home") requestAnimationFrame(draw); }); addEventListener("resize", draw); matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", () => setTimeout(draw, 50));
-  draw();
+  // HAL runs from just under the tab bar to the bottom of the window; measure where the page content starts
+  const fitTop = () => { const h = root.closest("#home"); if (h && h.offsetParent) document.documentElement.style.setProperty("--hm-top", Math.round(h.getBoundingClientRect().top + scrollY) + "px"); };
+  addEventListener("tab", e => { if (e.detail === "home") requestAnimationFrame(fitTop); }); addEventListener("resize", fitTop); requestAnimationFrame(fitTop);
 }

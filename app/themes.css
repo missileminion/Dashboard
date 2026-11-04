@@ -567,11 +567,10 @@ body[data-swipe=l] .hv,body[data-swipe=l] #cal,body[data-swipe=l] #glog,body[dat
   .cdev{bottom:calc(52px + env(safe-area-inset-bottom))!important} .tm-in{font-size:16px;left:0;top:0;bottom:auto}
 }
 
-/* Home tab: search, link tiles, one line of text, over a field of plus signs */
-.hm-field{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;display:none} body[data-tab=home] .hm-field{display:block}
+/* Home tab: HAL (about 70%) beside a narrow column of text links, dark glass */
 body[data-tab=home] .skybar{display:none!important} #home{position:relative;z-index:1}
-.hm-split{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:34px;align-items:start;padding-top:4px}
-#consoleRoot{position:relative;height:calc(100vh - 118px);min-height:440px;background:#000;border:1px solid rgba(255,255,255,.1);border-radius:20px;overflow:hidden;box-shadow:0 18px 60px rgba(0,0,0,.5)}
+.hm-split{display:grid;grid-template-columns:minmax(0,2.3fr) minmax(190px,1fr);gap:28px;align-items:start}
+#consoleRoot{position:relative;height:calc(100dvh - var(--hm-top,104px) - 18px);min-height:440px;background:rgba(7,9,16,.62);-webkit-backdrop-filter:blur(22px);backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,.13);border-radius:22px;overflow:hidden;box-shadow:0 18px 60px rgba(0,0,0,.45)}
 .hm{position:relative;display:flex;flex-direction:column;padding:6px 4px 60px}
 .hm-edit{align-self:flex-end;background:none;border:0;color:var(--tx2);cursor:pointer;padding:6px;border-radius:10px;opacity:.8} .hm-edit:hover,.hm.editing .hm-edit{opacity:1;color:var(--tx)}
 .hm-groups{margin-top:8px;display:flex;flex-direction:column;gap:26px}
@@ -585,6 +584,6 @@ body[data-tab=home] .skybar{display:none!important} #home{position:relative;z-in
 .hm-note{margin-top:12px;color:var(--tx3);font-size:12px}
 .hm-text{margin-top:48px;font:400 22px/1.25 "Iowan Old Style","Palatino Linotype",Georgia,serif;color:var(--tx2);letter-spacing:.01em}
 @media (max-width:900px){.hm-split{grid-template-columns:1fr;gap:22px} #consoleRoot{height:max(380px,62dvh)}}
-/* Home is always dark: near-black with a faint glow, like a new-tab page, whatever the theme */
-body[data-tab=home]{background:#050505!important} body[data-tab=home] .bg-orbs{opacity:0!important;visibility:hidden}
+/* Home keeps the dark glass look: the page glow follows the sky like the other tabs, with HAL on a dark glass card */
+body[data-tab=home] .bg-orbs{opacity:.75}   /* the same sky-coloured glow as every other tab, a little dimmer */
 #home{--tx:#eceef4;--tx2:#9096a8;--tx3:#6c7080;--line:rgba(255,255,255,.14);color:var(--tx)}
