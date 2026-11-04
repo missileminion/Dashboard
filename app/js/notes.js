@@ -478,6 +478,20 @@ export function initNotes(root) {
     }
   }
   toolsEl.addEventListener("mousedown", e => { if (e.target.closest(".nt-t")) e.preventDefault(); });   // keep the selection while the button is pressed
+  /* a small bar by the selected text: highlight or comment */
+  const selBar = document.createElement("div"); selBar.className = "nt-sel"; selBar.hidden = true; selBar.innerHTML = `<button type="button" data-st="hl" title="Highlight" aria-label="Highlight">${ic("hl")}</button><button type="button" data-st="comment" title="Comment" aria-label="Comment">${ic("comment")}</button>`; $(".nt-main").appendChild(selBar);
+  let selT = 0, dragging = false;
+  const placeSel = () => {
+    const sl = getSelection(); if (!crepe || dragging || !sl.rangeCount || sl.isCollapsed || !edEl.contains(sl.anchorNode) || root.classList.contains("html")) { selBar.hidden = true; return; }
+    const r = sl.getRangeAt(0).getBoundingClientRect(), mr = $(".nt-main").getBoundingClientRect(); if (!r.width && !r.height) { selBar.hidden = true; return; }
+    selBar.hidden = false; const w = selBar.offsetWidth, h = selBar.offsetHeight; let top = r.top - mr.top - h - 10; if (top < 54) top = r.bottom - mr.top + 10;
+    selBar.style.left = Math.max(8, Math.min(r.left - mr.left + r.width / 2 - w / 2, mr.width - w - 8)) + "px"; selBar.style.top = top + "px";
+  };
+  document.addEventListener("selectionchange", () => { clearTimeout(selT); selT = setTimeout(placeSel, 120); });
+  edEl.addEventListener("pointerdown", () => { dragging = true; selBar.hidden = true; }); document.addEventListener("pointerup", () => { if (dragging) { dragging = false; clearTimeout(selT); selT = setTimeout(placeSel, 30); } });
+  scrollEl.addEventListener("scroll", () => { if (!selBar.hidden) placeSel(); }, { passive: true });
+  selBar.addEventListener("mousedown", e => e.preventDefault());
+  selBar.addEventListener("click", e => { const b = e.target.closest("[data-st]"); if (!b) return; tool(b.dataset.st, null); selBar.hidden = true; });
   toolsEl.addEventListener("click", e => { const b = e.target.closest("[data-tool]"); if (b && !toolsEl.classList.contains("off")) tool(b.dataset.tool, b); });
   pop.addEventListener("mousedown", e => { if (!e.target.closest("input")) e.preventDefault(); });
   pop.addEventListener("click", e => {
