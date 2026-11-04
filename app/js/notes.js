@@ -274,7 +274,7 @@ export function initNotes(root) {
   const place = (x, y) => { ctx.hidden = false; ctx.style.left = Math.max(8, Math.min(x, innerWidth - ctx.offsetWidth - 8)) + "px"; ctx.style.top = Math.max(8, Math.min(y, innerHeight - ctx.offsetHeight - 8)) + "px"; };
   function showCtx(row, x, y) { if (selecting || view === "trash") return; ctxRow = row; ctx.innerHTML = row.dataset.path ? '<button type="button" class="nt-pi" data-c="move">Move to…</button>' : '<button type="button" class="nt-pi" data-c="rename">Rename</button>'; place(x, y); }
   function renameDir(full) {
-    const row = listEl.querySelector(`[data-dir="${CSS.escape(full)}"]`); if (!row) return; const old = full.split("/").pop(); row.removeAttribute("data-dir"); row.className = "nt-row-i nt-newdir"; row.innerHTML = `${ic("folder", 1.6)}<input spellcheck="false" autocomplete="off">`;
+    const row = listEl.querySelector(`[data-dir="${window.CSS.escape(full)}"]`); if (!row) return; const old = full.split("/").pop(); row.removeAttribute("data-dir"); row.className = "nt-row-i nt-newdir"; row.innerHTML = `${ic("folder", 1.6)}<input spellcheck="false" autocomplete="off">`;
     const inp = row.querySelector("input"); inp.value = old; inp.focus(); inp.select(); let done = false;
     const fin = async ok => {
       if (done) return; done = true; const n = inp.value.trim().replace(/[\\:*?"<>|\/]/g, "-"); if (!ok || !n || n === old) { renderList(); return; }
