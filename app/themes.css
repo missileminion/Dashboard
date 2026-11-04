@@ -725,3 +725,46 @@ body.theme-glass[data-tab=notes][data-ntth=light] .bar .seg.tabs button.on .ti{c
   .nt-vault,.nt-trashrow,.nt-conn,.nt-selbar{padding-left:6px;padding-right:6px}
   .nt-foot{bottom:16px}
 }
+
+/* ===== polish pass: liquid glass card, side column with open notes and comments, letter-sized page ===== */
+.nt[data-th=light]{--glass:rgba(255,251,242,.6);--gedge:rgba(255,255,255,.75);--ghi:rgba(255,255,255,.95);--gsh:rgba(120,88,40,.2);--cmt:rgba(214,150,20,1)}
+.nt[data-th=dark]{--glass:rgba(24,24,30,.58);--gedge:rgba(255,255,255,.13);--ghi:rgba(255,255,255,.1);--gsh:rgba(0,0,0,.55);--cmt:rgba(255,196,40,1)}
+body.theme-glass[data-tab=notes][data-ntth=light]{background:radial-gradient(900px 620px at 8% 6%,rgba(255,206,160,.6),transparent 62%),radial-gradient(820px 620px at 96% 96%,rgba(176,210,196,.55),transparent 62%),radial-gradient(600px 500px at 70% 10%,rgba(255,236,200,.7),transparent 60%),#eee6d3!important;background-attachment:fixed!important}
+body.theme-glass[data-tab=notes][data-ntth=dark]{background:radial-gradient(900px 620px at 10% 4%,rgba(76,88,190,.32),transparent 62%),radial-gradient(820px 620px at 96% 96%,rgba(36,120,130,.26),transparent 62%),#0a0a0f!important;background-attachment:fixed!important}
+/* the letter-sized page: about one inch of margin, 12pt-ish type */
+.nt-page{max-width:816px;padding:72px 96px calc(var(--vvh,100vh) * .5)}
+.nt .milkdown .ProseMirror{font-size:19px;line-height:1.5}
+.nt-title,.nt textarea.nt-title{font-size:clamp(30px,3.3vw,42px)!important;line-height:1.1;margin-bottom:22px}
+.nt .milkdown .ProseMirror h1{font-size:1.75em} .nt .milkdown .ProseMirror h2{font-size:1.45em} .nt .milkdown .ProseMirror h3{font-size:1.2em}
+/* side column: segmented switch, open notes, comments */
+.nt-sp{flex:1}
+.nt-seg{display:flex;gap:2px;margin:2px 0 10px;padding:3px;border-radius:11px;background:var(--hov);border:1px solid var(--bd)}
+.nt-seg button{flex:1;display:flex;align-items:center;justify-content:center;gap:5px;height:28px;border:0;border-radius:8px;background:none;color:var(--tx2);font:500 12.5px var(--ui);cursor:pointer}
+.nt-seg button.on{background:var(--glass);color:var(--tx);box-shadow:inset 0 1px 0 var(--ghi),0 1px 4px rgba(0,0,0,.12)}
+.nt-seg i{font-style:normal;font-size:10.5px;color:var(--tx3);min-width:8px}
+.nt-cap{font:600 10px var(--ui);letter-spacing:.14em;text-transform:uppercase;color:var(--tx3);padding:2px 6px 5px}
+.nt-open{display:block!important;flex:none!important;overflow:visible!important;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--line)} .nt-open:empty{display:none!important}
+.nt-open .nt-tab{max-width:none;width:100%;box-sizing:border-box;margin:0;padding:5px 6px 5px 8px;border:0;border-radius:8px;font-size:13px;justify-content:space-between} .nt-open .nt-tab.on{background:var(--glass);color:var(--tx);box-shadow:inset 0 1px 0 var(--ghi)} .nt-open .nt-tab span{flex:1}
+.nt-open .nt-tab .nt-x{opacity:.5}
+.nt-side[data-p=comments] .nt-list,.nt-side[data-p=comments] .nt-open,.nt-side[data-p=comments] .nt-selbar,.nt-side[data-p=comments] .nt-trashrow,.nt-side:not([data-p=comments]) .nt-cmts{display:none!important}
+.nt-cmts{flex:1;overflow:auto;display:flex;flex-direction:column;gap:9px;padding:2px 2px 12px;min-height:0}
+.nt-cm{display:block;text-align:left;padding:10px 12px 9px;border-radius:14px;background:var(--glass);border:1px solid var(--gedge);box-shadow:inset 0 1px 0 var(--ghi);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);cursor:pointer;outline:0}
+.nt-cm:hover,.nt-cm:focus-visible{border-color:color-mix(in srgb,var(--cmt) 55%,transparent)}
+.nt-q{font:italic 13.5px/1.35 var(--serif);color:var(--tx2);border-left:2px solid color-mix(in srgb,var(--cmt) 70%,transparent);padding-left:8px;margin-bottom:7px}
+.nt-ct{font:14px/1.4 var(--ui);color:var(--tx);white-space:pre-wrap;word-break:break-word}
+.nt-cd{display:flex;align-items:center;justify-content:space-between;margin-top:6px;font-size:11px;color:var(--tx3)} .nt-ca button{border:0;background:none;color:var(--tx2);font:11px var(--ui);cursor:pointer;opacity:0;padding:2px 4px;border-radius:5px} .nt-cm:hover .nt-ca button,.nt-cm:focus-within .nt-ca button{opacity:1} .nt-ca button:hover{background:var(--hov);color:var(--tx)}
+.nt-cm.edit{cursor:default;gap:8px;display:flex;flex-direction:column} .nt-cm.edit textarea{resize:vertical;min-height:64px;font:14px/1.4 var(--ui);color:var(--tx);background:var(--inp);border:1px solid var(--bd);border-radius:9px;padding:7px 9px;outline:0} .nt-cm.edit textarea:focus{border-color:var(--ac)}
+/* the highlight in the text: a soft wash, no underline */
+.nt .milkdown .ProseMirror .nt-cmt{background:color-mix(in srgb,var(--cmt) 16%,transparent);border-bottom:0;border-radius:3px;box-shadow:none;transition:background .25s} .nt .milkdown .ProseMirror .nt-cmt:hover,.nt .milkdown .ProseMirror .nt-flash{background:color-mix(in srgb,var(--cmt) 34%,transparent)}
+@media (max-width:900px){
+  .nt-seg{display:none} .nt-page{padding:22px 22px calc(var(--vvh,100vh) * .45)} .nt .milkdown .ProseMirror{font-size:18px;line-height:1.45}
+  .nt textarea.nt-title{font-size:30px!important} .nt-open{margin:0 8px 6px} .nt-cap{padding-left:14px}
+}
+@media (min-width:901px){
+  .nt-main{background:var(--glass);-webkit-backdrop-filter:blur(30px) saturate(1.6);backdrop-filter:blur(30px) saturate(1.6);border:1px solid var(--gedge);box-shadow:inset 0 1px 0 var(--ghi),0 24px 70px var(--gsh)}
+  .nt-tabs{background:none;border-bottom:1px solid var(--line);padding:8px 10px}
+  .nt-tabs .nt-ib{margin-bottom:0}
+  .nt-item.on{background:var(--glass);box-shadow:inset 0 1px 0 var(--ghi),0 0 0 1px var(--gedge)}
+  .nt-vault{border-top:1px solid var(--line)}
+  .nt-xmenu{background:var(--popbg);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px)}
+}

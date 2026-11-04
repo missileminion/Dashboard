@@ -88,14 +88,16 @@ export function initNotes(root) {
   root.innerHTML = `<div class="nt" data-th="dark">
     <aside class="nt-side">
       <div class="nt-sbar"><button type="button" class="nt-ib nt-home" data-a="home" title="Dashboard" aria-label="Dashboard">${ic("home")}</button><b class="nt-brand">Notes</b><span class="nt-mode"></span><button type="button" class="nt-ib" data-a="folder" title="New folder" aria-label="New folder">${ic("folderplus")}</button><button type="button" class="nt-ib" data-a="new" title="New note" aria-label="New note">${ic("new")}</button><button type="button" class="nt-ib nt-selbtn" data-a="select" title="Select notes to delete" aria-label="Select notes to delete">${ic("trash")}</button></div>
-      <div class="nt-list"></div>
+      <div class="nt-seg"><button type="button" data-p="notes" class="on">Notes</button><button type="button" data-p="comments">Comments<i></i></button></div>
+      <div class="nt-tablist nt-open"></div>
+      <div class="nt-list"></div><div class="nt-cmts"></div>
       <div class="nt-selbar" hidden></div><div class="nt-trashrow" data-a="trashview" role="button" tabindex="0"></div>
       <form class="nt-conn" hidden><input name="repo" placeholder="owner/repo" autocomplete="off" spellcheck="false" data-1p-ignore><input class="nt-tok" name="tok" placeholder="token" autocomplete="off" autocapitalize="off" spellcheck="false" data-1p-ignore data-lpignore="true"><label class="nt-hint">Token expires<input type="date" name="exp"></label><div class="nt-row"><button type="submit" class="nt-btn">Save</button><button type="button" class="nt-btn" data-a="disc">Disconnect</button></div></form>
       <div class="nt-vault"><span class="nt-repo"></span><button type="button" class="nt-ib" data-a="theme" aria-label="Light or dark"></button><button type="button" class="nt-ib" data-a="gear" title="GitHub connection" aria-label="GitHub connection">${ic("gear")}</button></div>
     </aside>
     <div class="nt-main">
-      <div class="nt-tabs"><button type="button" class="nt-ib nt-side-t" data-a="side" title="Show or hide the file list" aria-label="Show or hide the file list">${ic("side")}</button><button type="button" class="nt-ib nt-back" data-a="list" aria-label="All notes">${ic("chev")}</button><div class="nt-tablist"></div><button type="button" class="nt-ib" data-a="new" title="New note" aria-label="New note">${ic("plus")}</button><button type="button" class="nt-ib nt-exp" data-a="export" title="Export this note" aria-label="Export this note" disabled>${ic("down")}</button><span class="nt-rt"></span><span class="nt-status" role="status"><i class="nt-sd"></i><span class="nt-msg"></span></span></div>
-      <div class="nt-xmenu" hidden><button type="button" class="nt-pi" data-x="md">Markdown</button><button type="button" class="nt-pi" data-x="pdf">PDF</button></div><div class="nt-banner" hidden></div>
+      <div class="nt-tabs"><button type="button" class="nt-ib nt-side-t" data-a="side" title="Show or hide the file list" aria-label="Show or hide the file list">${ic("side")}</button><button type="button" class="nt-ib nt-back" data-a="list" aria-label="All notes">${ic("chev")}</button><span class="nt-sp"></span><button type="button" class="nt-ib" data-a="new" title="New note" aria-label="New note">${ic("plus")}</button><button type="button" class="nt-ib nt-exp" data-a="export" title="Export this note" aria-label="Export this note" disabled>${ic("down")}</button><span class="nt-rt"></span><span class="nt-status" role="status"><i class="nt-sd"></i><span class="nt-msg"></span></span></div>
+      <div class="nt-xmenu" hidden><button type="button" class="nt-pi" data-x="md">Markdown</button><button type="button" class="nt-pi" data-x="pdf">PDF</button><button type="button" class="nt-pi" data-x="txt">Copy text</button></div><div class="nt-banner" hidden></div>
       <div class="nt-scroll"><div class="nt-page"><textarea class="nt-title" rows="1" placeholder="Untitled" spellcheck="false" disabled></textarea><div class="nt-ed"></div><div class="nt-hello">No note open</div></div></div>
       <div class="nt-pop" hidden></div><div class="nt-cpop" hidden></div>
       <div class="nt-foot"><div class="nt-tools"></div></div>
@@ -138,7 +140,7 @@ export function initNotes(root) {
   }
   const picksToDocs = () => { const out = new Set(); for (const k of picked) { if (isDoc(k)) out.add(k); else files.forEach(f => { if (isDoc(f) && f.startsWith(k + "/")) out.add(f); }); } return [...out]; };
   function renderTabs() {
-    tabsEl.innerHTML = tabs.map(p => `<div class="nt-tab${cur && cur.path === p ? " on" : ""}" data-tab="${esc(p)}" role="tab"><span>${esc(baseName(p))}</span><button type="button" class="nt-x" data-close="${esc(p)}" aria-label="Close">${ic("x", 2)}</button></div>`).join("");
+    tabsEl.innerHTML = (tabs.length > 1 ? '<div class="nt-cap">Open</div>' : "") + tabs.map(p => `<div class="nt-tab${cur && cur.path === p ? " on" : ""}" data-tab="${esc(p)}" role="tab"><span>${esc(baseName(p))}</span><button type="button" class="nt-x" data-close="${esc(p)}" aria-label="Close">${ic("x", 2)}</button></div>`).join("");
     const on = tabsEl.querySelector(".on"); if (on && on.scrollIntoView) on.scrollIntoView({ block: "nearest", inline: "nearest" });
   }
   async function refresh() { mode(); try { files = await store().list(); setStatus(""); } catch (e) { files = []; setStatus(e.status === 401 ? "token not accepted" : e.status === 404 ? "repo not found, or no access" : "could not reach GitHub: " + e.message, true); } tabs = tabs.filter(p => files.includes(p)); renderList(); renderTabs(); }
@@ -190,7 +192,7 @@ export function initNotes(root) {
     const [crepeM, utils, core, cm, gfm, cmds] = await Promise.all([import(CREPE), import(KIT + "utils"), import(KIT + "core"), import(KIT + "preset/commonmark"), import(KIT + "preset/gfm"), import(KIT + "prose/commands")]);
     mod = crepeM; ext = { kit: utils, core, cm, gfm, cmds, ...marks(utils) };
   }
-  async function destroyEditor() { clearTimeout(timer); if (crepe) { try { await crepe.destroy(); } catch {} crepe = null; } edEl.textContent = ""; rtEl.textContent = ""; closePop(); cpop.hidden = true; }
+  async function destroyEditor() { clearTimeout(timer); if (crepe) { try { await crepe.destroy(); } catch {} crepe = null; } edEl.textContent = ""; cmEl.textContent = ""; rtEl.textContent = ""; closePop(); cpop.hidden = true; }
   const wc = md => { const t = md.replace(/[#>*_`~|\-\[\]()!$<>=]/g, " ").trim(); return t ? t.split(/\s+/).length : 0; };
   const updateCount = md => { const w = wc(md); rtEl.textContent = w ? `${Math.max(1, Math.round(w / 220))} min` : ""; rtEl.title = w ? `${w} words, about ${Math.max(1, Math.round(w / 220))} min to read` : ""; };
   async function open(path) {
@@ -203,8 +205,8 @@ export function initNotes(root) {
     try { await engine(); } catch (e) { setStatus("the editor could not load (needs internet): " + e.message, true); return; } if (seq !== openSeq) return;
     const { Crepe } = mod, F = Crepe.Feature; crepe = new Crepe({ root: edEl, defaultValue: cur.md, features: { [F.AI]: false, [F.Toolbar]: false, [F.TopBar]: false }, featureConfigs: { [F.ImageBlock]: { onUpload: upload, blockOnUpload: upload, inlineOnUpload: upload, proxyDomURL: show }, [F.Placeholder]: { text: "Write, or type / for blocks" }, [F.Cursor]: { virtual: false } } });
     crepe.editor.use(ext.list);
-    await crepe.create(); if (seq !== openSeq) { crepe.destroy(); return; } enable(true);
-    crepe.on(l => l.markdownUpdated((ctx, md) => { if (!cur || md === cur.md) return; cur.md = md; updateCount(md); lsSet(draftKey(cur.path), JSON.stringify({ md, base: cur.base })); setStatus("unsaved…"); clearTimeout(timer); timer = setTimeout(save, 1200); }));
+    await crepe.create(); if (seq !== openSeq) { crepe.destroy(); return; } enable(true); cmDraft = null; cmEdit = -1; cmRender();
+    crepe.on(l => l.markdownUpdated((ctx, md) => { if (!cur || md === cur.md) return; cur.md = md; updateCount(md); cmLater(); lsSet(draftKey(cur.path), JSON.stringify({ md, base: cur.base })); setStatus("unsaved…"); clearTimeout(timer); timer = setTimeout(save, 1200); }));
     if (draft) { if (draft.base === f.text) { setStatus("unsaved, restored from this device"); clearTimeout(timer); timer = setTimeout(save, 600); } else { cur.remoteSha = f.sha; showBanner(`This note changed on GitHub while you had unsaved edits on this device. <button type="button" class="nt-btn" data-a="over">Keep mine</button> <button type="button" class="nt-btn" data-a="reload">Load theirs</button>`); setStatus("conflict", true); } }
     else setStatus(cfg.remote ? "saved" : "saved in this browser");
   }
@@ -324,10 +326,52 @@ export function initNotes(root) {
     if (!cur) return; const was = document.title; document.title = baseName(cur.path); root.classList.add("printing"); document.documentElement.classList.add("nt-print");
     const done = () => { document.title = was; root.classList.remove("printing"); document.documentElement.classList.remove("nt-print"); removeEventListener("afterprint", done); }; addEventListener("afterprint", done); setTimeout(() => print(), 60);
   }
-  xmenu.addEventListener("click", e => { const b = e.target.closest("[data-x]"); if (!b) return; xmenu.hidden = true; b.dataset.x === "md" ? exportMd() : exportPdf(); });
+  function copyText() {   // plain text for pasting: formatting removed, each comment becomes a numbered note at the end
+    if (!cur) return; const notes = [];
+    let t = cur.md.replace(/<span data-comment="([^"]*)">([\s\S]*?)<\/span>/g, (m, enc, inner) => { let o = {}; try { o = JSON.parse(decodeURIComponent(enc)); } catch {} notes.push({ q: inner.replace(/<[^>]+>/g, ""), t: o.t || "", d: o.d || "" }); return inner + "[" + notes.length + "]"; })
+      .replace(/<\/?mark>/g, "").replace(/<span style="[^"]*">([\s\S]*?)<\/span>/g, "$1").replace(/!\[[^\]]*\]\([^)]*\)/g, "[image]");
+    if (notes.length) t += "\n\n---\nComments\n" + notes.map((o, i) => `[${i + 1}] "${o.q}": ${o.t}${o.d ? " (" + o.d + ")" : ""}`).join("\n");
+    t = baseName(cur.path) + "\n\n" + t;
+    const ok = () => { setStatus("copied"); setTimeout(() => { if (!sdEl.dataset.s) setStatus(cur && cur.md !== cur.base ? "unsaved…" : cfg.remote ? "saved" : "saved in this browser"); }, 1600); };
+    (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(ok, () => { const a = document.createElement("textarea"); a.value = t; document.body.appendChild(a); a.select(); try { document.execCommand("copy"); ok(); } catch { setStatus("could not copy", true); } a.remove(); });
+  }
+  xmenu.addEventListener("click", e => { const b = e.target.closest("[data-x]"); if (!b) return; xmenu.hidden = true; b.dataset.x === "md" ? exportMd() : b.dataset.x === "txt" ? copyText() : exportPdf(); });
   document.addEventListener("pointerdown", e => { if (!xmenu.hidden && !e.target.closest(".nt-xmenu,.nt-exp")) xmenu.hidden = true; });
 
-  /* ----- comments: notes in the margin of your own text ----- */
+  /* ----- comments: they live in the side column (on phones, in a small popup) ----- */
+  const wide = () => matchMedia("(min-width:901px)").matches, side = $(".nt-side"), cmEl = $(".nt-cmts"), segEl = $(".nt-seg");
+  let cmDraft = null, cmEdit = -1, cmTimer = 0, cmList = [];
+  const cmCtx = () => { if (!crepe) return null; let v, ty; crepe.editor.action(ctx => { v = ctx.get(ext.core.editorViewCtx); ty = ext.cmt.type(ctx); }); return { v, ty }; };
+  function cmScan() { const g = cmCtx(); const out = []; if (!g) return out; g.v.state.doc.descendants((node, pos) => { if (!node.isText) return; const m = node.marks.find(x => x.type === g.ty); if (!m) return; const l = out[out.length - 1]; if (l && l.t === m.attrs.text && l.d === m.attrs.date && l.to === pos) { l.to = pos + node.nodeSize; l.q += node.text; } else out.push({ from: pos, to: pos + node.nodeSize, t: m.attrs.text, d: m.attrs.date, q: node.text }); }); return out; }
+  const cmShow = p => { side.dataset.p = p; segEl.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.p === p)); };
+  function cmRender() {
+    cmList = cmScan(); const n = cmList.length; segEl.querySelector("i").textContent = n ? n : "";
+    const card = (o, i) => cmEdit === i
+      ? `<form class="nt-cm edit" data-i="${i}"><div class="nt-q">${esc(o.q.length > 90 ? o.q.slice(0, 90) + "…" : o.q)}</div><textarea rows="3" spellcheck="true">${esc(o.t)}</textarea><div class="nt-row"><button class="nt-btn nt-go" type="submit">Save</button><button type="button" class="nt-btn nt-bad" data-cm="del">Delete</button><button type="button" class="nt-btn" data-cm="cancel">Cancel</button></div></form>`
+      : `<div class="nt-cm" data-i="${i}" role="button" tabindex="0"><div class="nt-q">${esc(o.q.length > 90 ? o.q.slice(0, 90) + "…" : o.q)}</div><div class="nt-ct">${esc(o.t)}</div><div class="nt-cd">${esc(o.d || "")}<span class="nt-ca"><button type="button" data-cm="edit" aria-label="Edit comment">Edit</button></span></div></div>`;
+    const draft = cmDraft ? `<form class="nt-cm edit draft"><div class="nt-q">${esc(cmDraft.q.length > 90 ? cmDraft.q.slice(0, 90) + "…" : cmDraft.q)}</div><textarea rows="3" placeholder="Write a comment…" spellcheck="true"></textarea><div class="nt-row"><button class="nt-btn nt-go" type="submit">Comment</button><button type="button" class="nt-btn" data-cm="cancel">Cancel</button></div></form>` : "";
+    cmEl.innerHTML = draft + cmList.map(card).join("") || '<div class="nt-empty">Select text, then press the comment button.</div>';
+  }
+  const cmLater = () => { clearTimeout(cmTimer); cmTimer = setTimeout(() => { if (!cmEl.contains(document.activeElement) || !document.activeElement.matches("textarea")) cmRender(); }, 150); };
+  function cmFlash(i) { const g = cmCtx(), o = cmList[i]; if (!g || !o) return; const nd = g.v.domAtPos(o.from).node, el = nd.nodeType === 3 ? nd.parentElement : nd; el.scrollIntoView({ block: "center", behavior: "smooth" }); el.classList.add("nt-flash"); setTimeout(() => el.classList.remove("nt-flash"), 1400); }
+  function cmStart(range) { const g = cmCtx(); if (!g) return; nt.classList.remove("nofiles"); cmDraft = { ...range, q: g.v.state.doc.textBetween(range.from, range.to, " ") }; cmEdit = -1; cmShow("comments"); cmRender(); const ta = cmEl.querySelector(".draft textarea"); ta && ta.focus(); }
+  segEl.addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; cmShow(b.dataset.p); if (b.dataset.p === "comments") cmRender(); });
+  cmEl.addEventListener("click", e => {
+    const g = cmCtx(); if (!g) return; const card = e.target.closest(".nt-cm"), i = card ? +card.dataset.i : -1, act = e.target.closest("[data-cm]"), a = act && act.dataset.cm;
+    if (a === "cancel") { cmDraft = null; cmEdit = -1; cmRender(); g.v.focus(); return; }
+    if (a === "del" && cmList[i]) { const o = cmList[i]; g.v.dispatch(g.v.state.tr.removeMark(o.from, o.to, g.ty)); cmEdit = -1; cmRender(); return; }
+    if (a === "edit") { cmEdit = i; cmRender(); const ta = cmEl.querySelector(".edit textarea"); ta && ta.focus(); return; }
+    if (card && !card.classList.contains("edit")) cmFlash(i);
+  });
+  cmEl.addEventListener("submit", e => {
+    e.preventDefault(); const g = cmCtx(); if (!g) return; const ta = e.target.querySelector("textarea"), text = ta.value.trim();
+    if (e.target.classList.contains("draft")) { if (text && cmDraft) g.v.dispatch(g.v.state.tr.addMark(cmDraft.from, cmDraft.to, g.ty.create({ text, date: new Date().toISOString().slice(0, 10) }))); cmDraft = null; }
+    else { const o = cmList[cmEdit]; if (o) { let tr = g.v.state.tr.removeMark(o.from, o.to, g.ty); if (text) tr = tr.addMark(o.from, o.to, g.ty.create({ text, date: o.d })); g.v.dispatch(tr); } cmEdit = -1; }
+    cmRender(); g.v.focus();
+  });
+  cmEl.addEventListener("keydown", e => { if (e.key === "Escape") { cmDraft = null; cmEdit = -1; cmRender(); } else if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && e.target.matches("textarea")) { e.preventDefault(); e.target.closest("form").requestSubmit(); } });
+
+  /* ----- the popup version for phones ----- */
   function commentBox(el, range, view) {   // el: the commented text (to edit it), or null for a new comment on `range`
     const type = crepe && (() => { let ty; crepe.editor.action(ctx => { ty = ext.cmt.type(ctx); }); return ty; })(); if (!type) return;
     const existing = el ? JSON.parse(decodeURIComponent(el.getAttribute("data-comment"))) : null, box = el || view.domAtPos(range.to).node, r = (el || (box.nodeType === 3 ? box.parentElement : box)).getBoundingClientRect(), mr = $(".nt-main").getBoundingClientRect();
@@ -352,7 +396,7 @@ export function initNotes(root) {
     if (e.target.closest("[data-cdel]") && c && c.el) { const old = JSON.parse(decodeURIComponent(c.el.getAttribute("data-comment"))), rg = markSpan(c.view, c.view.posAtDOM(c.el, 0), c.type, old.t); if (rg) c.view.dispatch(c.view.state.tr.removeMark(rg.from, rg.to, c.type)); cpop.hidden = true; c.view.focus(); }
   });
   cpop.addEventListener("keydown", e => { if (e.key === "Escape") { cpop.hidden = true; } else if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); cpop.querySelector("form").requestSubmit(); } });
-  edEl.addEventListener("click", e => { const el = e.target.closest("[data-comment]"); if (el && crepe) { let v; crepe.editor.action(ctx => { v = ctx.get(ext.core.editorViewCtx); }); commentBox(el, null, v); } else if (!cpop.hidden && !e.target.closest(".nt-cpop")) cpop.hidden = true; });
+  edEl.addEventListener("click", e => { const el = e.target.closest("[data-comment]"); if (el && crepe && wide()) { const g = cmCtx(); cmRender(); const t = el.getAttribute("data-comment"), pos = g.v.posAtDOM(el, 0), i = cmList.findIndex(o => o.from <= pos && pos <= o.to); nt.classList.remove("nofiles"); cmShow("comments"); cmDraft = null; cmEdit = i; cmRender(); const ta = cmEl.querySelector(".edit textarea"); ta && ta.focus(); } else if (el && crepe) { let v; crepe.editor.action(ctx => { v = ctx.get(ext.core.editorViewCtx); }); commentBox(el, null, v); } else if (!cpop.hidden && !e.target.closest(".nt-cpop")) cpop.hidden = true; });
 
   /* ----- the bottom toolbar ----- */
   const run = fn => { if (crepe) crepe.editor.action(ctx => fn(ctx, ctx.get(ext.core.editorViewCtx))); };
@@ -373,7 +417,7 @@ export function initNotes(root) {
       case "img": return openPop("img", btn, `<button type="button" class="nt-pi" data-img="paste">Paste from clipboard</button><button type="button" class="nt-pi" data-img="file">Choose a photo</button>`); case "attach": return fileIn.click();
       case "h": return openPop("h", btn, ["Text", "Heading 1", "Heading 2", "Heading 3", "Heading 4"].map((t, i) => `<button type="button" class="nt-pi" data-h="${i}">${t}</button>`).join(""));
       case "color": return openPop("color", btn, `<div class="nt-sw">${COLORS.map(([n, c]) => `<button type="button" class="nt-dot" data-col="${c}" title="${n}" style="--c:${c}"></button>`).join("")}<button type="button" class="nt-dot nt-none" data-col="" title="Remove colour">${ic("x", 2)}</button></div>`);
-      case "comment": return run((ctx, v) => { const sel = v.state.selection; if (sel.empty) { setStatus("Select some text first, then press Comment"); return; } commentBox(null, { from: sel.from, to: sel.to }, v); });
+      case "comment": return run((ctx, v) => { const sel = v.state.selection; if (sel.empty) { setStatus("Select some text first, then press Comment"); return; } wide() ? cmStart({ from: sel.from, to: sel.to }) : commentBox(null, { from: sel.from, to: sel.to }, v); });
       case "link": return run((ctx, v) => { const sel = v.state.selection; if (sel.empty) { setStatus("Select some text first, then press Link"); return; } const m = v.state.doc.rangeHasMark(sel.from, sel.to, cm.linkSchema.type(ctx)); if (m) { cmd(cm.toggleLinkCommand); return; } const keep = { from: sel.from, to: sel.to }; openPop("link", btn, `<form class="nt-lf"><input name="u" placeholder="https://…" autocomplete="off" spellcheck="false" autocapitalize="off"><button class="nt-btn" type="submit">Link</button></form>`); pop.querySelector("input").focus(); pop._keep = keep; });
     }
   }
