@@ -707,3 +707,4 @@ body[data-tab=notes] .panel{max-width:none} body[data-tab=notes]{overflow:hidden
 body.theme-glass[data-tab=notes][data-ntth=light] .bar .seg.tabs{background:rgba(255,250,238,.8)}
 body.theme-glass[data-tab=notes][data-ntth=light] .bar .seg.tabs button{color:rgba(42,36,26,.62)!important}
 body.theme-glass[data-tab=notes][data-ntth=light] .bar .seg.tabs button.on{color:#2a241a!important;background:rgba(120,88,30,.16)!important}
+body.theme-glass[data-tab=notes][data-ntth=light] .bar .seg.tabs button.on .ti{color:#8a5a14!important}
