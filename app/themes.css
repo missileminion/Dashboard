@@ -576,16 +576,23 @@ body[data-tab=home] .skybar{display:none!important} #home{position:relative;z-in
 .hm{display:flex;flex-direction:column;align-items:center;padding:clamp(30px,8vh,90px) 0 80px}
 .hm-search{width:min(1090px,100%);height:62px;background:#fff;border-radius:31px;display:flex;align-items:center;gap:14px;padding:0 26px 0 24px;box-shadow:0 8px 40px rgba(0,0,0,.35)} .hm-search svg{flex:none;color:#555;width:22px!important;height:22px!important;max-width:none}
 .hm-search input{flex:1;min-width:0;border:0;outline:0;background:none;font:20px/1 var(--sans);color:#1b1c20;-webkit-appearance:none;appearance:none} .hm-search input::placeholder{color:#6a6d78} .hm-search input::-webkit-search-cancel-button{display:none}
-.hm-links{width:min(1090px,100%);margin-top:20px;display:grid;grid-template-columns:repeat(10,1fr);gap:16px 6px;justify-items:center}
-.hm-lk{position:relative;display:flex;flex-direction:column;align-items:center;gap:7px;width:100%;max-width:84px;text-decoration:none;color:var(--tx2);-webkit-tap-highlight-color:transparent}
+.hm{position:relative}
+.hm-edit{position:absolute;right:0;top:-34px;background:none;border:0;color:var(--tx2);cursor:pointer;padding:6px;border-radius:10px;opacity:.8} .hm-edit:hover,.hm.editing .hm-edit{opacity:1;color:var(--tx)}
+.hm-groups{width:min(1090px,100%);margin-top:26px;display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:26px 34px;align-items:start}
+.hm-group h3{font:500 10.5px var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--tx3);margin:0 0 12px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+.hm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:16px 6px}
+.hm-lk{position:relative;display:flex;flex-direction:column;align-items:center;gap:7px;text-decoration:none;color:var(--tx2);-webkit-tap-highlight-color:transparent}
 .hm-tile{width:50px;height:50px;border-radius:14px;background:rgba(60,62,70,.78);display:grid;place-items:center;overflow:hidden;border:1px solid rgba(255,255,255,.1);transition:transform .2s,box-shadow .2s,border-color .2s}
 .hm-tile img{width:30px;height:30px;border-radius:7px;display:block} .hm-tile b{font:600 20px/1 var(--sans);color:#fff}
-.hm-lk.empty .hm-tile{background:rgba(255,255,255,.03);border:1px dashed rgba(255,255,255,.26);opacity:.9} .hm-lk.empty .hm-tile i{width:12px;height:1.5px;background:var(--tx3);border-radius:2px;display:block;position:relative} .hm-lk.empty .hm-tile i::after{content:"";position:absolute;left:5px;top:-5px;width:1.5px;height:12px;background:var(--tx3);border-radius:2px}
-a.hm-lk:hover .hm-tile,a.hm-lk:focus-visible .hm-tile{transform:translateY(-3px);box-shadow:0 10px 24px rgba(0,0,0,.5);border-color:rgba(255,255,255,.3)}
-.hm-lk span{font-size:11px;letter-spacing:.02em;max-width:84px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1;min-height:11px} .hm-lk span:empty::before{content:"–"} a.hm-lk span{opacity:.0;transition:opacity .2s} a.hm-lk:hover span,a.hm-lk:focus-visible span{opacity:1}
-a.hm-lk::after{content:"–";position:absolute;bottom:0;font-size:11px;line-height:1;color:var(--tx3);transition:opacity .2s} a.hm-lk:hover::after,a.hm-lk:focus-visible::after{opacity:0}
-.hm-text{margin-top:clamp(90px,20vh,230px);font:400 28px/1.25 "Iowan Old Style","Palatino Linotype",Georgia,serif;color:var(--tx);letter-spacing:.01em;text-align:center}
-@media (max-width:700px){.hm-search{height:54px;padding:0 20px 0 18px} .hm-search input{font-size:17px} .hm-links{grid-template-columns:repeat(5,1fr);gap:16px 4px} .hm-text{font-size:23px;margin-top:80px}}
+.hm-lk:hover .hm-tile,.hm-lk:focus-visible .hm-tile{transform:translateY(-3px);box-shadow:0 10px 24px rgba(0,0,0,.5);border-color:rgba(255,255,255,.3)} .hm-lk:hover,.hm-lk:focus-visible{color:var(--tx)}
+.hm-lk span{font-size:11.5px;letter-spacing:.01em;max-width:76px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2}
+.hm-x{position:absolute;top:-6px;right:6px;width:20px;height:20px;border-radius:50%;background:#ff5a64;color:#fff;border:0;font:700 13px/20px sans-serif;cursor:pointer;display:none;padding:0} .hm.editing .hm-x{display:block}
+.hm-add{width:min(1090px,100%);margin-top:26px;display:flex;gap:10px;flex-wrap:wrap} .hm-add[hidden],.hm-note[hidden]{display:none}
+.hm-add input{flex:1 1 150px;min-width:0;height:44px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--tx);padding:0 14px;font:15px var(--sans);outline:0} .hm-add input:focus{border-color:#6db8ff} .hm-add input[name=url]{flex:2 1 260px}
+.hm-add button{height:44px;padding:0 22px;border-radius:12px;border:0;background:var(--tx);color:var(--page,#111);font:600 15px var(--sans);cursor:pointer}
+.hm-note{margin-top:12px;color:var(--tx3);font-size:12px;width:min(1090px,100%)}
+.hm-text{margin-top:clamp(60px,14vh,160px);font:400 28px/1.25 "Iowan Old Style","Palatino Linotype",Georgia,serif;color:var(--tx);letter-spacing:.01em;text-align:center}
+@media (max-width:700px){.hm-search{height:54px;padding:0 20px 0 18px} .hm-search input{font-size:17px} .hm-text{font-size:23px;margin-top:80px}}
 
 /* sun path: smaller task text */
 .ag-path .ag-ev{font-size:calc(11px / var(--k,1.3))!important} .ag-path .ag-evt{font-size:calc(8.5px / var(--k,1.3))!important}
