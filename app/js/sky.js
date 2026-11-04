@@ -89,9 +89,10 @@ export function initSky({ demo = false } = {}) {
       for (const n of new Set([...names, ...extra])) { if (light) body.style.removeProperty(n); else if (P.dark[n] != null && P.dark[n] !== P.light[n]) set(n, P.dark[n]); else body.style.removeProperty(n); }
       const tint = hex(o1), base = hex("#06070c"); if (!light) set("--page", css([0, 1, 2].map(i => lerp(base[i], tint[i], .07)).concat(1)));
       set("--orb1", o1); set("--orb2", o2); set("--orb3", o3); set("--orb-op", (op * (light ? .55 : .5)).toFixed(3));
-      document.documentElement.style.colorScheme = light ? "light" : "dark";
+      document.documentElement.style.colorScheme = light ? "light" : "dark"; body.classList.toggle("lm", light);
       window.sky = { alt: +alt.toFixed(1), rising, src: place().src, phone: true }; return;
     }
+    body.classList.remove("lm");
     for (const n of names) { const a = P.dark[n]; if (a !== P.light[n]) body.style.setProperty(n, a); }   // dark UI always (desktop)
     const cloud = Math.min(1, Math.max(0, (window.skyWeather?.cloud ?? 0) / 100)), day = smooth(-8, 24, alt) * (1 - .3 * cloud);   // the whole backdrop lifts a little as the sun climbs
     const base = hex("#010103"), lit = hex("#171c29"), tint = hex(o1), tw = (.12 + .06 * day) * smooth(-14, -2, alt);   // pure night is nearly black
