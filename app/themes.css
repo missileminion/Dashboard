@@ -829,3 +829,15 @@ body.theme-glass[data-tab=notes][data-ntth=dark]{background:radial-gradient(900p
 @media (max-width:900px){.nt-page{padding-top:18px} .nt .nt-tabs textarea.nt-title{font-size:18px!important}}
 /* version label, top right of every page */
 #ver{position:fixed;top:5px;right:10px;z-index:400;font:500 9.5px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.04em;color:var(--tx3,rgba(150,150,160,.7));opacity:.7;pointer-events:none;-webkit-user-select:none;user-select:none}
+
+/* title: big in the page, and echoed in the top bar */
+.nt .nt-bt{flex:1;min-width:0;margin:0 8px;font:600 19px/1.2 var(--serif);color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;align-self:center;padding:6px 4px} .blank .nt-bt{display:none}
+.nt-page{padding-top:56px} @media (max-width:900px){.nt-page{padding-top:22px} .nt .nt-bt{font-size:18px}}
+/* segmented switch: labels stay centred; the count slides in at the side when there is one */
+.nt-seg button{position:relative} .nt-seg i{position:absolute;right:7px;top:50%;transform:translate(8px,-50%) scale(.6);opacity:0;transition:transform .4s cubic-bezier(.3,1.4,.5,1),opacity .3s ease;min-width:0} .nt-seg i:not(:empty){transform:translate(0,-50%) scale(1);opacity:1}
+/* roomier comment editor */
+.nt-cm.edit{padding:16px;gap:14px}
+.nt-cm.edit textarea{min-height:110px;padding:11px 13px;font:14.5px/1.5 var(--ui);border-radius:11px}
+.nt-cm.edit .nt-row{gap:8px;align-items:center;flex-wrap:wrap}
+.nt-cm.edit .nt-btn{padding:7px 16px;font-size:13px}
+.nt-cm.edit [data-cm=del]{order:3;margin-left:auto;background:none;border-color:transparent;color:var(--tx2)} .nt-cm.edit [data-cm=del]:hover{color:var(--err)}
