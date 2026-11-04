@@ -878,3 +878,12 @@ body.lm .ag-card{background:rgba(255,255,255,.66)!important;border-color:rgba(20
 .nt[data-th=dark] .milkdown .ProseMirror{color:#cfccc3}
 .nt[data-th=dark] .milkdown .ProseMirror h1,.nt[data-th=dark] .milkdown .ProseMirror h2,.nt[data-th=dark] .milkdown .ProseMirror h3,.nt[data-th=dark] .milkdown .ProseMirror strong{color:#e6e3dc}
 .nt[data-th=dark] .milkdown .ProseMirror h4{color:var(--tx2)}
+
+/* installed desktop app (Edge or Chrome) with "window controls overlay" on: the page tabs live in the title bar, so there is no separate black strip */
+#appdrag{display:none}
+@media (display-mode: window-controls-overlay){
+  #appdrag{display:block;position:fixed;z-index:290;top:0;left:env(titlebar-area-x,0px);width:env(titlebar-area-width,100%);height:env(titlebar-area-height,40px);-webkit-app-region:drag;app-region:drag}
+  #tabs{position:fixed!important;z-index:300;top:calc((env(titlebar-area-height,40px) - 34px) / 2);left:calc(env(titlebar-area-x,0px) + 12px);margin:0!important;-webkit-app-region:no-drag;app-region:no-drag}
+  body{padding-top:calc(env(titlebar-area-height,40px) + 4px)!important}
+  #ver{right:calc(100vw - env(titlebar-area-x,0px) - env(titlebar-area-width,100vw) + 10px);top:3px}
+}
