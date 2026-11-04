@@ -16,7 +16,7 @@ const blobToB64 = async blob => { const u = new Uint8Array(await blob.arrayBuffe
 /* ---------- storage: GitHub (private repo) or this browser ---------- */
 const remote = {
   async call(p, o = {}) { const r = await fetch(`https://api.github.com/repos/${cfg.repo}/${p}`, { cache: "no-store", ...o, headers: { Authorization: `Bearer ${cfg.token}`, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", ...(o.headers || {}) } }).catch(() => { throw err(0, "offline"); }); return r; },
-  async list() { const r = await this.call("git/trees/HEAD?recursive=1"); if (r.status === 404 || r.status === 409) return []; if (!r.ok) throw err(r.status); return (await r.json()).tree.filter(t => t.type === "blob").map(t => t.path); },
+  async list() { const r = await this.call("git/trees/HEAD?recursive=1"); if (r.status === 409) return []; if (!r.ok) throw err(r.status); return (await r.json()).tree.filter(t => t.type === "blob").map(t => t.path); },
   async read(path) { const r = await this.call(`contents/${encPath(path)}`); if (r.status === 404) return null; if (!r.ok) throw err(r.status); const j = await r.json(); let text = j.content ? unb64(j.content) : ""; if (!j.content && j.size) { const raw = await this.call(`contents/${encPath(path)}`, { headers: { Accept: "application/vnd.github.raw+json" } }); text = await raw.text(); } return { text, sha: j.sha }; },
   async write(path, text, sha, message) { const r = await this.call(`contents/${encPath(path)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message, content: b64(text), ...(sha ? { sha } : {}) }) }); if (!r.ok) throw err(r.status); return (await r.json()).content.sha; },
   async putBlob(path, blob, message) { const r = await this.call(`contents/${encPath(path)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message, content: await blobToB64(blob) }) }); if (!r.ok) throw err(r.status); },
@@ -62,7 +62,7 @@ export function initNotes(root) {
     notes.forEach(p => (groups[dirOf(p)] ||= []).push(p));
     listEl.innerHTML = notes.length ? Object.keys(groups).sort().map(d => `${d ? `<div class="nt-folder">${esc(d)}</div>` : ""}${groups[d].map(p => `<button type="button" class="nt-item${cur && cur.path === p ? " on" : ""}" data-path="${esc(p)}">${esc(baseName(p))}${/\.html$/i.test(p) ? '<i>html</i>' : ""}</button>`).join("")}`).join("") : `<div class="nt-empty">No notes yet. Press + New.</div>`;
   }
-  async function refresh() { mode(); try { files = await store().list(); setStatus(""); } catch (e) { files = []; setStatus(e.status === 401 ? "token not accepted" : e.status === 404 ? "repo not found" : "could not reach GitHub: " + e.message, true); } renderList(); }
+  async function refresh() { mode(); try { files = await store().list(); setStatus(""); } catch (e) { files = []; setStatus(e.status === 401 ? "token not accepted" : e.status === 404 ? "repo not found, or the token has no access to it" : "could not reach GitHub: " + e.message, true); } renderList(); }
 
   /* ----- editor ----- */
   const rel = (notePath, repoPath) => { const up = dirOf(notePath) ? dirOf(notePath).split("/").map(() => "..").join("/") + "/" : ""; return up + repoPath; };
