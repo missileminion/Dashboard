@@ -561,7 +561,7 @@ body.theme-glass .card[data-k=tasks]{background:linear-gradient(155deg,rgba(255,
 @keyframes pgL{from{opacity:0;transform:translateX(34px)}to{opacity:1;transform:none}} @keyframes pgR{from{opacity:0;transform:translateX(-34px)}to{opacity:1;transform:none}}
 body[data-swipe=l] .hv,body[data-swipe=l] #cal,body[data-swipe=l] #glog,body[data-swipe=l] #prod{animation:pgL .3s ease-out} body[data-swipe=r] .hv,body[data-swipe=r] #cal,body[data-swipe=r] #glog,body[data-swipe=r] #prod{animation:pgR .3s ease-out}
 @media (max-width:700px), (pointer:coarse) and (hover:none) and (max-width:1100px){
-  .bar .seg.tabs{display:none!important} body{padding-bottom:calc(46px + env(safe-area-inset-bottom))}
+  body{padding-bottom:calc(86px + env(safe-area-inset-bottom))}
   #pageDots{display:flex;position:fixed;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom));gap:8px;align-items:center;padding:8px 13px;border-radius:100px;background:rgba(14,17,24,.62);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border:1px solid var(--edge);z-index:70;pointer-events:none}
   #pageDots i{display:block;width:6px;height:6px;border-radius:6px;background:rgba(255,255,255,.28);transition:all .3s} #pageDots i.on{width:18px;background:#fff}
   .cdev{bottom:calc(52px + env(safe-area-inset-bottom))!important} .tm-in{font-size:16px;left:0;top:0;bottom:auto}
@@ -697,16 +697,13 @@ body[data-tab=notes] .panel{max-width:none} body[data-tab=notes]{overflow:hidden
 }
 @media (max-width:900px){.nt-sbar{padding-top:calc(12px + env(safe-area-inset-top))}}
 
-/* phone navigation: launcher on Home, a corner button elsewhere. No swipe, no dots, no bottom bar. */
-#dock,#launch{display:none} #pageDots{display:none!important}
+/* phone navigation: the bottom bar on every page; the Notes toolbar sits above it */
 @media (max-width:700px), (pointer:coarse) and (hover:none) and (max-width:1100px){
-  body{padding-bottom:calc(20px + env(safe-area-inset-bottom))}
-  #launch{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:2px}
-  #launch button{display:flex;flex-direction:column;align-items:center;gap:7px;padding:14px 2px 11px;color:var(--tx);font:500 11px/1 var(--sans);letter-spacing:.02em;background:linear-gradient(145deg,var(--glass-a),var(--glass-b));border:1px solid var(--edge);border-radius:18px;box-shadow:inset 0 1px 0 var(--hi);cursor:pointer;-webkit-tap-highlight-color:transparent} #launch button:active{background:var(--on)}
-  #launch svg{width:26px;height:26px}
   #consoleRoot{height:calc(100dvh - var(--hm-top,104px) - 18px - 96px)!important;min-height:300px}
-  #dock{display:flex;position:fixed;right:14px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:100;padding:5px;gap:2px;border-radius:28px;background:rgba(18,20,28,.74);-webkit-backdrop-filter:blur(20px) saturate(150%);backdrop-filter:blur(20px) saturate(150%);border:1px solid rgba(255,255,255,.14);box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 12px 34px rgba(0,0,0,.45)}
-  #dock button{display:none;align-items:center;justify-content:center;width:46px;height:46px;border:0;border-radius:50%;background:none;color:#e9ebf2;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent} #dock button svg{width:23px;height:23px}
-  #dock button.cur{display:flex;background:rgba(255,255,255,.14);color:#fff} #dock.open button{display:flex} #dock.open button.cur{background:rgba(255,255,255,.2)}
-  body[data-tab=home] #dock,#dock.hide{display:none} body[data-tab=notes] #dock{bottom:calc(72px + env(safe-area-inset-bottom))}
+  body[data-tab=notes] .nt-foot{bottom:calc(84px + env(safe-area-inset-bottom))} body[data-tab=notes] .nt{padding-bottom:calc(80px + env(safe-area-inset-bottom))}
+  body.kbd[data-tab=notes] .bar .seg.tabs{display:none!important} body.kbd[data-tab=notes] .nt{padding-bottom:0} body.kbd[data-tab=notes] .nt-foot{bottom:10px}
 }
+/* the page tabs follow the Notes light theme instead of staying white on cream */
+body.theme-glass[data-tab=notes][data-ntth=light] .bar .seg.tabs{background:rgba(255,250,238,.8)}
+body.theme-glass[data-tab=notes][data-ntth=light] .bar .seg.tabs button{color:rgba(42,36,26,.62)!important}
+body.theme-glass[data-tab=notes][data-ntth=light] .bar .seg.tabs button.on{color:#2a241a!important;background:rgba(120,88,30,.16)!important}

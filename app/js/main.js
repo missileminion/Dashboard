@@ -17,7 +17,6 @@ import { initCalendar } from "./calendar.js";
 import { initTerminal } from "./terminal.js";
 import { initHome } from "./home.js";
 import { initNotes } from "./notes.js";
-import { initDock } from "./dock.js";
 import { weightHTML, weightEntryHTML, wireWeight, latestWeight } from "./weight.js";
 import { initSky } from "./sky.js";
 import { initWeather } from "./weather.js";
@@ -432,7 +431,6 @@ const last2 = k => { for (let i = 0; i < 4; i++) { const v = byDate[addDays(toda
     const cur = document.body.dataset.tab;
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); if (cur === "home") { if (prevTab) setTab(prevTab); else document.getElementById("tmIn")?.focus(); } else { prevTab = cur; setTab("home"); } }
   });
-  initDock();   // phone navigation: a launcher on Home and a small corner button on every other page
   renderWeightEntry();
   initSky({ demo: DEMO });
   initWeather($("weatherRoot"));

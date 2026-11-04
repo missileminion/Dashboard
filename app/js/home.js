@@ -6,7 +6,6 @@ const GROUPS = [
   ["Watch and chat", [["Nebula", "https://nebula.tv/library"], ["Discord", "https://discord.com/channels/@me"]]],
   ["Tools", [["Claude", "https://claude.ai/new"], ["Boox", "https://push.boox.com/#/note/recentNote"], ["Rocket", "https://auth.rocketaccount.com/"]]],
 ];
-const TEXT = "enfocate.";
 const EXTRA = "home.extra", HIDE = "home.hide";   // links you added (group, name, address) and built-in ones you removed (addresses)
 const rd = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) || d; } catch { return d; } }, wr = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 
@@ -16,10 +15,8 @@ export function initHome(root) {
     <div class="hm-groups"></div>
     <form class="hm-add" hidden><input name="name" placeholder="Name" maxlength="14" aria-label="Name" data-1p-ignore><input name="url" placeholder="https://…" inputmode="url" autocapitalize="off" aria-label="Address" data-1p-ignore><input name="group" list="hmGroups" placeholder="Group" maxlength="24" aria-label="Group" data-1p-ignore><datalist id="hmGroups"></datalist><button type="submit" class="hm-go">Add</button><button type="button" class="hm-cancel" hidden>Cancel</button></form>
     <div class="hm-note" hidden>Editing: tap a link to change it, × to remove it, or add a new one below. Changes stay in this browser only. Press the pencil again when done.</div>
-    <div class="hm-text"></div>
   </div>`;
   const wrap = root.querySelector(".hm"), box = root.querySelector(".hm-groups"), add = root.querySelector(".hm-add"), note = root.querySelector(".hm-note"), edit = root.querySelector(".hm-edit");
-  root.querySelector(".hm-text").textContent = TEXT;
   const short = n => (n.length > 14 ? n.slice(0, 13) + "…" : n);   // titles stay short so the list stays tidy
   const tile = (name, url, onRemove, onEdit) => {
     const a = document.createElement("a"); a.className = "hm-lk"; a.href = url; a.title = name; a.textContent = short(name);
