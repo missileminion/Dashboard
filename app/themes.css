@@ -675,3 +675,4 @@ body.theme-glass[data-tab=notes][data-ntth=light]{--glass-a:rgba(255,250,238,.62
 body.theme-glass[data-tab=notes][data-ntth=dark]{--glass-a:rgba(255,255,255,.06);--glass-b:rgba(255,255,255,.02);--edge:rgba(255,255,255,.12);--hi:rgba(255,255,255,.1);--on:rgba(255,255,255,.12);--tx:#eef0f5;--tx2:#aab1c0;--tx3:#6b7486;--line:rgba(255,255,255,.1);--btn:rgba(255,255,255,.06);--drop:rgba(0,0,0,.8)}
 .nt{--popbg:rgba(22,24,38,.93)} .nt[data-th=light]{--popbg:rgba(255,252,244,.95)} .nt-pop,.nt-xmenu,.nt-cpop{background:var(--popbg)}
 .nt input.nt-title{font-size:clamp(34px,4.4vw,52px)!important} @media (max-width:900px){.nt input.nt-title{font-size:34px!important}}
+.nt-sd{width:7px;height:7px;box-shadow:none!important} .nt-status{gap:0}

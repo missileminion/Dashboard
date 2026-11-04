@@ -72,13 +72,13 @@ export function initNotes(root) {
     <aside class="nt-side">
       <div class="nt-sbar"><b class="nt-brand">Notes</b><span class="nt-mode"></span><button type="button" class="nt-ib" data-a="new" title="New note" aria-label="New note">${ic("new")}</button></div>
       <div class="nt-list"></div>
-      <form class="nt-conn" hidden><div class="nt-hint">Notes save to this repo. Paste a fine-grained token with <b>Contents: read and write</b> on that repo only. It stays in this browser.</div><input name="repo" placeholder="owner/repo" autocomplete="off" spellcheck="false" data-1p-ignore><input class="nt-tok" name="tok" placeholder="token" autocomplete="off" autocapitalize="off" spellcheck="false" data-1p-ignore data-lpignore="true"><label class="nt-hint">Token expires (optional, so you get a warning in time)<input type="date" name="exp"></label><div class="nt-row"><button type="submit" class="nt-btn">Save</button><button type="button" class="nt-btn" data-a="disc">Disconnect</button></div></form>
+      <form class="nt-conn" hidden><input name="repo" placeholder="owner/repo" autocomplete="off" spellcheck="false" data-1p-ignore><input class="nt-tok" name="tok" placeholder="token" autocomplete="off" autocapitalize="off" spellcheck="false" data-1p-ignore data-lpignore="true"><label class="nt-hint">Token expires<input type="date" name="exp"></label><div class="nt-row"><button type="submit" class="nt-btn">Save</button><button type="button" class="nt-btn" data-a="disc">Disconnect</button></div></form>
       <div class="nt-vault"><span class="nt-repo"></span><button type="button" class="nt-ib" data-a="theme" aria-label="Light or dark"></button><button type="button" class="nt-ib" data-a="gear" title="GitHub connection" aria-label="GitHub connection">${ic("gear")}</button></div>
     </aside>
     <div class="nt-main">
       <div class="nt-tabs"><button type="button" class="nt-ib nt-side-t" data-a="side" title="Show or hide the file list" aria-label="Show or hide the file list">${ic("side")}</button><button type="button" class="nt-ib nt-back" data-a="list" aria-label="All notes">${ic("chev")}</button><div class="nt-tablist"></div><button type="button" class="nt-ib" data-a="new" title="New note" aria-label="New note">${ic("plus")}</button><button type="button" class="nt-ib nt-exp" data-a="export" title="Export this note" aria-label="Export this note" disabled>${ic("down")}</button><span class="nt-status" role="status"><i class="nt-sd"></i><span class="nt-msg"></span></span></div>
-      <div class="nt-xmenu" hidden><button type="button" class="nt-pi" data-x="md">Markdown file (.md)</button><button type="button" class="nt-pi" data-x="pdf">PDF (opens the print dialog)</button></div><div class="nt-banner" hidden></div>
-      <div class="nt-scroll"><div class="nt-page"><input class="nt-title" placeholder="Untitled" spellcheck="false" disabled><div class="nt-dateline"></div><div class="nt-ed"></div><div class="nt-hello">Pick a note on the left, or press the pencil to start a new one.</div></div></div>
+      <div class="nt-xmenu" hidden><button type="button" class="nt-pi" data-x="md">Markdown</button><button type="button" class="nt-pi" data-x="pdf">PDF</button></div><div class="nt-banner" hidden></div>
+      <div class="nt-scroll"><div class="nt-page"><input class="nt-title" placeholder="Untitled" spellcheck="false" disabled><div class="nt-dateline"></div><div class="nt-ed"></div><div class="nt-hello">No note open</div></div></div>
       <div class="nt-pop" hidden></div><div class="nt-cpop" hidden></div>
       <div class="nt-foot"><div class="nt-tools"></div></div>
       <input type="file" class="nt-file" hidden><input type="file" class="nt-pic" accept="image/*" hidden>
@@ -91,7 +91,7 @@ export function initNotes(root) {
   };
   const showBanner = html => { banner.hidden = !html; banner.innerHTML = html || ""; };
   const enable = on => { $(".nt-exp").disabled = !on; toolsEl.classList.toggle("off", !on || !crepe); }, setTitle = (v, on) => { titleEl.value = v; titleEl.disabled = !on; root.classList.toggle("blank", !on); };
-  const mode = () => { modeEl.textContent = cfg.remote ? "GitHub" : "this browser only"; modeEl.title = cfg.remote ? cfg.repo : "not saved to GitHub yet"; $(".nt-repo").textContent = cfg.remote ? cfg.repo.split("/")[1] : "Local notes"; };
+  const mode = () => { modeEl.textContent = cfg.remote ? "GitHub" : "Local"; modeEl.title = cfg.remote ? cfg.repo : "not saved to GitHub yet"; $(".nt-repo").textContent = cfg.remote ? cfg.repo.split("/")[1] : "Local notes"; };
   const applyTheme = (quick) => { const dark = theme === "dark" || (theme === "auto" && matchMedia("(prefers-color-scheme: dark)").matches); nt.dataset.th = dark ? "dark" : "light"; document.body.dataset.ntth = dark ? "dark" : "light"; const b = root.querySelector('[data-a=theme]'); b.innerHTML = ic(dark ? "moon" : "sun"); b.title = dark ? "Switch to light (cream)" : "Switch to dark"; };
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => applyTheme()); applyTheme();
   toolsEl.innerHTML = TOOLS.map(t => t[0] === "|" ? '<i class="nt-sep"></i>' : t[0] === "h" ? `<button type="button" class="nt-t nt-h" data-tool="h" title="Heading"><b>H</b><small>▾</small></button>` : `<button type="button" class="nt-t" data-tool="${t[0]}" title="${t[2]}" aria-label="${t[2]}">${ic(t[1])}</button>`).join("");
@@ -105,7 +105,7 @@ export function initNotes(root) {
     notes.forEach(p => { let n = tree; dirOf(p).split("/").filter(Boolean).forEach(d => (n = n.dirs[d] ||= { dirs: {}, files: [] })); n.files.push(p); });
     const cmp = (a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
     const draw = (n, path, depth) => Object.keys(n.dirs).sort(cmp).map(d => { const full = path ? path + "/" + d : d, open = !fold.has(full); return `<button type="button" class="nt-row-i nt-dir${open ? " open" : ""}" style="--d:${depth}" data-dir="${esc(full)}">${ic("chev", 2)}<span>${esc(d)}</span></button>${open ? draw(n.dirs[d], full, depth + 1) : ""}`; }).join("") + n.files.sort((a, b) => cmp(baseName(a), baseName(b))).map(p => `<div role="button" tabindex="0" class="nt-row-i nt-item${cur && cur.path === p ? " on" : ""}" style="--d:${depth}" data-path="${esc(p)}">${ic("file", 1.6)}<span>${esc(baseName(p))}</span>${/\.html$/i.test(p) ? "<i>html</i>" : ""}<button type="button" class="nt-rm" data-rm="${esc(p)}" title="Delete this note" aria-label="Delete ${esc(baseName(p))}">${ic("trash", 1.7)}</button></div>`).join("");
-    listEl.innerHTML = notes.length ? draw(tree, "", 0) : `<div class="nt-empty">No notes yet.<br>Press the pencil to write one.</div>`;
+    listEl.innerHTML = notes.length ? draw(tree, "", 0) : `<div class="nt-empty">No notes</div>`;
   }
   function renderTabs() {
     tabsEl.innerHTML = tabs.map(p => `<div class="nt-tab${cur && cur.path === p ? " on" : ""}" data-tab="${esc(p)}" role="tab"><span>${esc(baseName(p))}</span><button type="button" class="nt-x" data-close="${esc(p)}" aria-label="Close">${ic("x", 2)}</button></div>`).join("");
@@ -162,7 +162,7 @@ export function initNotes(root) {
   }
   async function destroyEditor() { clearTimeout(timer); if (crepe) { try { await crepe.destroy(); } catch {} crepe = null; } edEl.textContent = ""; dateEl.textContent = ""; closePop(); cpop.hidden = true; }
   const wc = md => { const t = md.replace(/[#>*_`~|\-\[\]()!$<>=]/g, " ").trim(); return t ? t.split(/\s+/).length : 0; };
-  const updateCount = md => { const w = wc(md); dateEl.textContent = w ? `${Math.max(1, Math.round(w / 220))} min read · ${w} word${w === 1 ? "" : "s"}` : ""; };
+  const updateCount = md => { const w = wc(md); dateEl.textContent = w ? `${Math.max(1, Math.round(w / 220))} min read` : ""; };
   async function open(path) {
     const seq = ++openSeq; await flush(); showBanner(""); setStatus("opening…"); let f;
     try { f = await store().read(path); } catch (e) { setStatus("could not open: " + e.message, true); return; } if (!f) { setStatus("that note is gone", true); await refresh(); return; }
@@ -170,7 +170,7 @@ export function initNotes(root) {
     if (/\.html$/i.test(path)) { const fr = document.createElement("iframe"); fr.className = "nt-frame"; fr.setAttribute("sandbox", "allow-scripts"); fr.srcdoc = f.text; edEl.appendChild(fr); root.classList.add("html"); setStatus("web page, view only"); toolsEl.classList.add("off"); return; }
     root.classList.remove("html");
     try { await engine(); } catch (e) { setStatus("the editor could not load (needs internet): " + e.message, true); return; } if (seq !== openSeq) return;
-    const { Crepe } = mod, F = Crepe.Feature; crepe = new Crepe({ root: edEl, defaultValue: f.text, features: { [F.AI]: false, [F.Toolbar]: false, [F.TopBar]: false }, featureConfigs: { [F.ImageBlock]: { onUpload: upload, blockOnUpload: upload, inlineOnUpload: upload, proxyDomURL: show }, [F.Placeholder]: { text: "Start writing, or press / for blocks…" }, [F.Cursor]: { virtual: false } } });
+    const { Crepe } = mod, F = Crepe.Feature; crepe = new Crepe({ root: edEl, defaultValue: f.text, features: { [F.AI]: false, [F.Toolbar]: false, [F.TopBar]: false }, featureConfigs: { [F.ImageBlock]: { onUpload: upload, blockOnUpload: upload, inlineOnUpload: upload, proxyDomURL: show }, [F.Placeholder]: { text: "Write, or type / for blocks" }, [F.Cursor]: { virtual: false } } });
     crepe.editor.use(ext.list);
     await crepe.create(); if (seq !== openSeq) { crepe.destroy(); return; } enable(true);
     crepe.on(l => l.markdownUpdated((ctx, md) => { if (!cur || md === cur.md) return; cur.md = md; updateCount(md); setStatus("unsaved…"); clearTimeout(timer); timer = setTimeout(save, 1200); }));
