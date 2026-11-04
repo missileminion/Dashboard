@@ -670,3 +670,13 @@ body.theme-glass[data-tab=notes][data-ntth=dark]{--page:#0b0b0d;--glass-a:rgba(2
 }
 body.theme-glass[data-tab=notes][data-ntth=light]{background:#e8dfcb!important} body.theme-glass[data-tab=notes][data-ntth=dark]{background:#0b0b0d!important}
 .nt .milkdown .ProseMirror blockquote::before,.nt .milkdown .ProseMirror blockquote::after{display:none!important}
+/* second pass: select to trash, trash view, read time */
+.nt-dateline{display:none!important} .nt-title{margin-bottom:26px}
+.nt-rt{font-size:11px;color:var(--tx3);padding:0 2px 6px 0;align-self:center;white-space:nowrap} .nt-status{padding-left:6px}
+.nt-selbtn.on{background:var(--on);color:var(--tx)} .nt-selbtn[hidden]{display:none}
+.nt-ck{width:15px;height:15px;flex:none;border:1.5px solid var(--tx3);border-radius:50%;box-sizing:border-box;position:relative} .nt-ck.on{background:var(--ac);border-color:var(--ac)} .nt-ck.on::after{content:"";position:absolute;left:4px;top:1.5px;width:4px;height:7px;border:solid var(--main);border-width:0 1.6px 1.6px 0;transform:rotate(45deg)}
+.nt-row-i.picked{background:var(--on)} .nt-item em{font-style:normal;color:var(--tx3);font-size:11.5px;margin-left:4px}
+.nt-selbar{display:flex;align-items:center;gap:6px;padding:8px 10px;border-top:1px solid var(--line)} .nt-selbar[hidden]{display:none} .nt-sn{flex:1;font-size:12px;color:var(--tx2);white-space:nowrap}
+.nt-sb{font:12.5px var(--ui);color:var(--tx);background:var(--hov);border:1px solid var(--bd);border-radius:8px;padding:5px 10px;cursor:pointer;white-space:nowrap} .nt-sb:hover:not(:disabled){background:var(--on)} .nt-sb:disabled{opacity:.35;cursor:default} .nt-sb.danger{color:var(--err);border-color:color-mix(in srgb,var(--err) 40%,transparent)}
+.nt-trashrow{display:flex;align-items:center;gap:8px;padding:8px 16px;border-top:1px solid var(--line);color:var(--tx2);font-size:13px;cursor:pointer;outline:0} .nt-trashrow:hover{color:var(--tx);background:var(--hov)} .nt-trashrow.none{display:none} .nt-trashrow svg{width:15px;height:15px} .nt-trashrow span{flex:1} .nt-trashrow small{font-size:11px;color:var(--tx3)}
+.nt-rm{display:none!important}
