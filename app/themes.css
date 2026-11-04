@@ -811,3 +811,4 @@ body.theme-glass[data-tab=notes][data-ntth=dark]{background:radial-gradient(900p
 .nt-oi.l1{--l:1;font-weight:600;color:var(--tx)} .nt-oi.l2{--l:2} .nt-oi.l3{--l:3} .nt-oi.l4{--l:4;font-size:12px}
 .nt-oi:hover{background:var(--hov)} .nt-oi.on{background:var(--glass);color:var(--tx)} .nt-oi.on::before{height:60%}
 @media (prefers-reduced-motion:reduce){.nt-oi,.nt-oi::before{transition:none}}
+.nt-oi{display:block;width:100%;box-sizing:border-box;text-align:left!important}
