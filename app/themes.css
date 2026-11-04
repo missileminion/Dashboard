@@ -873,3 +873,4 @@ body.lm .ag-legend{color:#5d6275} body.lm .ag-legend b{color:#2b3146}
 body.lm .ag-list{background:radial-gradient(90% 100% at 50% 50%,rgba(255,255,255,.7),rgba(255,255,255,.45) 70%,transparent 100%)!important}
 body.lm .ag-day{border-top-color:rgba(20,30,60,.18)} body.lm .ag-dh{color:#5a6074} body.lm .ag-dh b,body.lm .ag-day.on .ag-dh b{color:#141c32} body.lm .ag-day.on .ag-dh span:first-child::before{background:#141c32}
 body.lm .ag-row{color:#141c32} body.lm .ag-time{color:#5a6074} body.lm .ag-title small{color:#6a7084} body.lm .ag-row.routine{color:#6a7084} body.lm .ag-row.now .ag-dot{background:#141c32;box-shadow:0 0 0 4px rgba(20,28,50,.14)} body.lm .ag-none{color:#6a7084}
+body.lm .ag-card{background:rgba(255,255,255,.66)!important;border-color:rgba(20,30,60,.12)} body.lm .ag-card:hover{background:rgba(255,255,255,.8)!important} body.lm .ag-card .ag-dh{border-bottom-color:rgba(20,30,60,.18)}
