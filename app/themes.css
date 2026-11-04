@@ -841,3 +841,4 @@ body.theme-glass[data-tab=notes][data-ntth=dark]{background:radial-gradient(900p
 .nt-cm.edit .nt-row{gap:8px;align-items:center;flex-wrap:wrap}
 .nt-cm.edit .nt-btn{padding:7px 16px;font-size:13px}
 .nt-cm.edit [data-cm=del]{order:3;margin-left:auto;background:none;border-color:transparent;color:var(--tx2)} .nt-cm.edit [data-cm=del]:hover{color:var(--err)}
+.nt-seg i{right:5px;top:4px;font:600 9.5px/1 var(--ui);color:var(--ac);transform:translate(-14px,6px) scale(.5)} .nt-seg i:not(:empty){transform:translate(0,0) scale(1)}
