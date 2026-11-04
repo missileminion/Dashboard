@@ -4,8 +4,8 @@
 import { syncwarn, EXPIRY_HEADER } from "./syncwarn.js";
 const ESM = "https://esm.sh/@milkdown/", CREPE = ESM + "crepe@7.23.0", KIT = ESM + "kit@7.23.0/";
 const CSS = [ESM + "crepe@7.23.0/lib/theme/common/style.css", "https://esm.sh/katex@0.16.11/dist/katex.min.css"];
-const FONT = "https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&display=swap";
-const K_THEME = "notes.theme", K_FOLD = "notes.fold", K_TABS = "notes.tabs", K_EXP = "notes.expires";
+const FONT = "https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap";
+const KEEP = ".gitkeep", K_THEME = "notes.theme", K_FOLD = "notes.fold", K_TABS = "notes.tabs", K_EXP = "notes.expires";
 const COLORS = [["Red", "#e5484d"], ["Orange", "#f76808"], ["Yellow", "#c99400"], ["Green", "#30a46c"], ["Blue", "#3e63dd"], ["Purple", "#8e4ec6"], ["Pink", "#d6409f"], ["Grey", "#8b8d98"]];
 const K_REPO = "notes.repo", K_TOKEN = "notes.token", K_LOCAL = "notes.local", DEFAULT_REPO = "missileminion/Notes", FILES = "_files";
 const lsGet = k => { try { return localStorage.getItem(k) || ""; } catch { return ""; } }, lsSet = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); return true; } catch { return false; } };
@@ -58,7 +58,7 @@ const ICON = {
   quote: '<path d="M6 17c-1.5-1-2-2.500-2-4.500C4 9 6 7 8.500 6.500M15 17c-1.500-1-2-2.500-2-4.500 0-3.500 2-5.500 4.500-6"/>', block: '<rect x="3.500" y="4.500" width="17" height="15" rx="3"/><path d="M9.500 10l-2 2 2 2M14.500 10l2 2-2 2"/>',
   sigma: '<path d="M17 5H7l5 7-5 7h10"/>', mblock: '<rect x="3.500" y="4.500" width="17" height="15" rx="3"/><path d="M15 9h-6l3 3-3 3h6"/>', table: '<rect x="3.500" y="5" width="17" height="14" rx="2.500"/><path d="M3.500 10h17M3.500 14.500h17M9.500 5v14M14.500 5v14"/>',
   img: '<rect x="3.500" y="5" width="17" height="14" rx="3"/><circle cx="9" cy="10" r="1.500"/><path d="M4 17l5-4.500 3.500 3 3-2.500L20 16"/>', clip: '<path d="M20 11.500l-7.500 7.500a5 5 0 0 1-7-7l8-8a3.300 3.300 0 0 1 4.700 4.700l-8 8a1.700 1.700 0 0 1-2.400-2.400l7.300-7.300"/>', hr: '<path d="M4 12h16"/>',
-  chev: '<path d="M9 6l6 6-6 6"/>', trash: '<path d="M4.5 7h15M10 4h4M6.5 7l.8 12a1.5 1.5 0 0 0 1.5 1.4h6.4a1.5 1.5 0 0 0 1.5-1.4L17.5 7M10 11v6M14 11v6"/>', comment: '<path d="M5 5.5h14a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5H11l-4 3.5V16.5H5A1.5 1.5 0 0 1 3.5 15V7A1.5 1.5 0 0 1 5 5.5z"/>', down: '<path d="M12 4v11M7.5 10.500L12 15l4.500-4.500M5 20h14"/>', x: '<path d="M7 7l10 10M17 7L7 17"/>', plus: '<path d="M12 5v14M5 12h14"/>', moon: '<path d="M20 14.500A8 8 0 0 1 9.500 4a8 8 0 1 0 10.500 10.500z"/>', sun: '<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.600 5.600L7 7M17 17l1.400 1.400M5.600 18.400L7 17M17 7l1.400-1.400"/>', file: '<path d="M6 3.500h8l4 4v13H6z"/>', folder: '<path d="M3.500 7a2 2 0 0 1 2-2H10l2 2.500h6.500a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>',
+  chev: '<path d="M9 6l6 6-6 6"/>', folderplus: '<path d="M3.5 7a2 2 0 0 1 2-2H10l2 2.500h6.500a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2zM12 10.500v5M9.500 13h5"/>', trash: '<path d="M4.5 7h15M10 4h4M6.5 7l.8 12a1.5 1.5 0 0 0 1.5 1.4h6.4a1.5 1.5 0 0 0 1.5-1.4L17.5 7M10 11v6M14 11v6"/>', comment: '<path d="M5 5.5h14a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5H11l-4 3.5V16.5H5A1.5 1.5 0 0 1 3.5 15V7A1.5 1.5 0 0 1 5 5.5z"/>', down: '<path d="M12 4v11M7.5 10.500L12 15l4.500-4.500M5 20h14"/>', x: '<path d="M7 7l10 10M17 7L7 17"/>', plus: '<path d="M12 5v14M5 12h14"/>', moon: '<path d="M20 14.500A8 8 0 0 1 9.500 4a8 8 0 1 0 10.500 10.500z"/>', sun: '<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.600 5.600L7 7M17 17l1.400 1.400M5.600 18.400L7 17M17 7l1.400-1.400"/>', file: '<path d="M6 3.500h8l4 4v13H6z"/>', folder: '<path d="M3.500 7a2 2 0 0 1 2-2H10l2 2.500h6.500a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>',
 };
 const ic = (n, w = 1.8) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[n]}</svg>`;
 const TOOLS = [   // id, icon, title
@@ -70,7 +70,7 @@ export function initNotes(root) {
   { const f = document.createElement("link"); f.rel = "stylesheet"; f.href = FONT; document.head.appendChild(f); }
   root.innerHTML = `<div class="nt" data-th="dark">
     <aside class="nt-side">
-      <div class="nt-sbar"><b class="nt-brand">Notes</b><span class="nt-mode"></span><button type="button" class="nt-ib" data-a="new" title="New note" aria-label="New note">${ic("new")}</button></div>
+      <div class="nt-sbar"><b class="nt-brand">Notes</b><span class="nt-mode"></span><button type="button" class="nt-ib" data-a="folder" title="New folder" aria-label="New folder">${ic("folderplus")}</button><button type="button" class="nt-ib" data-a="new" title="New note" aria-label="New note">${ic("new")}</button></div>
       <div class="nt-list"></div>
       <form class="nt-conn" hidden><input name="repo" placeholder="owner/repo" autocomplete="off" spellcheck="false" data-1p-ignore><input class="nt-tok" name="tok" placeholder="token" autocomplete="off" autocapitalize="off" spellcheck="false" data-1p-ignore data-lpignore="true"><label class="nt-hint">Token expires<input type="date" name="exp"></label><div class="nt-row"><button type="submit" class="nt-btn">Save</button><button type="button" class="nt-btn" data-a="disc">Disconnect</button></div></form>
       <div class="nt-vault"><span class="nt-repo"></span><button type="button" class="nt-ib" data-a="theme" aria-label="Light or dark"></button><button type="button" class="nt-ib" data-a="gear" title="GitHub connection" aria-label="GitHub connection">${ic("gear")}</button></div>
@@ -84,7 +84,7 @@ export function initNotes(root) {
       <input type="file" class="nt-file" hidden><input type="file" class="nt-pic" accept="image/*" hidden>
     </div></div>`;
   const $ = s => root.querySelector(s), nt = $(".nt"), listEl = $(".nt-list"), titleEl = $(".nt-title"), statusEl = $(".nt-status"), edEl = $(".nt-ed"), banner = $(".nt-banner"), conn = $(".nt-conn"), modeEl = $(".nt-mode"), fileIn = $(".nt-file"), picIn = $(".nt-pic"), tabsEl = $(".nt-tablist"), pop = $(".nt-pop"), toolsEl = $(".nt-tools"), dateEl = $(".nt-dateline"), cpop = $(".nt-cpop"), sdEl = $(".nt-sd"), msgEl = $(".nt-msg"), scrollEl = $(".nt-scroll");
-  let files = [], cur = null, crepe = null, mod = null, ext = null, timer = null, saving = false, openSeq = 0, tabs = [], theme = lsGet(K_THEME) || "auto", fold = new Set(); const blobUrls = new Map();
+  let selDir = "", files = [], cur = null, crepe = null, mod = null, ext = null, timer = null, saving = false, openSeq = 0, tabs = [], theme = lsGet(K_THEME) || "auto", fold = new Set(); const blobUrls = new Map();
   try { fold = new Set(JSON.parse(lsGet(K_FOLD) || "[]")); tabs = JSON.parse(lsGet(K_TABS) || "[]").filter(Boolean); } catch {}
   const setStatus = (t, bad) => {   // a blue dot when saved, a red dot while there is something unsaved; anything else is spelled out
     const k = /^saved/.test(t) ? "saved" : /^(unsaved|saving)/.test(t) ? "dirty" : ""; sdEl.dataset.s = k; statusEl.title = t; statusEl.setAttribute("aria-label", t || "no note open"); msgEl.textContent = k ? "" : t; statusEl.classList.toggle("bad", !!bad);
@@ -101,11 +101,11 @@ export function initNotes(root) {
   const isNote = p => /\.(md|html)$/i.test(p) && !p.startsWith(FILES + "/") && !p.startsWith(".");
   const saveFold = () => lsSet(K_FOLD, JSON.stringify([...fold])), saveTabs = () => lsSet(K_TABS, JSON.stringify(tabs));
   function renderList() {
-    const notes = files.filter(isNote), tree = { dirs: {}, files: [] };
-    notes.forEach(p => { let n = tree; dirOf(p).split("/").filter(Boolean).forEach(d => (n = n.dirs[d] ||= { dirs: {}, files: [] })); n.files.push(p); });
+    const notes = files.filter(isNote), tree = { dirs: {}, files: [] }, mk = path => { let n = tree; path.split("/").filter(Boolean).forEach(d => (n = n.dirs[d] ||= { dirs: {}, files: [] })); return n; };
+    files.filter(p => p.endsWith("/" + KEEP)).forEach(p => mk(dirOf(p))); notes.forEach(p => mk(dirOf(p)).files.push(p));
     const cmp = (a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
-    const draw = (n, path, depth) => Object.keys(n.dirs).sort(cmp).map(d => { const full = path ? path + "/" + d : d, open = !fold.has(full); return `<button type="button" class="nt-row-i nt-dir${open ? " open" : ""}" style="--d:${depth}" data-dir="${esc(full)}">${ic("chev", 2)}<span>${esc(d)}</span></button>${open ? draw(n.dirs[d], full, depth + 1) : ""}`; }).join("") + n.files.sort((a, b) => cmp(baseName(a), baseName(b))).map(p => `<div role="button" tabindex="0" class="nt-row-i nt-item${cur && cur.path === p ? " on" : ""}" style="--d:${depth}" data-path="${esc(p)}">${ic("file", 1.6)}<span>${esc(baseName(p))}</span>${/\.html$/i.test(p) ? "<i>html</i>" : ""}<button type="button" class="nt-rm" data-rm="${esc(p)}" title="Delete this note" aria-label="Delete ${esc(baseName(p))}">${ic("trash", 1.7)}</button></div>`).join("");
-    listEl.innerHTML = notes.length ? draw(tree, "", 0) : `<div class="nt-empty">No notes</div>`;
+    const draw = (n, path, depth) => Object.keys(n.dirs).sort(cmp).map(d => { const full = path ? path + "/" + d : d, open = !fold.has(full); return `<div role="button" tabindex="0" class="nt-row-i nt-dir${open ? " open" : ""}${selDir === full ? " sel" : ""}" style="--d:${depth}" data-dir="${esc(full)}">${ic("chev", 2)}<span>${esc(d)}</span><button type="button" class="nt-rm" data-rmdir="${esc(full)}" title="Delete folder" aria-label="Delete folder ${esc(d)}">${ic("trash", 1.7)}</button></div>${open ? draw(n.dirs[d], full, depth + 1) : ""}`; }).join("") + n.files.sort((a, b) => cmp(baseName(a), baseName(b))).map(p => `<div role="button" tabindex="0" draggable="true" class="nt-row-i nt-item${cur && cur.path === p ? " on" : ""}" style="--d:${depth}" data-path="${esc(p)}">${ic("file", 1.6)}<span>${esc(baseName(p))}</span>${/\.html$/i.test(p) ? "<i>html</i>" : ""}<button type="button" class="nt-rm" data-rm="${esc(p)}" title="Delete this note" aria-label="Delete ${esc(baseName(p))}">${ic("trash", 1.7)}</button></div>`).join("");
+    const html = draw(tree, "", 0); listEl.innerHTML = html || `<div class="nt-empty">No notes</div>`;
   }
   function renderTabs() {
     tabsEl.innerHTML = tabs.map(p => `<div class="nt-tab${cur && cur.path === p ? " on" : ""}" data-tab="${esc(p)}" role="tab"><span>${esc(baseName(p))}</span><button type="button" class="nt-x" data-close="${esc(p)}" aria-label="Close">${ic("x", 2)}</button></div>`).join("");
@@ -192,7 +192,7 @@ export function initNotes(root) {
 
   /* ----- actions on notes ----- */
   async function newNote() {
-    await flush(); const dir = cur ? dirOf(cur.path) : ""; let n = "Untitled", i = 2; const has = p => files.includes(p); while (has((dir ? dir + "/" : "") + n + ".md")) n = "Untitled " + i++;
+    await flush(); const dir = selDir || (cur ? dirOf(cur.path) : ""); let n = "Untitled", i = 2; const has = p => files.includes(p); while (has((dir ? dir + "/" : "") + n + ".md")) n = "Untitled " + i++;
     const path = (dir ? dir + "/" : "") + n + ".md"; try { await store().write(path, "\n", null, `notes: new ${n}`); } catch (e) { setStatus("could not create: " + e.message, true); return; }
     files.push(path); await open(path); titleEl.focus(); titleEl.select();
   }
@@ -206,6 +206,29 @@ export function initNotes(root) {
     const wasCur = cur && cur.path === p; tabs = tabs.filter(t => t !== p); saveTabs();
     if (wasCur) { const next = tabs[tabs.length - 1]; if (next) return open(next); await flush(); cur = null; ++openSeq; await destroyEditor(); setTitle("", false); enable(false); renderList(); }
     renderTabs();
+  }
+  const relTo = (fromDir, target) => { const a = fromDir ? fromDir.split("/") : [], b = target.split("/"); let i = 0; while (i < a.length && i < b.length - 1 && a[i] === b[i]) i++; return [...a.slice(i).map(() => ".."), ...b.slice(i)].join("/"); };
+  const rebase = (text, from, to) => (dirOf(from) === dirOf(to) ? text : text.replace(/(\]\()([^)\s]+)/g, (m, a, u) => (isRelative(u) ? a + relTo(dirOf(to), resolve(from, decodeURI(u))).replace(/ /g, "%20") : m)));
+  async function moveNote(from, toDir) {
+    const to = (toDir ? toDir + "/" : "") + from.split("/").pop(); if (to === from) return; if (files.includes(to)) { setStatus("that folder already has a note with this name", true); return; }
+    try { if (cur && cur.path === from) await flush(); const f = await store().read(from); if (!f) throw new Error("note not found"); const text = /\.md$/i.test(from) ? rebase(f.text, from, to) : f.text; await store().write(to, text, null, `notes: move ${baseName(from)}`); await store().remove(from, f.sha, `notes: move ${baseName(from)}`); }
+    catch (e) { setStatus("could not move: " + e.message, true); return; }
+    const wasCur = cur && cur.path === from; files = files.filter(p => p !== from).concat(to); tabs = tabs.map(p => (p === from ? to : p)); saveTabs(); if (toDir) fold.delete(toDir); renderList(); renderTabs(); if (wasCur) { cur = null; await open(to); }
+  }
+  async function newFolder(name) {
+    name = name.trim().replace(/[\\:*?"<>|]/g, "-").replace(/^\/+|\/+$/g, ""); if (!name) return; const dir = (selDir ? selDir + "/" : "") + name, path = dir + "/" + KEEP;
+    if (files.includes(path)) return; try { await store().write(path, "", null, `notes: new folder ${name}`); } catch (e) { setStatus("could not create folder: " + e.message, true); return; }
+    files.push(path); selDir = dir; fold.delete(dir); renderList();
+  }
+  function askFolder() {
+    if (listEl.querySelector(".nt-newdir")) return; const row = document.createElement("div"); row.className = "nt-row-i nt-newdir"; row.innerHTML = `${ic("folder", 1.6)}<input placeholder="Folder name" spellcheck="false" autocomplete="off">`; listEl.prepend(row); const inp = row.querySelector("input"); inp.focus();
+    let done = false; const end = async ok => { if (done) return; done = true; const v = inp.value; row.remove(); if (ok && v.trim()) await newFolder(v); };
+    inp.addEventListener("keydown", e => { if (e.key === "Enter") end(true); else if (e.key === "Escape") end(false); }); inp.addEventListener("blur", () => end(true));
+  }
+  async function delDir(d) {
+    const inside = files.filter(p => p.startsWith(d + "/")); if (!confirm(`Delete the folder "${d.split("/").pop()}" and ${inside.filter(isNote).length} note(s) in it? ${cfg.remote ? "They stay in the repo's history." : "This cannot be undone."}`)) return;
+    try { for (const p of inside) { const f = cur && cur.path === p ? { sha: cur.sha } : await store().read(p); if (f) await store().remove(p, f.sha, `notes: delete ${p}`); } } catch (e) { setStatus("could not delete: " + e.message, true); return; }
+    for (const p of inside) { files = files.filter(x => x !== p); if (tabs.includes(p)) { if (cur && cur.path === p) cur.base = cur.md; await closeTab(p); } } if (selDir === d || selDir.startsWith(d + "/")) selDir = ""; renderList(); setStatus("deleted");
   }
   async function delPath(p) {
     if (!confirm(`Delete "${baseName(p)}"? ${cfg.remote ? "The file stays in the repo's history." : "This cannot be undone."}`)) return;
@@ -309,18 +332,24 @@ export function initNotes(root) {
   root.addEventListener("click", async e => {
     const x = e.target.closest("[data-close]"); if (x) { e.stopPropagation(); closeTab(x.dataset.close); return; }
     const tb = e.target.closest(".nt-tab"); if (tb) { if (!cur || cur.path !== tb.dataset.tab) open(tb.dataset.tab); return; }
-    const dir = e.target.closest("[data-dir]"); if (dir) { const d = dir.dataset.dir; fold.has(d) ? fold.delete(d) : fold.add(d); saveFold(); renderList(); return; }
+    const dir = e.target.closest("[data-dir]"); if (dir) { const d = dir.dataset.dir; if (selDir === d) { fold.has(d) ? fold.delete(d) : fold.add(d); saveFold(); } else { selDir = d; fold.delete(d); saveFold(); } renderList(); return; }
+    const rd = e.target.closest("[data-rmdir]"); if (rd) { e.stopPropagation(); delDir(rd.dataset.rmdir); return; }
     const rm = e.target.closest("[data-rm]"); if (rm) { e.stopPropagation(); delPath(rm.dataset.rm); return; }
-    const it = e.target.closest(".nt-item"); if (it) { open(it.dataset.path); return; }
+    const it = e.target.closest(".nt-item"); if (it) { selDir = dirOf(it.dataset.path); open(it.dataset.path); return; }
     const b = e.target.closest("[data-a]"); if (!b) return; const a = b.dataset.a;
-    if (a === "export") xmenu.hidden = !xmenu.hidden; else if (a === "new") newNote(); else if (a === "side") nt.classList.toggle("nofiles");
+    if (a === "export") xmenu.hidden = !xmenu.hidden; else if (a === "new") newNote(); else if (a === "side") nt.classList.toggle("nofiles"); else if (a === "folder") askFolder();
     else if (a === "theme") { theme = nt.dataset.th === "dark" ? "light" : "dark"; lsSet(K_THEME, theme); nt.classList.add("nt-swap"); applyTheme(); requestAnimationFrame(() => requestAnimationFrame(() => nt.classList.remove("nt-swap"))); }
     else if (a === "gear") { conn.hidden = !conn.hidden; conn.elements.repo.value = cfg.repo; conn.elements.tok.value = ""; conn.elements.exp.value = lsGet(K_EXP); conn.elements.tok.placeholder = cfg.remote ? "token saved (paste a new one to replace)" : "token"; }
     else if (a === "disc") { lsSet(K_TOKEN, null); lsSet(K_EXP, null); syncwarn.seen("notes", "Notes", "notes", 200, null); conn.hidden = true; cur = null; tabs = []; saveTabs(); ++openSeq; await destroyEditor(); setTitle("", false); enable(false); await refresh(); }
     else if (a === "list") root.classList.remove("open"); else if (a === "over") { if (cur) { cur.sha = cur.remoteSha; showBanner(""); await save(true); } } else if (a === "reload") { const p = cur && cur.path; cur.md = cur.base; showBanner(""); if (p) open(p); }
   });
   conn.addEventListener("submit", async e => { e.preventDefault(); const r = conn.elements.repo.value.trim() || DEFAULT_REPO, t = conn.elements.tok.value.trim(); if (!/^[\w.-]+\/[\w.-]+$/.test(r)) { setStatus("the repo should look like owner/name", true); return; } lsSet(K_REPO, r); lsSet(K_EXP, conn.elements.exp.value || null); if (t) lsSet(K_TOKEN, t); conn.elements.tok.value = ""; conn.hidden = true; cur = null; ++openSeq; await destroyEditor(); setTitle("", false); enable(false); await refresh(); if (t) syncwarn.seen("notes", "Notes", "notes", 200, lsGet(K_EXP)); });
-  listEl.addEventListener("keydown", e => { const it = e.target.closest(".nt-item"); if (it && (e.key === "Enter" || e.key === " ") && e.target === it) { e.preventDefault(); open(it.dataset.path); } else if (it && e.key === "Delete" && e.target === it) delPath(it.dataset.path); });
+  listEl.addEventListener("keydown", e => { const dr = e.target.closest(".nt-dir"); if (dr && e.target === dr && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); dr.click(); return; } const it = e.target.closest(".nt-item"); if (it && (e.key === "Enter" || e.key === " ") && e.target === it) { e.preventDefault(); open(it.dataset.path); } else if (it && e.key === "Delete" && e.target === it) delPath(it.dataset.path); });
+  listEl.addEventListener("dragstart", e => { const it = e.target.closest(".nt-item"); if (!it) return; e.dataTransfer.setData("text/plain", it.dataset.path); e.dataTransfer.effectAllowed = "move"; });
+  const dropTarget = e => { const d = e.target.closest("[data-dir]"); return d ? d.dataset.dir : e.target.closest(".nt-item") ? null : ""; };
+  listEl.addEventListener("dragover", e => { if (!e.dataTransfer.types.includes("text/plain")) return; const t = dropTarget(e); if (t === null) return; e.preventDefault(); listEl.querySelectorAll(".drop").forEach(x => x.classList.remove("drop")); (e.target.closest("[data-dir]") || listEl).classList.add("drop"); });
+  listEl.addEventListener("dragleave", e => { if (!listEl.contains(e.relatedTarget)) listEl.querySelectorAll(".drop").forEach(x => x.classList.remove("drop")); });
+  listEl.addEventListener("drop", e => { const t = dropTarget(e); listEl.querySelectorAll(".drop").forEach(x => x.classList.remove("drop")); const p = e.dataTransfer.getData("text/plain"); if (t === null || !p) return; e.preventDefault(); moveNote(p, t); });
   fileIn.addEventListener("change", () => { const f = fileIn.files[0]; fileIn.value = ""; attach(f); });
   picIn.addEventListener("change", () => { const f = picIn.files[0]; picIn.value = ""; addPicture(f); });
   titleEl.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); titleEl.blur(); crepe && crepe.editor.action(c => c.get(ext.core.editorViewCtx).focus()); } }); titleEl.addEventListener("change", rename);
