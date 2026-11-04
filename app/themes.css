@@ -792,8 +792,8 @@ body.theme-glass[data-tab=notes][data-ntth=dark]{background:radial-gradient(900p
 @media (min-width:901px){
   /* the corner artefact: the glass lives on a rounded layer behind the card instead of on a clipped box */
   .nt-main{background:none!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;border:0!important;box-shadow:none!important;overflow:visible!important;isolation:isolate}
-  .nt-main::before{content:"";position:absolute;inset:0;z-index:-1;border-radius:22px;background:var(--glass);border:1px solid var(--gedge);box-shadow:inset 0 1px 0 var(--ghi);pointer-events:none}
-  .nt-main::after{content:"";position:absolute;inset:0;z-index:-2;border-radius:22px;box-shadow:0 24px 70px var(--gsh);pointer-events:none}
+  .nt-main::before{content:"";position:absolute;inset:0;z-index:-1;border-radius:22px;background:var(--glass);border:1px solid var(--gedge);box-shadow:inset 0 1px 0 var(--ghi),0 12px 36px var(--gsh);pointer-events:none}
+  .nt-main::after{content:none}
 }
 
 /* selection bar and a calmer comment colour: pastel blue, so it never clashes with the yellow highlighter */
@@ -814,3 +814,8 @@ body.theme-glass[data-tab=notes][data-ntth=dark]{background:radial-gradient(900p
 .nt-oi{display:block;width:100%;box-sizing:border-box;text-align:left!important}
 
 /* the card's glass is a plain translucent layer: the page behind it is a soft gradient, so a blur added nothing and its square corners showed */
+
+/* outline: no box, a quiet tint and a slow slide */
+.nt-oi{transition:background .45s ease,color .45s ease}
+.nt-oi.on{background:color-mix(in srgb,var(--tx) 5%,transparent)!important;box-shadow:none!important}
+.nt-oi::before{transition:height .45s cubic-bezier(.4,0,.2,1)}
