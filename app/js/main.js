@@ -16,6 +16,7 @@ import { fitLift, fitGroup, journeyHTML, bodyStats, GROUPS, groupOf } from "./pr
 import { initCalendar } from "./calendar.js";
 import { initTerminal } from "./terminal.js";
 import { initHome } from "./home.js";
+import { initNotes } from "./notes.js";
 import { weightHTML, weightEntryHTML, wireWeight, latestWeight } from "./weight.js";
 import { initSky } from "./sky.js";
 import { initWeather } from "./weather.js";
@@ -412,13 +413,13 @@ const last2 = k => { for (let i = 0; i < 4; i++) { const v = byDate[addDays(toda
 
 // tabs: Health (everything above) and Productivity (focus timer). The timer keeps running while Health is shown.
 {
-  const TABS = ["home", "health", "prod", "gym", "cal"], setTab = k => { document.body.dataset.tab = k; dispatchEvent(new CustomEvent("tab", { detail: k })); document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.t === k)); try { localStorage.setItem("tab", k); } catch {} };
+  const TABS = ["home", "health", "prod", "gym", "cal", "notes"], setTab = k => { document.body.dataset.tab = k; dispatchEvent(new CustomEvent("tab", { detail: k })); document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.t === k)); try { localStorage.setItem("tab", k); } catch {} };
   $("tabs").addEventListener("click", e => { const b = e.target.closest("button"); if (b) setTab(b.dataset.t); });
   let k = "health"; try { k = localStorage.getItem("tab") || k; } catch {}
   if (k === "console") k = "home";
   { const want = new URLSearchParams(location.search).get("tab"); if (want && TABS.includes(want)) k = want; }   // home.html links straight to a tab: ?tab=cal
   setTab(TABS.includes(k) ? k : "health");
-  initHome($("homeRoot"));
+  initHome($("homeRoot")); { let on = false; const go = () => { if (!on && document.body.dataset.tab === "notes") { on = true; initNotes($("notesRoot")); } }; addEventListener("tab", go); go(); }
   const timerApi = initTimer($("timerRoot")), calApi = initCalendar($("calRoot"), { demo: DEMO }), tasksApi = initTasks($("tasksRoot"));
   gymLogApi = initGymLog($("glogRoot"), { demo: DEMO });
   initTerminal($("consoleRoot"), { demo: DEMO, api: { timer: timerApi, cal: calApi, tasks: tasksApi, gym: () => gymLogApi, health: () => ({ days, byDate, today, A, addDays, bad }) } });

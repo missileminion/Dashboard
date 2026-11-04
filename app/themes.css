@@ -58,8 +58,8 @@ body.theme-glass{--rep:#8d929c}
 @media (prefers-color-scheme:light){body.theme-glass{--rep:#505869}}
 
 /* ---------- tabs ---------- */
-body[data-tab=home] .hv,body[data-tab=prod] .hv,body[data-tab=gym] .hv,body[data-tab=cal] .hv{display:none!important}
-body:not([data-tab=cal]) #cal{display:none} body:not([data-tab=home]) #home{display:none}
+body[data-tab=home] .hv,body[data-tab=notes] .hv,body[data-tab=prod] .hv,body[data-tab=gym] .hv,body[data-tab=cal] .hv{display:none!important}
+body:not([data-tab=cal]) #cal{display:none} body:not([data-tab=home]) #home{display:none} body:not([data-tab=notes]) #notes{display:none}
 body:not([data-tab=prod]) #prod{display:none}
 body:not([data-tab=gym]) #glog{display:none}
 .bar .seg.tabs{margin-right:var(--s2)}
@@ -588,3 +588,22 @@ body[data-tab=home] .skybar{display:none!important} #home{position:relative;z-in
 /* Home keeps the dark glass look: the page glow follows the sky like the other tabs, with HAL on a dark glass card */
 body[data-tab=home] .bg-orbs{opacity:.75}   /* the same sky-coloured glow as every other tab, a little dimmer */
 #home{--tx:#eceef4;--tx2:#9096a8;--tx3:#6c7080;--line:rgba(255,255,255,.14);color:var(--tx)}
+
+/* Notes */
+body[data-tab=notes] .skybar{display:none!important} #notes{position:relative;z-index:1}
+.nt{display:grid;grid-template-columns:240px minmax(0,1fr);gap:14px;height:calc(100dvh - 130px);min-height:420px}
+.nt-side,.nt-main{border:1px solid var(--line);border-radius:18px;background:rgba(14,16,24,.62);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);color:#eceef4;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.nt-head{display:flex;align-items:center;gap:6px;padding:12px 12px 8px} .nt-head b{font-weight:600} .nt-mode{flex:1;font-size:11px;color:#9096a8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nt-btn{font:12px var(--sans);color:#eceef4;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:8px;padding:5px 9px;cursor:pointer} .nt-btn:hover{background:rgba(255,255,255,.14)} .nt-btn:disabled{opacity:.35;cursor:default}
+.nt-conn{display:flex;flex-direction:column;gap:6px;padding:4px 12px 10px} .nt-conn[hidden]{display:none} .nt-conn input{font:12px var(--sans);color:#eceef4;background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.14);border-radius:8px;padding:6px 8px;min-width:0}
+.nt-hint{font-size:11px;color:#9096a8;line-height:1.35} .nt-row{display:flex;gap:6px}
+.nt-list{flex:1;overflow:auto;padding:0 6px 10px} .nt-folder{font-size:11px;color:#9096a8;padding:10px 8px 3px;text-transform:uppercase;letter-spacing:.06em}
+.nt-item{display:flex;justify-content:space-between;gap:6px;width:100%;text-align:left;font:13.5px var(--sans);color:#d6d9e4;background:none;border:0;border-radius:8px;padding:7px 8px;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .nt-item:hover{background:rgba(255,255,255,.07)} .nt-item.on{background:rgba(255,255,255,.14);color:#fff} .nt-item i{font-size:10px;color:#9096a8;font-style:normal}
+.nt-empty{padding:14px 10px;font-size:13px;color:#9096a8}
+.nt-bar{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.1)} .nt-toggle{display:none}
+.nt-title{flex:1;min-width:0;font:600 18px var(--sans);color:#fff;background:none;border:0;outline:0} .nt-status{font-size:11px;color:#9096a8;white-space:nowrap} .nt-status.bad{color:#ff6b6b} .nt-del:hover{color:#ff6b6b}
+.nt-banner{padding:8px 14px;font-size:12.5px;background:rgba(255,107,107,.14);color:#ffb3b3} .nt-banner[hidden]{display:none}
+.nt-ed{flex:1;overflow:auto;min-height:0} .nt-frame{width:100%;height:100%;border:0;background:#fff}
+.nt-ed .milkdown{--crepe-color-background:transparent;background:transparent} .nt-ed .milkdown .ProseMirror{padding:24px 40px 80px}
+@media (max-width:900px){.nt{grid-template-columns:1fr;height:calc(100dvh - 150px)} .nt-side{display:flex} .nt .nt-main{display:none} #notesRoot.open .nt-side{display:none} #notesRoot.open .nt-main{display:flex} .nt-toggle{display:inline-block} .nt-ed .milkdown .ProseMirror{padding:16px 16px 80px}}
+.nt-ed .milkdown{--crepe-font-title:var(--sans),system-ui,sans-serif;--crepe-font-default:var(--sans),system-ui,sans-serif}
