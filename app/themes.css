@@ -819,3 +819,13 @@ body.theme-glass[data-tab=notes][data-ntth=dark]{background:radial-gradient(900p
 .nt-oi{transition:background .45s ease,color .45s ease}
 .nt-oi.on{background:color-mix(in srgb,var(--tx) 5%,transparent)!important;box-shadow:none!important}
 .nt-oi::before{transition:height .45s cubic-bezier(.4,0,.2,1)}
+
+/* the corner: .nt clipped the card's shadow to its own box, which drew a square patch in the corner */
+.nt{overflow:visible!important}
+/* the note's title lives in the bar above the page */
+.nt .nt-tabs textarea.nt-title{flex:1;min-width:0;margin:0 8px;padding:6px 4px;height:auto;font:600 19px/1.2 var(--serif)!important;letter-spacing:0;white-space:pre;overflow:hidden;text-overflow:ellipsis;text-wrap:nowrap;align-self:center;resize:none}
+.nt .nt-tabs textarea.nt-title::placeholder{color:var(--tx3)} .nt .nt-tabs textarea.nt-title:disabled{opacity:0}
+.nt-page{padding-top:44px}
+@media (max-width:900px){.nt-page{padding-top:18px} .nt .nt-tabs textarea.nt-title{font-size:18px!important}}
+/* version label, top right of every page */
+#ver{position:fixed;top:5px;right:10px;z-index:400;font:500 9.5px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.04em;color:var(--tx3,rgba(150,150,160,.7));opacity:.7;pointer-events:none;-webkit-user-select:none;user-select:none}
