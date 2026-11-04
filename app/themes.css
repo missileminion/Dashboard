@@ -708,3 +708,20 @@ body.theme-glass[data-tab=notes][data-ntth=light] .bar .seg.tabs{background:rgba
 body.theme-glass[data-tab=notes][data-ntth=light] .bar .seg.tabs button{color:rgba(42,36,26,.62)!important}
 body.theme-glass[data-tab=notes][data-ntth=light] .bar .seg.tabs button.on{color:#2a241a!important;background:rgba(120,88,30,.16)!important}
 body.theme-glass[data-tab=notes][data-ntth=light] .bar .seg.tabs button.on .ti{color:#8a5a14!important}
+
+/* the title wraps instead of being cut off */
+.nt textarea.nt-title{resize:none;overflow:hidden;font-family:var(--serif);font-size:clamp(36px,4.6vw,56px)!important;text-wrap:balance}
+@media (max-width:900px){.nt textarea.nt-title{font-size:36px!important}}
+/* desktop: the same layout as Home. The editor is a card taking about 80% of the width and the notes list is a plain column on the right. */
+@media (min-width:901px){
+  body[data-tab=notes] .panel{max-width:1240px}
+  .nt{position:relative!important;left:auto;right:auto;top:auto;bottom:auto;z-index:1;height:calc(100dvh - var(--hm-top,104px) - 18px)!important;min-height:440px;grid-template-columns:minmax(0,4fr) minmax(170px,1fr);gap:28px;background:none;align-items:stretch}
+  .nt.nofiles{grid-template-columns:minmax(0,1fr);gap:0}
+  .nt-main{order:1;background:var(--main);border:1px solid var(--line);border-radius:22px;overflow:hidden;box-shadow:0 18px 60px rgba(0,0,0,.3)}
+  .nt-tabs{padding-top:10px}
+  .nt-side{order:2;background:none;border-right:0;padding-top:6px}
+  .nt-sbar{padding:6px 4px 8px 4px}
+  .nt-list{padding:2px 0 12px}
+  .nt-vault,.nt-trashrow,.nt-conn,.nt-selbar{padding-left:6px;padding-right:6px}
+  .nt-foot{bottom:16px}
+}

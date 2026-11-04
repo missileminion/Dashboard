@@ -96,7 +96,7 @@ export function initNotes(root) {
     <div class="nt-main">
       <div class="nt-tabs"><button type="button" class="nt-ib nt-side-t" data-a="side" title="Show or hide the file list" aria-label="Show or hide the file list">${ic("side")}</button><button type="button" class="nt-ib nt-back" data-a="list" aria-label="All notes">${ic("chev")}</button><div class="nt-tablist"></div><button type="button" class="nt-ib" data-a="new" title="New note" aria-label="New note">${ic("plus")}</button><button type="button" class="nt-ib nt-exp" data-a="export" title="Export this note" aria-label="Export this note" disabled>${ic("down")}</button><span class="nt-rt"></span><span class="nt-status" role="status"><i class="nt-sd"></i><span class="nt-msg"></span></span></div>
       <div class="nt-xmenu" hidden><button type="button" class="nt-pi" data-x="md">Markdown</button><button type="button" class="nt-pi" data-x="pdf">PDF</button></div><div class="nt-banner" hidden></div>
-      <div class="nt-scroll"><div class="nt-page"><input class="nt-title" placeholder="Untitled" spellcheck="false" disabled><div class="nt-ed"></div><div class="nt-hello">No note open</div></div></div>
+      <div class="nt-scroll"><div class="nt-page"><textarea class="nt-title" rows="1" placeholder="Untitled" spellcheck="false" disabled></textarea><div class="nt-ed"></div><div class="nt-hello">No note open</div></div></div>
       <div class="nt-pop" hidden></div><div class="nt-cpop" hidden></div>
       <div class="nt-foot"><div class="nt-tools"></div></div>
       <input type="file" class="nt-file" hidden><input type="file" class="nt-pic" accept="image/*" hidden>
@@ -108,8 +108,8 @@ export function initNotes(root) {
     const k = /^saved/.test(t) ? "saved" : /^(unsaved|saving)/.test(t) ? "dirty" : ""; sdEl.dataset.s = k; statusEl.title = t; statusEl.setAttribute("aria-label", t || "no note open"); msgEl.textContent = k ? "" : t; statusEl.classList.toggle("bad", !!bad);
   };
   const showBanner = html => { banner.hidden = !html; banner.innerHTML = html || ""; };
-  const enable = on => { $(".nt-exp").disabled = !on; toolsEl.classList.toggle("off", !on || !crepe); }, setTitle = (v, on) => { titleEl.value = v; titleEl.disabled = !on; root.classList.toggle("blank", !on); };
-  const mode = () => { modeEl.textContent = cfg.remote ? "GitHub" : "Local"; modeEl.title = cfg.remote ? cfg.repo : "not saved to GitHub yet"; $(".nt-repo").textContent = cfg.remote ? cfg.repo.split("/")[1] : "Local notes"; };
+  const enable = on => { $(".nt-exp").disabled = !on; toolsEl.classList.toggle("off", !on || !crepe); }, sizeTitle = () => { titleEl.style.height = "auto"; titleEl.style.height = titleEl.scrollHeight + "px"; }, setTitle = (v, on) => { titleEl.value = v; titleEl.disabled = !on; sizeTitle(); requestAnimationFrame(sizeTitle); root.classList.toggle("blank", !on); };
+  const mode = () => { modeEl.textContent = ""; modeEl.title = cfg.remote ? cfg.repo : "not saved to GitHub yet"; $(".nt-repo").textContent = cfg.remote ? cfg.repo.split("/")[1] : "Local notes"; };
   const applyTheme = (quick) => { const dark = theme === "dark" || (theme === "auto" && matchMedia("(prefers-color-scheme: dark)").matches); nt.dataset.th = dark ? "dark" : "light"; document.body.dataset.ntth = dark ? "dark" : "light"; const b = root.querySelector('[data-a=theme]'); b.innerHTML = ic(dark ? "moon" : "sun"); b.title = dark ? "Switch to light (cream)" : "Switch to dark"; };
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => applyTheme()); applyTheme();
   toolsEl.innerHTML = TOOLS.map(t => t[0] === "|" ? '<i class="nt-sep"></i>' : t[0] === "h" ? `<button type="button" class="nt-t nt-h" data-tool="h" title="Heading"><b>H</b><small>▾</small></button>` : `<button type="button" class="nt-t" data-tool="${t[0]}" title="${t[2]}" aria-label="${t[2]}">${ic(t[1])}</button>`).join("");
@@ -418,13 +418,13 @@ export function initNotes(root) {
   edEl.addEventListener("drop", e => { const fs = [...((e.dataTransfer && e.dataTransfer.files) || [])]; if (!fs.length) return; e.preventDefault(); e.stopPropagation(); /^image\//.test(fs[0].type) ? addPicture(fs[0]) : attach(fs[0]); }, true);
   fileIn.addEventListener("change", () => { const f = fileIn.files[0]; fileIn.value = ""; attach(f); });
   picIn.addEventListener("change", () => { const f = picIn.files[0]; picIn.value = ""; addPicture(f); });
-  titleEl.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); titleEl.blur(); crepe && crepe.editor.action(c => c.get(ext.core.editorViewCtx).focus()); } }); titleEl.addEventListener("change", rename);
+  titleEl.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); titleEl.blur(); crepe && crepe.editor.action(c => c.get(ext.core.editorViewCtx).focus()); } }); titleEl.addEventListener("change", rename); titleEl.addEventListener("input", sizeTitle); addEventListener("resize", sizeTitle);
   addEventListener("online", () => save());
   document.addEventListener("visibilitychange", () => { if (document.hidden) flush(); }); addEventListener("pagehide", () => { flush(); });
   const vv = window.visualViewport, fitV = () => { nt.style.setProperty("--vvh", (vv ? vv.height : innerHeight) + "px"); nt.style.setProperty("--vvt", (vv ? vv.offsetTop : 0) + "px"); document.body.classList.toggle("kbd", !!vv && innerHeight - vv.height > 140); }; if (vv) { vv.addEventListener("resize", fitV); vv.addEventListener("scroll", fitV); } fitV();
   const centre = () => run((ctx, v) => { try { const c = v.coordsAtPos(v.state.selection.head), r = scrollEl.getBoundingClientRect(), d = (c.top + c.bottom) / 2 - (r.top + r.height * 0.4); if (Math.abs(d) > 8) scrollEl.scrollBy({ top: d, behavior: "auto" }); } catch {} });
   edEl.addEventListener("input", () => requestAnimationFrame(centre)); edEl.addEventListener("keyup", e => { if (["Enter", "ArrowDown", "ArrowUp", "Backspace"].includes(e.key)) requestAnimationFrame(centre); });
-  const fit = () => { if (nt.offsetParent) { const tb = document.getElementById("tabs"), r = tb && tb.getBoundingClientRect(); nt.style.setProperty("--nt-top", Math.round(r && r.height ? r.bottom + 8 : 56) + "px"); } }; addEventListener("resize", fit); addEventListener("tab", () => setTimeout(fit, 30)); fit(); setTimeout(fit, 300);
+  const fit = () => { if (nt.offsetParent) { const tb = document.getElementById("tabs"), r = tb && tb.getBoundingClientRect(); nt.style.setProperty("--nt-top", Math.round(r && r.height ? r.bottom + 8 : 56) + "px"); const sec = root.closest("#notes"); if (sec) document.documentElement.style.setProperty("--hm-top", Math.round(sec.getBoundingClientRect().top + scrollY) + "px"); } }; addEventListener("resize", fit); addEventListener("tab", () => setTimeout(fit, 30)); fit(); setTimeout(fit, 300);
   setTitle("", false); enable(false);
   refresh().then(() => { const last = tabs[tabs.length - 1]; if (last && files.includes(last) && innerWidth > 900) open(last); });
 }
