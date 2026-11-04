@@ -1,4 +1,4 @@
-// The Home tab: a search box, your links in groups, and one line of text, over a field of plus signs. It is only links; nothing is fetched except site icons.
+// The Home tab: a search box, your links in groups, and one line of text, over a field of plus signs. It is only links; nothing is fetched from anywhere.
 // The links below are public (this file is on GitHub). Anything private goes in through the pencil button: those links are kept in this browser only.
 const GROUPS = [
   ["School", [["Canvas", "https://coastdistrict.instructure.com/"], ["MATLAB grader", "https://grader.mathworks.com/courses/176768-engr-a220-23180-programming-and-problem-solving-in-matlab-fall-2026"], ["Drive", "https://drive.google.com/drive/u/3/"]]],
@@ -9,7 +9,6 @@ const GROUPS = [
 const TEXT = "enfocate.";
 const EXTRA = "home.extra", HIDE = "home.hide";   // links you added (group, name, address) and built-in ones you removed (addresses)
 const rd = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) || d; } catch { return d; } }, wr = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
-const hostOf = u => { try { return new URL(u, location.href).hostname; } catch { return ""; } };
 
 export function initHome(root) {
   root.innerHTML = `<div class="hm">
@@ -25,10 +24,10 @@ export function initHome(root) {
   </div>`;
   const wrap = root.querySelector(".hm"), box = root.querySelector(".hm-groups"), search = root.querySelector(".hm-search"), q = search.querySelector("input"), add = root.querySelector(".hm-add"), note = root.querySelector(".hm-note"), edit = root.querySelector(".hm-edit");
   root.querySelector(".hm-text").textContent = TEXT;
-  const letter = (t, name) => { t.textContent = ""; let hue = 0; for (const c of name) hue = (hue * 31 + c.charCodeAt(0)) % 360; t.style.background = `hsl(${hue} 38% 30%)`; const b = document.createElement("b"); b.textContent = (name[0] || "?").toUpperCase(); t.appendChild(b); };
+  const mono = name => { const w = name.replace(/[^\p{L}\p{N} ]/gu, "").split(/\s+/).filter(Boolean); return (w.length > 1 ? w[0][0] + w[1][0] : (w[0] || "?").slice(0, 2)).toUpperCase(); };   // two letters: NYTimes NY, NYT Cooking NC, Boox notes BN
   const tile = (name, url, onRemove) => {
-    const a = document.createElement("a"), t = document.createElement("div"), s = document.createElement("span"), h = hostOf(url); a.className = "hm-lk"; a.href = url; a.title = name; t.className = "hm-tile"; s.textContent = name;
-    if (/^https?:/i.test(url) && h) { const im = new Image(); im.alt = ""; im.referrerPolicy = "no-referrer"; im.src = "https://www.google.com/s2/favicons?domain=" + encodeURIComponent(h) + "&sz=64"; im.onerror = () => letter(t, name); im.onload = () => { if (im.naturalWidth < 17) letter(t, name); }; t.appendChild(im); } else letter(t, name);
+    const a = document.createElement("a"), t = document.createElement("div"), s = document.createElement("span"); a.className = "hm-lk"; a.href = url; a.title = name; t.className = "hm-tile"; s.textContent = name;
+    const b = document.createElement("b"); b.textContent = mono(name); t.appendChild(b);
     const x = document.createElement("button"); x.type = "button"; x.className = "hm-x"; x.textContent = "×"; x.setAttribute("aria-label", "Remove " + name); x.addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); onRemove(); });
     a.addEventListener("click", e => { if (wrap.classList.contains("editing")) e.preventDefault(); });
     a.append(t, s, x); return a;
@@ -45,7 +44,7 @@ export function initHome(root) {
   }
   render();
   edit.addEventListener("click", () => { const on = wrap.classList.toggle("editing"); add.hidden = note.hidden = !on; });
-  add.addEventListener("submit", e => { e.preventDefault(); const f = new FormData(add); let u = String(f.get("url") || "").trim(), n = String(f.get("name") || "").trim(), g = String(f.get("group") || "").trim() || "Other"; if (!u) return; if (!/^[a-z][a-z0-9+.-]*:|^\.{0,2}\/|^\?/i.test(u)) u = "https://" + u; if (!n) n = hostOf(u).replace(/^www\./, "") || u; wr(EXTRA, [...rd(EXTRA, []), [g, n, u]]); add.reset(); render(); });
+  add.addEventListener("submit", e => { e.preventDefault(); const f = new FormData(add); let u = String(f.get("url") || "").trim(), n = String(f.get("name") || "").trim(), g = String(f.get("group") || "").trim() || "Other"; if (!u) return; if (!/^[a-z][a-z0-9+.-]*:|^\.{0,2}\/|^\?/i.test(u)) u = "https://" + u; if (!n) n = (() => { try { return new URL(u, location.href).hostname.replace(/^www\./, ""); } catch { return u; } })(); wr(EXTRA, [...rd(EXTRA, []), [g, n, u]]); add.reset(); render(); });
   // typing an address in the search box goes straight there; anything else is a web search
   search.addEventListener("submit", e => { const v = q.value.trim(); if (/^(https?:\/\/)?[\w-]+(\.[\w-]+)+(\/\S*)?$/i.test(v)) { e.preventDefault(); location.href = /^https?:/i.test(v) ? v : "https://" + v; } });
 
@@ -53,8 +52,8 @@ export function initHome(root) {
   const cv = document.createElement("canvas"); cv.className = "hm-field"; cv.setAttribute("aria-hidden", "true"); document.body.appendChild(cv); const g = cv.getContext("2d");
   const draw = () => {
     if (document.body.dataset.tab !== "home") return;
-    const dpr = Math.min(2, devicePixelRatio || 1), W = innerWidth, H = innerHeight, ink = getComputedStyle(document.body).getPropertyValue("--tx").trim() || "#fff";
-    cv.width = W * dpr; cv.height = H * dpr; g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H); g.lineCap = "round"; g.strokeStyle = ink;
+    const dpr = Math.min(2, devicePixelRatio || 1), W = innerWidth, H = innerHeight;
+    cv.width = W * dpr; cv.height = H * dpr; g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H); const glow = g.createRadialGradient(W / 2, H * .42, 0, W / 2, H * .42, Math.max(W, H) * .62); glow.addColorStop(0, "rgba(255,255,255,.07)"); glow.addColorStop(1, "rgba(255,255,255,0)"); g.fillStyle = glow; g.fillRect(0, 0, W, H); g.lineCap = "round"; g.strokeStyle = "#fff";
     const plus = (x, y, r, a, w) => { g.globalAlpha = a; g.lineWidth = w; g.beginPath(); g.moveTo(x - r, y); g.lineTo(x + r, y); g.moveTo(x, y - r); g.lineTo(x, y + r); g.stroke(); }, ox = (W % 50) / 2, oy = (H % 50) / 2;
     for (let j = 0, y = oy; y < H; y += 50, j++) for (let i = 0, x = ox; x < W; x += 50, i++) (i % 5 === 0 && j % 5 === 0) ? plus(x, y, 6, .55, 1.4) : plus(x, y, 3, .18, 1);
   };

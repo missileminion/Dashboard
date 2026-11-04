@@ -596,3 +596,8 @@ body[data-tab=home] .skybar{display:none!important} #home{position:relative;z-in
 
 /* sun path: smaller task text */
 .ag-path .ag-ev{font-size:calc(11px / var(--k,1.3))!important} .ag-path .ag-evt{font-size:calc(8.5px / var(--k,1.3))!important}
+
+/* Home is always dark: near-black with a faint glow, like a new-tab page, whatever the theme */
+body[data-tab=home]{background:#050505!important} body[data-tab=home] .bg-orbs{opacity:0!important;visibility:hidden}
+#home{--tx:#eceef4;--tx2:#9096a8;--tx3:#6c7080;--line:rgba(255,255,255,.14);color:var(--tx)}
+.hm-tile{background:rgba(255,255,255,.07)!important} .hm-tile b{font:600 15px/1 var(--mono)!important;letter-spacing:.04em;color:#eceef4!important}
