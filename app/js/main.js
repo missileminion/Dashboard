@@ -18,7 +18,6 @@ import { initTerminal } from "./terminal.js";
 import { initHome } from "./home.js";
 import { initNotes } from "./notes.js";
 import { VERSION } from "./version.js";
-import { initChrome } from "./chrome.js";
 import { weightHTML, weightEntryHTML, wireWeight, latestWeight } from "./weight.js";
 import { initSky } from "./sky.js";
 import { initWeather } from "./weather.js";
@@ -433,7 +432,6 @@ const last2 = k => { for (let i = 0; i < 4; i++) { const v = byDate[addDays(toda
     const cur = document.body.dataset.tab;
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); if (cur === "home") { if (prevTab) setTab(prevTab); else document.getElementById("tmIn")?.focus(); } else { prevTab = cur; setTab("home"); } }
   });
-  initChrome();   // title bar colour follows the page
   { const v = document.createElement("div"); v.id = "ver"; v.textContent = VERSION; document.body.appendChild(v); }   // the version, top right, updated by the commit hook
   renderWeightEntry();
   initSky({ demo: DEMO });
