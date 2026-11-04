@@ -412,23 +412,23 @@ const last2 = k => { for (let i = 0; i < 4; i++) { const v = byDate[addDays(toda
 
 // tabs: Health (everything above) and Productivity (focus timer). The timer keeps running while Health is shown.
 {
-  const TABS = ["home", "health", "prod", "gym", "cal", "console"], setTab = k => { document.body.dataset.tab = k; dispatchEvent(new CustomEvent("tab", { detail: k })); document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.t === k)); try { localStorage.setItem("tab", k); } catch {} };
+  const TABS = ["home", "health", "prod", "gym", "cal"], setTab = k => { document.body.dataset.tab = k; dispatchEvent(new CustomEvent("tab", { detail: k })); document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.t === k)); try { localStorage.setItem("tab", k); } catch {} };
   $("tabs").addEventListener("click", e => { const b = e.target.closest("button"); if (b) setTab(b.dataset.t); });
   let k = "health"; try { k = localStorage.getItem("tab") || k; } catch {}
+  if (k === "console") k = "home";
   { const want = new URLSearchParams(location.search).get("tab"); if (want && TABS.includes(want)) k = want; }   // home.html links straight to a tab: ?tab=cal
   setTab(TABS.includes(k) ? k : "health");
   initHome($("homeRoot"));
   const timerApi = initTimer($("timerRoot")), calApi = initCalendar($("calRoot"), { demo: DEMO }), tasksApi = initTasks($("tasksRoot"));
   gymLogApi = initGymLog($("glogRoot"), { demo: DEMO });
   initTerminal($("consoleRoot"), { demo: DEMO, api: { timer: timerApi, cal: calApi, tasks: tasksApi, gym: () => gymLogApi, health: () => ({ days, byDate, today, A, addDays, bad }) } });
-  // the command line from anywhere: Cmd/Ctrl+K opens it and, pressed again, returns to the page you were on; Esc on an empty line does the same
-  let prevTab = "health";
-  addEventListener("goto", e => { if (document.body.dataset.tab !== "console") prevTab = document.body.dataset.tab; setTab(e.detail); });
-  addEventListener("leaveconsole", () => { if (document.body.dataset.tab === "console") setTab(prevTab); });
+  // HAL lives on the Home tab. Cmd/Ctrl+K takes you there from anywhere, and pressed again (or Esc on an empty line) returns you to the page you came from; on Home with nowhere to return to it just focuses the line
+  let prevTab = null;
+  addEventListener("goto", e => { if (document.body.dataset.tab !== "home") prevTab = document.body.dataset.tab; setTab(e.detail); });
+  addEventListener("leaveconsole", () => { if (document.body.dataset.tab === "home" && prevTab) setTab(prevTab); });
   addEventListener("keydown", e => {
     const cur = document.body.dataset.tab;
-    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); if (cur === "console") setTab(prevTab); else { prevTab = cur; setTab("console"); } }
-    
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); if (cur === "home") { if (prevTab) setTab(prevTab); else document.getElementById("tmIn")?.focus(); } else { prevTab = cur; setTab("home"); } }
   });
   // phone: swipe left or right to cycle through the pages (the bottom bar is replaced by a row of dots showing where you are)
   {

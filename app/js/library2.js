@@ -272,6 +272,10 @@ export function addMore(X) {
     if (pick && pick.g && pick.need > 0) { const e = macrosOf(per, pick.g), over = []; if (e.fat > left.fat + 1 && pick.m !== "fat") over.push(`${g1(e.fat - Math.max(0, left.fat))} g too much fat`); if (e.carbs > left.carbs + 1 && pick.m !== "carbs") over.push(`${g1(e.carbs - Math.max(0, left.carbs))} g too much carbs`); if (e.protein > left.protein + 1 && pick.m !== "protein") over.push(`${g1(e.protein - Math.max(0, left.protein))} g too much protein`);
       await print([`eating ${g1(pick.g)} g to cover ${MN[pick.m]} gives ${g1(e.kcal)} kcal: P ${g1(e.protein)} · F ${g1(e.fat)} · C ${g1(e.carbs)} · fiber ${g1(e.fiber)}`, ...(over.length ? ["  but that overshoots: " + over.join(", ") + "; mix foods instead (need ... have ...)"] : [])], "tm-dim"); }
   });
+  def("sys", "web google g", "web best pasta recipe   |   web github.com", "search the web in a new tab (something that looks like an address opens it directly)", async a => {
+    const v = a.trim(); if (!v) U("usage: web best pasta recipe   ·   web github.com"); const isUrl = /^(https?:\/\/)?[\w-]+(\.[\w-]+)+(\/\S*)?$/i.test(v), url = isUrl ? (/^https?:/i.test(v) ? v : "https://" + v) : "https://www.google.com/search?q=" + encodeURIComponent(v), label = isUrl ? v : "a web search for " + v;
+    const w = window.open(url, "_blank", "noopener"); await print(w ? "opening " + label : { html: `the browser blocked the new tab: <a href="${esc(url)}" target="_blank" rel="noopener">open ${esc(label)}</a>` });
+  });
   def("sys", "backup", "backup", "download your weigh-ins, aliases and notes mirror as a JSON file", async () => {
     const out = { saved: new Date().toISOString(), weights: loadWeights(), aliases: JSON.parse(localStorage.getItem("console.aliases") || "{}") }; const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([JSON.stringify(out, null, 2)], { type: "application/json" })); a.download = `dash-backup-${ymd(new Date())}.json`; a.click(); await print(`✓ downloaded ${a.download}`);

@@ -15,7 +15,7 @@ const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const pad = n => String(n).padStart(2, "0"), hhmm = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 const DOW = { sun: 0, sunday: 0, mon: 1, monday: 1, tue: 2, tues: 2, tuesday: 2, wed: 3, wednesday: 3, thu: 4, thur: 4, thurs: 4, thursday: 4, fri: 5, friday: 5, sat: 6, saturday: 6 };
 const MON = { jan: 0, january: 0, feb: 1, february: 1, mar: 2, march: 2, apr: 3, april: 3, may: 4, jun: 5, june: 5, jul: 6, july: 6, aug: 7, august: 7, sep: 8, sept: 8, september: 8, oct: 9, october: 9, nov: 10, november: 10, dec: 11, december: 11 };
-const TABS = { home: "home", start: "home", newtab: "home", health: "health", h: "health", prod: "prod", productivity: "prod", timer: "prod", stickynote: "prod", notes: "prod", gym: "gym", gymlog: "gym", log: "gym", cal: "cal", calendar: "cal", console: "console", terminal: "console" };
+const TABS = { home: "home", start: "home", newtab: "home", health: "health", h: "health", prod: "prod", productivity: "prod", timer: "prod", stickynote: "prod", notes: "prod", gym: "gym", gymlog: "gym", log: "gym", cal: "cal", calendar: "cal", console: "home", terminal: "home", hal: "home" };
 // the core commands: [group, name, usage, description, aliases]
 const CORE = [
   ["log", "add", "add gym thu 5pm", "add a calendar event (add lunch tomorrow 12:30 for 45m)", ["ev", "event"]],
@@ -438,8 +438,8 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
   setInterval(blinkSync, 1000); new MutationObserver(() => requestAnimationFrame(blinkSync)).observe(root, { childList: true, subtree: true }); blinkSync();
   // phone keyboard: iOS slides the page up and hides the line being typed, so the console is cut to the visible area above the keyboard and kept at the end
   const vv = window.visualViewport;
-  if (vv) { let busyFit = false; const fit = () => { if (busyFit) return; busyFit = true; requestAnimationFrame(() => { busyFit = false; const kb = Math.max(0, innerHeight - vv.height - vv.offsetTop); scr.style.bottom = kb > 80 && document.activeElement === inp ? kb + "px" : ""; if (kb > 80) { scrollTo(0, 0); bottom(); } }); };
+  if (vv) { let busyFit = false; const fit = () => { if (busyFit) return; busyFit = true; requestAnimationFrame(() => { busyFit = false; const over = Math.round(root.getBoundingClientRect().bottom - (vv.offsetTop + vv.height)); scr.style.bottom = over > 40 && document.activeElement === inp ? over + "px" : ""; if (over > 40) bottom(); }); };
     vv.addEventListener("resize", fit); vv.addEventListener("scroll", fit); inp.addEventListener("blur", () => { scr.style.bottom = ""; }); inp.addEventListener("focus", () => setTimeout(fit, 300)); }
-  addEventListener("tab", e => { if (e.detail === "console") setTimeout(() => { boot(); inp.focus(); }, 450); });
-  if (document.body.dataset.tab === "console") { boot(); setTimeout(() => inp.focus(), 500); }
+  addEventListener("tab", e => { if (e.detail === "home") setTimeout(() => { boot(); inp.focus(); }, 450); });
+  if (document.body.dataset.tab === "home") { boot(); setTimeout(() => inp.focus(), 500); }
 }
