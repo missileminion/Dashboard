@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Editor test: Milkdown</title>
+<link rel="stylesheet" href="https://esm.sh/katex@0.16.11/dist/katex.min.css">
+<style>body{font:15px/1.5 system-ui;background:#10121a;color:#e8eaf2;margin:24px}#ed{border:1px solid #333;border-radius:10px;padding:14px;min-height:140px;max-width:760px}pre{white-space:pre-wrap;background:#0b0c12;padding:12px;border-radius:8px;max-width:760px}</style></head>
+<body><h3>Milkdown round-trip test</h3><div id="ed"></div><h4>Result</h4><pre id="out">running…</pre>
+<script type="module">
+const res = { loaded: {}, errors: [] }; window.__result = res; const out = document.getElementById("out");
+const imp = async (k, url) => { try { const m = await import(url); res.loaded[k] = true; return m; } catch (e) { res.loaded[k] = false; res.errors.push(k + ": " + e.message); return null; } };
+const core = await imp("core", "https://esm.sh/@milkdown/kit@7.23.0/core");
+const cm = await imp("commonmark", "https://esm.sh/@milkdown/kit@7.23.0/preset/commonmark");
+const gfm = await imp("gfm", "https://esm.sh/@milkdown/kit@7.23.0/preset/gfm");
+const utils = await imp("utils", "https://esm.sh/@milkdown/kit@7.23.0/utils");
+const mth = await imp("math", "https://esm.sh/@milkdown/plugin-math@7.5.9");
+if (core && cm && utils) {
+  try {
+    const src = `# Heading one\n\nSome *italic* and **bold** with <mark>highlight</mark> and <span style="color: #e5484d">red text</span>.\n\nInline math $E=mc^2$ here.\n\n$$\n\\int_0^1 x^2\\,dx = \\tfrac13 \\\\ \\{a\\}\n$$\n\n![Figure 1: test|400](_files/x.png)\n\n[a link](https://example.com)\n`;
+    let ed = core.Editor.make().config(ctx => { ctx.set(core.rootCtx, document.getElementById("ed")); ctx.set(core.defaultValueCtx, src); }).use(cm.commonmark);
+    if (gfm) ed = ed.use(gfm.gfm); if (mth) ed = ed.use(mth.math);
+    const editor = await ed.create();
+    const back = editor.action(utils.getMarkdown());
+    res.back = back;
+    res.checks = { heading: /^# Heading one/m.test(back), italic: /\*italic\*|_italic_/.test(back), bold: /\*\*bold\*\*/.test(back), highlight: /<mark>highlight<\/mark>/.test(back), color: /<span style="color: ?#e5484d">red text<\/span>/.test(back), inlineMath: /\$E=mc\^2\$/.test(back), blockMath: back.includes("\\int_0^1 x^2\\,dx = \\tfrac13 \\\\ \\{a\\}"), image: /!\[Figure 1: test\|400\]\(_files\/x\.png\)/.test(back), link: /\[a link\]\(https:\/\/example\.com\)/.test(back) };
+    res.dom = document.getElementById("ed").innerHTML.slice(0, 1500);
+  } catch (e) { res.errors.push("run: " + e.message); }
+}
+out.textContent = JSON.stringify(res, null, 2);
+</script></body></html>

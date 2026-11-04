@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Editor test: Milkdown Crepe</title>
+<link rel="stylesheet" href="https://esm.sh/@milkdown/crepe@7.23.0/lib/theme/common/style.css">
+<link rel="stylesheet" href="https://esm.sh/@milkdown/crepe@7.23.0/lib/theme/frame-dark/style.css">
+<style>body{margin:0;background:#10121a;color:#e8eaf2;font:15px system-ui}#ed{max-width:820px;margin:20px auto}pre{white-space:pre-wrap;max-width:820px;margin:0 auto}</style></head>
+<body><div id="ed"></div><pre id="out">running…</pre>
+<script type="module">
+const res = { errors: [] }; window.__result = res;
+try {
+  const { Crepe } = await import("https://esm.sh/@milkdown/crepe@7.23.0");
+  const src = `# Heading one\n\nSome *italic* and **bold** with <mark>highlight</mark> and <span style="color: #e5484d">red text</span>.\n\nInline math $E=mc^2$ here.\n\n$$\n\\int_0^1 x^2\\,dx = \\tfrac13 \\\\ \\{a\\}\n$$\n\n![Figure 1: test|400](https://picsum.photos/seed/a/600/300)\n\n[a link](https://example.com)\n`;
+  const crepe = new Crepe({ root: document.getElementById("ed"), defaultValue: src });
+  await crepe.create();
+  res.back = crepe.getMarkdown(); res.ok = true;
+  res.features = Object.keys(Crepe.Feature || {});
+} catch (e) { res.errors.push(e.message); }
+document.getElementById("out").textContent = JSON.stringify(res, null, 1);
+</script></body></html>
