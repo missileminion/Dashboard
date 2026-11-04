@@ -4,6 +4,7 @@
 import { syncwarn, EXPIRY_HEADER } from "./syncwarn.js";
 const ESM = "https://esm.sh/@milkdown/", CREPE = ESM + "crepe@7.23.0", KIT = ESM + "kit@7.23.0/";
 const CSS = [ESM + "crepe@7.23.0/lib/theme/common/style.css", "https://esm.sh/katex@0.16.11/dist/katex.min.css"];
+const FONT = "https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&display=swap";
 const K_THEME = "notes.theme", K_FOLD = "notes.fold", K_TABS = "notes.tabs", K_EXP = "notes.expires";
 const COLORS = [["Red", "#e5484d"], ["Orange", "#f76808"], ["Yellow", "#c99400"], ["Green", "#30a46c"], ["Blue", "#3e63dd"], ["Purple", "#8e4ec6"], ["Pink", "#d6409f"], ["Grey", "#8b8d98"]];
 const K_REPO = "notes.repo", K_TOKEN = "notes.token", K_LOCAL = "notes.local", DEFAULT_REPO = "missileminion/Notes", FILES = "_files";
@@ -57,7 +58,7 @@ const ICON = {
   quote: '<path d="M6 17c-1.5-1-2-2.500-2-4.500C4 9 6 7 8.500 6.500M15 17c-1.500-1-2-2.500-2-4.500 0-3.500 2-5.500 4.500-6"/>', block: '<rect x="3.500" y="4.500" width="17" height="15" rx="3"/><path d="M9.500 10l-2 2 2 2M14.500 10l2 2-2 2"/>',
   sigma: '<path d="M17 5H7l5 7-5 7h10"/>', mblock: '<rect x="3.500" y="4.500" width="17" height="15" rx="3"/><path d="M15 9h-6l3 3-3 3h6"/>', table: '<rect x="3.500" y="5" width="17" height="14" rx="2.500"/><path d="M3.500 10h17M3.500 14.500h17M9.500 5v14M14.500 5v14"/>',
   img: '<rect x="3.500" y="5" width="17" height="14" rx="3"/><circle cx="9" cy="10" r="1.500"/><path d="M4 17l5-4.500 3.500 3 3-2.500L20 16"/>', clip: '<path d="M20 11.500l-7.500 7.500a5 5 0 0 1-7-7l8-8a3.300 3.300 0 0 1 4.700 4.700l-8 8a1.700 1.700 0 0 1-2.400-2.400l7.300-7.300"/>', hr: '<path d="M4 12h16"/>',
-  chev: '<path d="M9 6l6 6-6 6"/>', x: '<path d="M7 7l10 10M17 7L7 17"/>', plus: '<path d="M12 5v14M5 12h14"/>', moon: '<path d="M20 14.500A8 8 0 0 1 9.500 4a8 8 0 1 0 10.500 10.500z"/>', sun: '<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.600 5.600L7 7M17 17l1.400 1.400M5.600 18.400L7 17M17 7l1.400-1.400"/>', file: '<path d="M6 3.500h8l4 4v13H6z"/>', folder: '<path d="M3.500 7a2 2 0 0 1 2-2H10l2 2.500h6.500a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>',
+  chev: '<path d="M9 6l6 6-6 6"/>', down: '<path d="M12 4v11M7.5 10.500L12 15l4.500-4.500M5 20h14"/>', x: '<path d="M7 7l10 10M17 7L7 17"/>', plus: '<path d="M12 5v14M5 12h14"/>', moon: '<path d="M20 14.500A8 8 0 0 1 9.500 4a8 8 0 1 0 10.500 10.500z"/>', sun: '<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.600 5.600L7 7M17 17l1.400 1.400M5.600 18.400L7 17M17 7l1.400-1.400"/>', file: '<path d="M6 3.500h8l4 4v13H6z"/>', folder: '<path d="M3.500 7a2 2 0 0 1 2-2H10l2 2.500h6.500a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>',
 };
 const ic = (n, w = 1.8) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[n]}</svg>`;
 const TOOLS = [   // id, icon, title
@@ -74,8 +75,8 @@ export function initNotes(root) {
       <div class="nt-vault"><span class="nt-repo"></span><button type="button" class="nt-ib" data-a="gear" title="Connect to GitHub" aria-label="Connect to GitHub">${ic("gear")}</button></div>
     </aside>
     <div class="nt-main">
-      <div class="nt-tabs"><button type="button" class="nt-ib nt-show" data-a="show" title="Show the file list" aria-label="Show the file list">${ic("side")}</button><button type="button" class="nt-ib nt-back" data-a="list" aria-label="All notes">${ic("chev")}</button><div class="nt-tablist"></div><button type="button" class="nt-ib" data-a="new" title="New note" aria-label="New note">${ic("plus")}</button><button type="button" class="nt-ib nt-trash" data-a="del" title="Delete this note" aria-label="Delete this note" disabled>${ic("x", 1.6)}</button></div>
-      <div class="nt-banner" hidden></div>
+      <div class="nt-tabs"><button type="button" class="nt-ib nt-show" data-a="show" title="Show the file list" aria-label="Show the file list">${ic("side")}</button><button type="button" class="nt-ib nt-back" data-a="list" aria-label="All notes">${ic("chev")}</button><div class="nt-tablist"></div><button type="button" class="nt-ib" data-a="new" title="New note" aria-label="New note">${ic("plus")}</button><button type="button" class="nt-ib nt-exp" data-a="export" title="Export this note" aria-label="Export this note" disabled>${ic("down")}</button><button type="button" class="nt-ib nt-trash" data-a="del" title="Delete this note" aria-label="Delete this note" disabled>${ic("x", 1.6)}</button></div>
+      <div class="nt-xmenu" hidden><button type="button" class="nt-pi" data-x="md">Markdown file (.md)</button><button type="button" class="nt-pi" data-x="pdf">PDF (opens the print dialog)</button></div><div class="nt-banner" hidden></div>
       <div class="nt-scroll"><div class="nt-page"><input class="nt-title" placeholder="Untitled" spellcheck="false" disabled><div class="nt-ed"></div><div class="nt-hello">Pick a note on the left, or press the pencil to start a new one.</div></div></div>
       <div class="nt-pop" hidden></div>
       <div class="nt-foot"><div class="nt-tools"></div><div class="nt-stat"><span class="nt-count"></span><span class="nt-status"></span><button type="button" class="nt-ib" data-a="theme" title="Light, dark or follow the system" aria-label="Theme"></button></div></div>
@@ -86,7 +87,7 @@ export function initNotes(root) {
   try { fold = new Set(JSON.parse(lsGet(K_FOLD) || "[]")); tabs = JSON.parse(lsGet(K_TABS) || "[]").filter(Boolean); } catch {}
   const setStatus = (t, bad) => { statusEl.textContent = t; statusEl.classList.toggle("bad", !!bad); };
   const showBanner = html => { banner.hidden = !html; banner.innerHTML = html || ""; };
-  const enable = on => { $(".nt-trash").disabled = !on; toolsEl.classList.toggle("off", !on || !crepe); }, setTitle = (v, on) => { titleEl.value = v; titleEl.disabled = !on; root.classList.toggle("blank", !on); };
+  const enable = on => { $(".nt-trash").disabled = !on; $(".nt-exp").disabled = !on; toolsEl.classList.toggle("off", !on || !crepe); }, setTitle = (v, on) => { titleEl.value = v; titleEl.disabled = !on; root.classList.toggle("blank", !on); };
   const mode = () => { modeEl.textContent = cfg.remote ? "GitHub" : "this browser only"; modeEl.title = cfg.remote ? cfg.repo : "not saved to GitHub yet"; $(".nt-repo").textContent = cfg.remote ? cfg.repo.split("/")[1] : "Local notes"; };
   const applyTheme = () => { const dark = theme === "dark" || (theme === "auto" && matchMedia("(prefers-color-scheme: dark)").matches); nt.dataset.th = dark ? "dark" : "light"; const b = root.querySelector('[data-a=theme]'); b.innerHTML = ic(dark ? "moon" : "sun"); b.title = `Theme: ${theme === "auto" ? "follows the system" : theme}. Click to change.`; };
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme); applyTheme();
@@ -142,7 +143,7 @@ export function initNotes(root) {
     return { list: [hl, col, rm].flat(), hl, col };
   }
   async function engine() {
-    if (mod) return; for (const h of CSS) { const l = document.createElement("link"); l.rel = "stylesheet"; l.href = h; document.head.appendChild(l); }
+    if (mod) return; { const f = document.createElement("link"); f.rel = "stylesheet"; f.href = FONT; document.head.appendChild(f); } for (const h of CSS) { const l = document.createElement("link"); l.rel = "stylesheet"; l.href = h; document.head.appendChild(l); }
     const [crepeM, utils, core, cm, gfm, cmds] = await Promise.all([import(CREPE), import(KIT + "utils"), import(KIT + "core"), import(KIT + "preset/commonmark"), import(KIT + "preset/gfm"), import(KIT + "prose/commands")]);
     mod = crepeM; ext = { kit: utils, core, cm, gfm, cmds, ...marks(utils) };
   }
@@ -211,6 +212,26 @@ export function initNotes(root) {
   // a link to a file in the private repo opens through the token; other links behave normally
   edEl.addEventListener("click", async e => { const a = e.target.closest("a[href]"); if (!a || !cur) return; const h = a.getAttribute("href"); if (!isRelative(h) || !cfg.remote) return; e.preventDefault(); try { const b = await remote.blob(resolve(cur.path, decodeURI(h))); window.open(URL.createObjectURL(b), "_blank"); } catch (x) { setStatus("could not open the file: " + x.message, true); } });
 
+  /* ----- export ----- */
+  const xmenu = $(".nt-xmenu"), download = (name, blob) => { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); };
+  async function exportMd() {
+    if (!cur) return; let md = cur.md;
+    if (cfg.remote) {   // pictures live in the private repo, so write them into the file itself
+      const re = /(!\[[^\]]*\]\()([^)\s]+)((?:\s+"[^"]*")?\))/g, jobs = [];
+      md.replace(re, (m, a, u) => { if (isRelative(u)) jobs.push(u); return m; });
+      const map = {}; setStatus("preparing the file…");
+      await Promise.all([...new Set(jobs)].map(async u => { try { map[u] = await readAsDataURL(await remote.blob(resolve(cur.path, decodeURI(u)))); } catch {} }));
+      md = md.replace(re, (m, a, u, z) => (map[u] ? a + map[u] + z : m)); setStatus("saved");
+    }
+    download(baseName(cur.path) + ".md", new Blob([md], { type: "text/markdown;charset=utf-8" }));
+  }
+  function exportPdf() {   // the page prints only the note (see the print rules in the stylesheet); choose "Save as PDF" in the dialog
+    if (!cur) return; const was = document.title; document.title = baseName(cur.path); root.classList.add("printing"); document.documentElement.classList.add("nt-print");
+    const done = () => { document.title = was; root.classList.remove("printing"); document.documentElement.classList.remove("nt-print"); removeEventListener("afterprint", done); }; addEventListener("afterprint", done); setTimeout(() => print(), 60);
+  }
+  xmenu.addEventListener("click", e => { const b = e.target.closest("[data-x]"); if (!b) return; xmenu.hidden = true; b.dataset.x === "md" ? exportMd() : exportPdf(); });
+  document.addEventListener("pointerdown", e => { if (!xmenu.hidden && !e.target.closest(".nt-xmenu,.nt-exp")) xmenu.hidden = true; });
+
   /* ----- the bottom toolbar ----- */
   const run = fn => { if (crepe) crepe.editor.action(ctx => fn(ctx, ctx.get(ext.core.editorViewCtx))); };
   const cmd = (c, payload) => run(ctx => ctx.get(ext.core.commandsCtx).call(c.key, payload));
@@ -250,7 +271,7 @@ export function initNotes(root) {
     const dir = e.target.closest("[data-dir]"); if (dir) { const d = dir.dataset.dir; fold.has(d) ? fold.delete(d) : fold.add(d); saveFold(); renderList(); return; }
     const it = e.target.closest(".nt-item"); if (it) { open(it.dataset.path); return; }
     const b = e.target.closest("[data-a]"); if (!b) return; const a = b.dataset.a;
-    if (a === "new") newNote(); else if (a === "del") del(); else if (a === "hide") nt.classList.add("nofiles"); else if (a === "show") nt.classList.remove("nofiles");
+    if (a === "export") xmenu.hidden = !xmenu.hidden; else if (a === "new") newNote(); else if (a === "del") del(); else if (a === "hide") nt.classList.add("nofiles"); else if (a === "show") nt.classList.remove("nofiles");
     else if (a === "theme") { theme = theme === "auto" ? "light" : theme === "light" ? "dark" : "auto"; lsSet(K_THEME, theme); applyTheme(); }
     else if (a === "gear") { conn.hidden = !conn.hidden; conn.elements.repo.value = cfg.repo; conn.elements.tok.value = ""; conn.elements.exp.value = lsGet(K_EXP); conn.elements.tok.placeholder = cfg.remote ? "token saved (paste a new one to replace)" : "token"; }
     else if (a === "disc") { lsSet(K_TOKEN, null); lsSet(K_EXP, null); syncwarn.seen("notes", "Notes", "notes", 200, null); conn.hidden = true; cur = null; tabs = []; saveTabs(); ++openSeq; await destroyEditor(); setTitle("", false); enable(false); await refresh(); }
@@ -261,6 +282,7 @@ export function initNotes(root) {
   picIn.addEventListener("change", () => { const f = picIn.files[0]; picIn.value = ""; addPicture(f); });
   titleEl.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); titleEl.blur(); crepe && crepe.editor.action(c => c.get(ext.core.editorViewCtx).focus()); } }); titleEl.addEventListener("change", rename);
   document.addEventListener("visibilitychange", () => { if (document.hidden) flush(); }); addEventListener("pagehide", () => { flush(); });
+  const fit = () => { if (nt.offsetParent) nt.style.setProperty("--nt-top", Math.round(nt.getBoundingClientRect().top + scrollY) + "px"); }; addEventListener("resize", fit); addEventListener("tab", () => setTimeout(fit, 30)); fit(); setTimeout(fit, 300);
   setTitle("", false); enable(false);
   refresh().then(() => { const last = tabs[tabs.length - 1]; if (last && files.includes(last) && innerWidth > 900) open(last); });
 }

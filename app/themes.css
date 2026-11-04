@@ -637,3 +637,32 @@ body[data-tab=notes] .skybar{display:none!important} #notes{position:relative;z-
   .nt-side{border-right:0} #notesRoot:not(.open) .nt-main{display:none} #notesRoot.open .nt-side{display:none} .nt-back{display:inline-flex} .nt-show,.nt.nofiles .nt-show{display:none} .nt-sbar [data-a=hide]{display:none}
   .nt-page{padding:18px 18px 110px} .nt-title{font-size:27px} .nt-count{display:none} .nt-stat{gap:6px} .nt .milkdown .ProseMirror{font-size:16px}
 }
+/* Notes, second pass: two floating glass panes, wider, with a newspaper typeface */
+body[data-tab=notes] .panel{max-width:min(1640px,100%)} body[data-tab=notes] .bg-orbs{opacity:1}
+.nt{--serif:"Source Serif 4","Cheltenham",Georgia,"Times New Roman",serif;--body:Georgia,"Times New Roman",serif;
+  --pane:linear-gradient(150deg,rgba(255,255,255,.10),rgba(255,255,255,.025) 55%,rgba(255,255,255,.05)),rgba(13,15,24,.46);--paneline:rgba(255,255,255,.16);--panehi:rgba(255,255,255,.22);--panesh:0 28px 80px rgba(0,0,0,.55);--strip:rgba(255,255,255,.035);--inp:rgba(0,0,0,.22)}
+.nt[data-th=light]{--pane:linear-gradient(150deg,rgba(255,252,242,.86),rgba(250,241,220,.58) 60%,rgba(255,250,236,.72)),rgba(250,243,226,.5);--paneline:rgba(255,255,255,.75);--panehi:rgba(255,255,255,.95);--panesh:0 24px 70px rgba(90,64,20,.22);--strip:rgba(120,90,30,.05);--inp:rgba(255,255,255,.55)}
+.nt{height:calc(100dvh - var(--nt-top,100px) - 14px);gap:14px;background:none;border:0;border-radius:0;overflow:visible}
+.nt-side,.nt-main{background:var(--pane);border:1px solid var(--paneline);border-radius:24px;box-shadow:inset 0 1px 0 var(--panehi),inset 0 0 0 1px rgba(255,255,255,.02),var(--panesh);-webkit-backdrop-filter:blur(30px) saturate(1.8);backdrop-filter:blur(30px) saturate(1.8);overflow:hidden}
+.nt-tabs,.nt-foot,.nt-vault{background:var(--strip)} .nt-tabs{border-bottom-color:var(--bd);padding-top:8px} .nt-foot,.nt-vault,.nt-conn{border-top-color:var(--bd)} .nt-tab.on{background:var(--on)} .nt-tab{border-radius:10px 10px 0 0}
+.nt-conn input,.nt-lf input{background:var(--inp)} .nt-pop,.nt-xmenu{background:var(--pane);-webkit-backdrop-filter:blur(30px) saturate(1.8);backdrop-filter:blur(30px) saturate(1.8);border:1px solid var(--paneline)}
+.nt-xmenu{position:absolute;top:46px;right:10px;z-index:20;border-radius:12px;padding:6px;box-shadow:0 14px 40px rgba(0,0,0,.4);min-width:220px} .nt-xmenu[hidden]{display:none}
+.nt-page{max-width:800px;padding:44px 40px 140px}
+.nt-title{font:700 40px/1.12 var(--serif);letter-spacing:-.018em;padding-bottom:14px} .nt-title::placeholder{font-weight:600}
+.nt .milkdown{--crepe-font-title:var(--serif);--crepe-font-default:var(--body)}
+.nt .milkdown .ProseMirror{font-family:var(--body);font-size:19px;line-height:1.72;letter-spacing:.002em} .nt .milkdown .ProseMirror p{margin:.2em 0 .8em}
+.nt .milkdown .ProseMirror h1,.nt .milkdown .ProseMirror h2,.nt .milkdown .ProseMirror h3,.nt .milkdown .ProseMirror h4{font-family:var(--serif);font-weight:700;letter-spacing:-.012em}
+.nt .milkdown .ProseMirror h1{font-size:2.05em} .nt .milkdown .ProseMirror h2{font-size:1.55em} .nt .milkdown .ProseMirror h3{font-size:1.28em} .nt .milkdown .ProseMirror h4{font-size:1.1em}
+.nt .milkdown .ProseMirror blockquote{font-style:italic;border-left:3px solid var(--ac);padding-left:16px;margin-left:0;color:var(--tx2)}
+.nt-empty,.nt-hello{font-family:var(--body)}
+@media (max-width:900px){.nt{height:calc(100dvh - var(--nt-top,120px) - 10px);gap:0} .nt-side,.nt-main{border-radius:20px} .nt-page{padding:22px 20px 120px} .nt-title{font-size:30px} .nt .milkdown .ProseMirror{font-size:17.5px} body[data-tab=notes] .panel{max-width:100%}}
+/* printing a note to PDF: only the page, on white, with the glass and chrome removed */
+@media print{
+  html.nt-print body>*:not(.panel){display:none!important}
+  body[data-tab=notes] .bar,body[data-tab=notes] section:not(#notes),body[data-tab=notes] .bg-orbs,body[data-tab=notes] #syncWarn,body[data-tab=notes] #pageDots{display:none!important}
+  body[data-tab=notes],body[data-tab=notes] .panel,#notes,#notesRoot,.nt,.nt-main,.nt-scroll,.nt-page{display:block!important;position:static!important;height:auto!important;max-height:none!important;overflow:visible!important;background:#fff!important;border:0!important;box-shadow:none!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;margin:0!important;padding:0!important;width:auto!important;max-width:none!important}
+  .nt-side,.nt-tabs,.nt-foot,.nt-banner,.nt-pop,.nt-xmenu,.nt-hello,.nt .milkdown .cm-editor,.nt .milkdown .tools,.nt .milkdown .operation-item,.nt .milkdown .block-handle,.nt .milkdown .cm-gutters{display:none!important}
+  .nt{--tx:#111;--tx2:#555;--bd:#ddd;--bg:#fff;--hl:rgba(255,214,0,.5);--code:#f3f3f3;--ac:#1a4fa0} .nt-page{padding:0!important} .nt-title{color:#111!important;font-size:30pt;padding:0 0 10pt;border-bottom:1px solid #ccc;margin-bottom:14pt}
+  .nt .milkdown .ProseMirror{color:#111;font-size:12pt;line-height:1.55}
+  .nt .milkdown .ProseMirror h1,.nt .milkdown .ProseMirror h2,.nt .milkdown .ProseMirror h3{break-after:avoid} .nt .milkdown .ProseMirror img,.nt .milkdown .ProseMirror table,.nt .milkdown .ProseMirror pre{break-inside:avoid;max-width:100%}
+}
