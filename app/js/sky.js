@@ -2,6 +2,7 @@
 // Night, twilight, blue hour, a warm vivid dawn, brighter day, golden hour, dusk, all blended continuously.
 // Where you are is read once from the browser (it asks permission; rounded to ~10 km, kept only in this browser, never sent anywhere).
 // Without permission it falls back to a guess from your timezone. Add ?sun=06:15 to the address to preview another time of day.
+const PHONE = "(max-width:700px), (pointer:coarse) and (hover:none) and (max-width:1100px)";
 const rad = Math.PI / 180, hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
 const lerp = (a, b, t) => a + (b - a) * t, smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
@@ -82,8 +83,16 @@ export function initSky({ demo = false } = {}) {
   const now = () => { if (manual != null) { const d = new Date(); d.setHours(0, 0, 0, 0); d.setMinutes(manual); return d; } if (!fixed) return new Date(); const [h, m] = fixed.split(":").map(Number), d = new Date(); d.setHours(h, m || 0, 0, 0); return d; };
   function apply() {
     const d = now(), { lat, lon } = place(), { alt, rising, east } = sunPos(d, lat, lon), { orbs: [o1, o2, o3], op } = glow(alt, east);
-    for (const n of names) { const a = P.dark[n]; if (a !== P.light[n]) body.style.setProperty(n, a); }   // dark UI always
     const set = (k, v) => body.style.setProperty(k, v);
+    if (matchMedia(PHONE).matches) {   // phones: no time-of-day theme. The system decides dark or light; the sun only adds a faint glow behind
+      const light = matchMedia("(prefers-color-scheme: light)").matches, extra = ["--page", "--none-bd", "--none-bar", "--track", "--line", "--edge", "--hair", "--soft", "--grid", "--grid-minor", "--hi", "--tx", "--ink", "--ink2", "--accent", "--tx2", "--rep", "--link", "--mid", "--neutral", "--tx3"];
+      for (const n of new Set([...names, ...extra])) { if (light) body.style.removeProperty(n); else if (P.dark[n] != null && P.dark[n] !== P.light[n]) set(n, P.dark[n]); else body.style.removeProperty(n); }
+      const tint = hex(o1), base = hex("#06070c"); if (!light) set("--page", css([0, 1, 2].map(i => lerp(base[i], tint[i], .07)).concat(1)));
+      set("--orb1", o1); set("--orb2", o2); set("--orb3", o3); set("--orb-op", (op * (light ? .55 : .5)).toFixed(3));
+      document.documentElement.style.colorScheme = light ? "light" : "dark";
+      window.sky = { alt: +alt.toFixed(1), rising, src: place().src, phone: true }; return;
+    }
+    for (const n of names) { const a = P.dark[n]; if (a !== P.light[n]) body.style.setProperty(n, a); }   // dark UI always (desktop)
     const cloud = Math.min(1, Math.max(0, (window.skyWeather?.cloud ?? 0) / 100)), day = smooth(-8, 24, alt) * (1 - .3 * cloud);   // the whole backdrop lifts a little as the sun climbs
     const base = hex("#010103"), lit = hex("#171c29"), tint = hex(o1), tw = (.12 + .06 * day) * smooth(-14, -2, alt);   // pure night is nearly black
     const page = [0, 1, 2].map(i => lerp(lerp(base[i], lit[i], day), tint[i], tw));
@@ -122,6 +131,6 @@ export function initSky({ demo = false } = {}) {
       $s("skyL").textContent = `${hm(m)} · sunrise ${hm(st.rise ?? 0)} · sunset ${hm(st.set ?? 0)} · sun ${alt.toFixed(0)}°`;
     } };
   }
-  addEventListener("sky:refresh", apply);
+  addEventListener("sky:refresh", apply); for (const q of [PHONE, "(prefers-color-scheme: light)"]) matchMedia(q).addEventListener("change", apply);
   apply(); setInterval(apply, 20000);   // the place comes from the weather card's city search (or a timezone guess until one is chosen)
 }
