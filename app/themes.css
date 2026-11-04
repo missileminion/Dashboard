@@ -569,7 +569,7 @@ body[data-swipe=l] .hv,body[data-swipe=l] #cal,body[data-swipe=l] #glog,body[dat
 
 /* Home tab: HAL (about 70%) beside a narrow column of text links, dark glass */
 body[data-tab=home] .skybar{display:none!important} #home{position:relative;z-index:1}
-.hm-split{display:grid;grid-template-columns:minmax(0,2.3fr) minmax(190px,1fr);gap:28px;align-items:start}
+.hm-split{display:grid;grid-template-columns:minmax(0,4fr) minmax(170px,1fr);gap:28px;align-items:start}
 #consoleRoot{position:relative;height:calc(100dvh - var(--hm-top,104px) - 18px);min-height:440px;background:rgba(7,9,16,.62);-webkit-backdrop-filter:blur(22px);backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,.13);border-radius:22px;overflow:hidden;box-shadow:0 18px 60px rgba(0,0,0,.45)}
 .hm{position:relative;display:flex;flex-direction:column;padding:6px 4px 60px}
 .hm-edit{align-self:flex-end;background:none;border:0;color:var(--tx2);cursor:pointer;padding:6px;border-radius:10px;opacity:.8} .hm-edit:hover,.hm.editing .hm-edit{opacity:1;color:var(--tx)}
@@ -581,6 +581,7 @@ body[data-tab=home] .skybar{display:none!important} #home{position:relative;z-in
 .hm-add{margin-top:26px;display:flex;gap:10px;flex-wrap:wrap} .hm-add[hidden],.hm-note[hidden]{display:none}
 .hm-add input{flex:1 1 120px;min-width:0;height:42px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--tx);padding:0 14px;font:15px var(--sans);outline:0} .hm-add input:focus{border-color:#6db8ff} .hm-add input[name=url]{flex:2 1 200px}
 .hm-add button{height:42px;padding:0 22px;border-radius:12px;border:0;background:var(--tx);color:#111;font:600 15px var(--sans);cursor:pointer}
+.hm-cancel{height:42px;padding:0 18px;border-radius:12px;border:1px solid var(--line);background:none;color:var(--tx2);font:15px var(--sans);cursor:pointer} .hm-cancel[hidden]{display:none} .hm.editing .hm-lk{cursor:pointer;border-bottom:1px dashed var(--tx3)}
 .hm-note{margin-top:12px;color:var(--tx3);font-size:12px}
 .hm-text{margin-top:48px;font:400 22px/1.25 "Iowan Old Style","Palatino Linotype",Georgia,serif;color:var(--tx2);letter-spacing:.01em}
 @media (max-width:900px){.hm-split{grid-template-columns:1fr;gap:22px} #consoleRoot{height:max(380px,62dvh)}}
