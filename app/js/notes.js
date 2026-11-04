@@ -89,10 +89,10 @@ export function initNotes(root) {
   root.innerHTML = `<div class="nt" data-th="dark">
     <aside class="nt-side">
       <div class="nt-sbar"><button type="button" class="nt-ib nt-home" data-a="home" title="Dashboard" aria-label="Dashboard">${ic("home")}</button><b class="nt-brand">Notes</b><span class="nt-mode"></span><button type="button" class="nt-ib" data-a="folder" title="New folder" aria-label="New folder">${ic("folderplus")}</button><button type="button" class="nt-ib" data-a="new" title="New note" aria-label="New note">${ic("new")}</button><button type="button" class="nt-ib nt-selbtn" data-a="select" title="Select notes to delete" aria-label="Select notes to delete">${ic("trash")}</button></div>
-      <div class="nt-seg"><button type="button" data-p="notes" class="on">Notes</button><button type="button" data-p="comments">Comments<i></i></button></div>
+      <div class="nt-seg"><button type="button" data-p="notes" class="on">Notes</button><button type="button" data-p="comments">Comments<i></i></button><button type="button" data-p="outline">Outline</button></div>
       <div class="nt-tablist nt-open" hidden></div>
       <div class="nt-find"><span class="nt-fi">${ic("search", 1.7)}</span><input type="search" placeholder="Search" aria-label="Search notes" spellcheck="false" autocomplete="off" data-1p-ignore><button type="button" class="nt-ib nt-sort" aria-label="Sort by last edited"></button></div>
-      <div class="nt-list"></div><div class="nt-cmts"></div>
+      <div class="nt-list"></div><div class="nt-cmts"></div><div class="nt-ol"></div>
       <div class="nt-selbar" hidden></div><div class="nt-trashrow" data-a="trashview" role="button" tabindex="0"></div>
       <form class="nt-conn" hidden><input name="repo" placeholder="owner/repo" autocomplete="off" spellcheck="false" data-1p-ignore><input class="nt-tok" name="tok" placeholder="token" autocomplete="off" autocapitalize="off" spellcheck="false" data-1p-ignore data-lpignore="true"><label class="nt-hint">Token expires<input type="date" name="exp"></label><div class="nt-row"><button type="submit" class="nt-btn">Save</button><button type="button" class="nt-btn" data-a="disc">Disconnect</button></div></form>
       <div class="nt-vault"><span class="nt-repo"></span><button type="button" class="nt-ib" data-a="theme" aria-label="Light or dark"></button><button type="button" class="nt-ib" data-a="gear" title="GitHub connection" aria-label="GitHub connection">${ic("gear")}</button></div>
@@ -399,6 +399,11 @@ export function initNotes(root) {
   let cmDraft = null, cmEdit = -1, cmTimer = 0, cmList = [];
   const cmCtx = () => { if (!crepe) return null; let v, ty; crepe.editor.action(ctx => { v = ctx.get(ext.core.editorViewCtx); ty = ext.cmt.type(ctx); }); return { v, ty }; };
   function cmScan() { const g = cmCtx(); const out = []; if (!g) return out; g.v.state.doc.descendants((node, pos) => { if (!node.isText) return; const m = node.marks.find(x => x.type === g.ty); if (!m) return; const l = out[out.length - 1]; if (l && l.t === m.attrs.text && l.d === m.attrs.date && l.to === pos) { l.to = pos + node.nodeSize; l.q += node.text; } else out.push({ from: pos, to: pos + node.nodeSize, t: m.attrs.text, d: m.attrs.date, q: node.text }); }); return out; }
+  const olEl = $(".nt-ol"), heads = () => [...edEl.querySelectorAll(".ProseMirror h1,.ProseMirror h2,.ProseMirror h3,.ProseMirror h4")];
+  function olSpy() { const hs = heads(), top = scrollEl.getBoundingClientRect().top + 110; let a = -1; hs.forEach((h, i) => { if (h.getBoundingClientRect().top <= top) a = i; }); olEl.querySelectorAll(".nt-oi").forEach((b, i) => b.classList.toggle("on", i === a)); }
+  function olRender() { const hs = heads(); olEl.innerHTML = hs.length ? hs.map((h, i) => `<button type="button" class="nt-oi l${h.tagName[1]}" data-i="${i}">${esc(h.textContent.trim() || "Untitled heading")}</button>`).join("") : '<div class="nt-empty">Headings in the note show up here.</div>'; olSpy(); }
+  olEl.addEventListener("click", e => { const b = e.target.closest(".nt-oi"); if (!b) return; const h = heads()[+b.dataset.i]; if (h) scrollEl.scrollTo({ top: scrollEl.scrollTop + h.getBoundingClientRect().top - scrollEl.getBoundingClientRect().top - 90, behavior: "smooth" }); });
+  let spyT = 0; scrollEl.addEventListener("scroll", () => { if (spyT || side.dataset.p !== "outline") return; spyT = setTimeout(() => { spyT = 0; olSpy(); }, 60); }, { passive: true });
   const cmShow = p => { side.dataset.p = p; segEl.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.p === p)); };
   function cmRender() {
     cmList = cmScan(); const n = cmList.length; segEl.querySelector("i").textContent = n ? n : "";
@@ -408,10 +413,10 @@ export function initNotes(root) {
     const draft = cmDraft ? `<form class="nt-cm edit draft"><div class="nt-q">${esc(cmDraft.q.length > 90 ? cmDraft.q.slice(0, 90) + "…" : cmDraft.q)}</div><textarea rows="3" placeholder="Write a comment…" spellcheck="true"></textarea><div class="nt-row"><button class="nt-btn nt-go" type="submit">Comment</button><button type="button" class="nt-btn" data-cm="cancel">Cancel</button></div></form>` : "";
     cmEl.innerHTML = draft + cmList.map(card).join("") || '<div class="nt-empty">Select text, then press the comment button.</div>';
   }
-  const cmLater = () => { clearTimeout(cmTimer); cmTimer = setTimeout(() => { if (!cmEl.contains(document.activeElement) || !document.activeElement.matches("textarea")) cmRender(); }, 150); };
+  const cmLater = () => { clearTimeout(cmTimer); cmTimer = setTimeout(() => { if (!cmEl.contains(document.activeElement) || !document.activeElement.matches("textarea")) cmRender(); if (side.dataset.p === "outline") olRender(); }, 150); };
   function cmFlash(i) { const g = cmCtx(), o = cmList[i]; if (!g || !o) return; const nd = g.v.domAtPos(o.from).node, el = nd.nodeType === 3 ? nd.parentElement : nd; el.scrollIntoView({ block: "center", behavior: "smooth" }); el.classList.add("nt-flash"); setTimeout(() => el.classList.remove("nt-flash"), 1400); }
   function cmStart(range) { const g = cmCtx(); if (!g) return; nt.classList.remove("nofiles"); cmDraft = { ...range, q: g.v.state.doc.textBetween(range.from, range.to, " ") }; cmEdit = -1; cmShow("comments"); cmRender(); const ta = cmEl.querySelector(".draft textarea"); ta && ta.focus(); }
-  segEl.addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; cmShow(b.dataset.p); if (b.dataset.p === "comments") cmRender(); });
+  segEl.addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; cmShow(b.dataset.p); if (b.dataset.p === "comments") cmRender(); if (b.dataset.p === "outline") olRender(); });
   cmEl.addEventListener("click", e => {
     const g = cmCtx(); if (!g) return; const card = e.target.closest(".nt-cm"), i = card ? +card.dataset.i : -1, act = e.target.closest("[data-cm]"), a = act && act.dataset.cm;
     if (a === "cancel") { cmDraft = null; cmEdit = -1; cmRender(); g.v.focus(); return; }
