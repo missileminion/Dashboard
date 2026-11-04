@@ -768,3 +768,29 @@ body.theme-glass[data-tab=notes][data-ntth=dark]{background:radial-gradient(900p
   .nt-vault{border-top:1px solid var(--line)}
   .nt-xmenu{background:var(--popbg);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px)}
 }
+
+/* ===== third polish: search, sort, long-press menu, corner fix, margins, table lines, hairline divider ===== */
+.nt-open{display:none!important}
+.nt-find{display:flex;align-items:center;gap:2px;margin:0 0 8px;padding:0 3px 0 10px;height:34px;border-radius:10px;background:var(--hov);border:1px solid var(--bd)} .nt-find:focus-within{border-color:var(--ac)}
+.nt-fi{display:inline-flex;color:var(--tx3)} .nt-fi svg{width:15px;height:15px}
+.nt-find input{flex:1;min-width:0;height:100%;background:none;border:0;outline:0;color:var(--tx);font:13.5px var(--ui);padding:0 6px;-webkit-appearance:none;appearance:none} .nt-find input::-webkit-search-cancel-button{display:none}
+.nt-sort{width:28px;height:28px} .nt-sort.on{background:var(--on);color:var(--tx)}
+.nt-hit{align-items:flex-start!important;padding-top:7px!important;padding-bottom:7px!important} .nt-hit>svg{margin-top:2px} .nt-hit>span{white-space:normal!important} .nt-hit small{display:block;margin-top:2px;color:var(--tx3);font-size:11.5px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.nt-row-i{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.nt-ctx{position:fixed!important;bottom:auto!important;z-index:300;min-width:160px;max-height:60vh;overflow:auto} .nt-ctx .nt-cap{padding:6px 12px 4px}
+/* the page: narrower margins */
+.nt-page{max-width:860px;padding:56px 56px calc(var(--vvh,100vh) * .5)}
+/* a thin rule instead of the starred divider */
+.nt .milkdown .ProseMirror hr{border:0!important;border-top:1px solid var(--line)!important;height:0;margin:1.5em 0;background:none} .nt .milkdown .ProseMirror hr::after{content:none!important}
+/* tables you can see */
+.nt .milkdown .ProseMirror table{border-collapse:collapse;--crepe-color-outline:color-mix(in srgb,var(--tx) 32%,transparent)}
+.nt .milkdown .ProseMirror table th,.nt .milkdown .ProseMirror table td{border:1px solid color-mix(in srgb,var(--tx) 32%,transparent)!important;padding:7px 11px} .nt .milkdown .ProseMirror table th{background:var(--hov);font-weight:600}
+/* comments in a PDF */
+.nt-fns{display:none} .nt-ed [data-fn]::after{content:"[" attr(data-fn) "]";font:600 .6em var(--ui);vertical-align:super;color:#555}
+@media print{html.nt-print .nt-fns{display:block!important;margin-top:2em;padding-top:.8em;border-top:1px solid #999;font:10pt/1.45 Georgia,serif;color:#222} .nt-fns h4{margin:0 0 .5em;font:600 9pt sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#555} .nt-fns p{margin:0 0 .4em} .nt-fns small{color:#777}}
+@media (max-width:900px){.nt-page{padding:22px 22px calc(var(--vvh,100vh) * .45)} .nt-find{margin:0 10px 8px}}
+@media (min-width:901px){
+  /* the corner artefact: the glass lives on a rounded layer behind the card instead of on a clipped box */
+  .nt-main{background:none!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;border:0!important;box-shadow:none!important;overflow:visible!important;isolation:isolate}
+  .nt-main::before{content:"";position:absolute;inset:0;z-index:-1;border-radius:22px;background:var(--glass);-webkit-backdrop-filter:blur(30px) saturate(1.6);backdrop-filter:blur(30px) saturate(1.6);border:1px solid var(--gedge);box-shadow:inset 0 1px 0 var(--ghi),0 24px 70px var(--gsh);pointer-events:none}
+}

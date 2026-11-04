@@ -75,6 +75,7 @@ const ICON = {
   quote: '<path d="M6 17c-1.5-1-2-2.500-2-4.500C4 9 6 7 8.500 6.500M15 17c-1.500-1-2-2.500-2-4.500 0-3.500 2-5.500 4.500-6"/>', block: '<rect x="3.500" y="4.500" width="17" height="15" rx="3"/><path d="M9.500 10l-2 2 2 2M14.500 10l2 2-2 2"/>',
   sigma: '<path d="M17 5H7l5 7-5 7h10"/>', mblock: '<rect x="3.500" y="4.500" width="17" height="15" rx="3"/><path d="M15 9h-6l3 3-3 3h6"/>', table: '<rect x="3.500" y="5" width="17" height="14" rx="2.500"/><path d="M3.500 10h17M3.500 14.500h17M9.500 5v14M14.500 5v14"/>',
   img: '<rect x="3.500" y="5" width="17" height="14" rx="3"/><circle cx="9" cy="10" r="1.500"/><path d="M4 17l5-4.500 3.500 3 3-2.500L20 16"/>', clip: '<path d="M20 11.500l-7.500 7.500a5 5 0 0 1-7-7l8-8a3.300 3.300 0 0 1 4.700 4.700l-8 8a1.700 1.700 0 0 1-2.400-2.400l7.300-7.300"/>', hr: '<path d="M4 12h16"/>',
+  search: '<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/>', clock: '<circle cx="12" cy="12" r="8.500"/><path d="M12 7.500V12l3 2"/>',
   chev: '<path d="M9 6l6 6-6 6"/>', home: '<path d="M3.5 11.5L12 4l8.5 7.5M5.5 10v10h13V10"/>', folderplus: '<path d="M3.5 7a2 2 0 0 1 2-2H10l2 2.500h6.500a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2zM12 10.500v5M9.500 13h5"/>', trash: '<path d="M4.5 7h15M10 4h4M6.5 7l.8 12a1.5 1.5 0 0 0 1.5 1.4h6.4a1.5 1.5 0 0 0 1.5-1.4L17.5 7M10 11v6M14 11v6"/>', comment: '<path d="M5 5.5h14a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5H11l-4 3.5V16.5H5A1.5 1.5 0 0 1 3.5 15V7A1.5 1.5 0 0 1 5 5.5z"/>', down: '<path d="M12 4v11M7.5 10.500L12 15l4.500-4.500M5 20h14"/>', x: '<path d="M7 7l10 10M17 7L7 17"/>', plus: '<path d="M12 5v14M5 12h14"/>', moon: '<path d="M20 14.500A8 8 0 0 1 9.500 4a8 8 0 1 0 10.500 10.500z"/>', sun: '<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.600 5.600L7 7M17 17l1.400 1.400M5.600 18.400L7 17M17 7l1.400-1.400"/>', file: '<path d="M6 3.500h8l4 4v13H6z"/>', folder: '<path d="M3.500 7a2 2 0 0 1 2-2H10l2 2.500h6.500a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>',
 };
 const ic = (n, w = 1.8) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[n]}</svg>`;
@@ -89,14 +90,15 @@ export function initNotes(root) {
     <aside class="nt-side">
       <div class="nt-sbar"><button type="button" class="nt-ib nt-home" data-a="home" title="Dashboard" aria-label="Dashboard">${ic("home")}</button><b class="nt-brand">Notes</b><span class="nt-mode"></span><button type="button" class="nt-ib" data-a="folder" title="New folder" aria-label="New folder">${ic("folderplus")}</button><button type="button" class="nt-ib" data-a="new" title="New note" aria-label="New note">${ic("new")}</button><button type="button" class="nt-ib nt-selbtn" data-a="select" title="Select notes to delete" aria-label="Select notes to delete">${ic("trash")}</button></div>
       <div class="nt-seg"><button type="button" data-p="notes" class="on">Notes</button><button type="button" data-p="comments">Comments<i></i></button></div>
-      <div class="nt-tablist nt-open"></div>
+      <div class="nt-tablist nt-open" hidden></div>
+      <div class="nt-find"><span class="nt-fi">${ic("search", 1.7)}</span><input type="search" placeholder="Search" aria-label="Search notes" spellcheck="false" autocomplete="off" data-1p-ignore><button type="button" class="nt-ib nt-sort" aria-label="Sort by last edited"></button></div>
       <div class="nt-list"></div><div class="nt-cmts"></div>
       <div class="nt-selbar" hidden></div><div class="nt-trashrow" data-a="trashview" role="button" tabindex="0"></div>
       <form class="nt-conn" hidden><input name="repo" placeholder="owner/repo" autocomplete="off" spellcheck="false" data-1p-ignore><input class="nt-tok" name="tok" placeholder="token" autocomplete="off" autocapitalize="off" spellcheck="false" data-1p-ignore data-lpignore="true"><label class="nt-hint">Token expires<input type="date" name="exp"></label><div class="nt-row"><button type="submit" class="nt-btn">Save</button><button type="button" class="nt-btn" data-a="disc">Disconnect</button></div></form>
       <div class="nt-vault"><span class="nt-repo"></span><button type="button" class="nt-ib" data-a="theme" aria-label="Light or dark"></button><button type="button" class="nt-ib" data-a="gear" title="GitHub connection" aria-label="GitHub connection">${ic("gear")}</button></div>
     </aside>
     <div class="nt-main">
-      <div class="nt-tabs"><button type="button" class="nt-ib nt-side-t" data-a="side" title="Show or hide the file list" aria-label="Show or hide the file list">${ic("side")}</button><button type="button" class="nt-ib nt-back" data-a="list" aria-label="All notes">${ic("chev")}</button><span class="nt-sp"></span><button type="button" class="nt-ib" data-a="new" title="New note" aria-label="New note">${ic("plus")}</button><button type="button" class="nt-ib nt-exp" data-a="export" title="Export this note" aria-label="Export this note" disabled>${ic("down")}</button><span class="nt-rt"></span><span class="nt-status" role="status"><i class="nt-sd"></i><span class="nt-msg"></span></span></div>
+      <div class="nt-tabs"><button type="button" class="nt-ib nt-back" data-a="list" aria-label="All notes">${ic("chev")}</button><span class="nt-sp"></span><button type="button" class="nt-ib" data-a="new" title="New note" aria-label="New note">${ic("plus")}</button><button type="button" class="nt-ib nt-exp" data-a="export" title="Export this note" aria-label="Export this note" disabled>${ic("down")}</button><span class="nt-rt"></span><span class="nt-status" role="status"><i class="nt-sd"></i><span class="nt-msg"></span></span></div>
       <div class="nt-xmenu" hidden><button type="button" class="nt-pi" data-x="md">Markdown</button><button type="button" class="nt-pi" data-x="pdf">PDF</button><button type="button" class="nt-pi" data-x="txt">Copy text</button></div><div class="nt-banner" hidden></div>
       <div class="nt-scroll"><div class="nt-page"><textarea class="nt-title" rows="1" placeholder="Untitled" spellcheck="false" disabled></textarea><div class="nt-ed"></div><div class="nt-hello">No note open</div></div></div>
       <div class="nt-pop" hidden></div><div class="nt-cpop" hidden></div>
@@ -121,6 +123,18 @@ export function initNotes(root) {
   const isDoc = p => /\.(md|html)$/i.test(p) && !p.startsWith(FILES + "/") && !p.startsWith("."), isTrash = p => isDoc(p) && p.startsWith(TRASH + "/"), isNote = p => isDoc(p) && !p.startsWith(TRASH + "/");
   const saveFold = () => lsSet(K_FOLD, JSON.stringify([...fold])), saveTabs = () => lsSet(K_TABS, JSON.stringify(tabs));
   const ckIcon = on => `<i class="nt-ck${on ? " on" : ""}"></i>`;
+  let query = "", sortMode = lsGet("notes.sort") || "name", recent = {}; try { recent = JSON.parse(lsGet("notes.recent") || "{}"); } catch {}
+  const touch = p => { recent[p] = Date.now(); lsSet("notes.recent", JSON.stringify(recent)); }, idx = new Map(); let idxLoad = null;
+  async function loadIdx() {   // note text is fetched once, in the background, the first time you search
+    if (idxLoad) return idxLoad; const todo = files.filter(p => isNote(p) && !idx.has(p)); let i = 0;
+    idxLoad = Promise.all(Array.from({ length: 6 }, async () => { while (i < todo.length) { const p = todo[i++]; try { const f = await store().read(p); if (f) idx.set(p, f.text); } catch {} } })).then(() => { idxLoad = null; }); return idxLoad;
+  }
+  function renderResults() {
+    const q = query.toLowerCase(), hits = [], cmp = (a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
+    files.filter(isNote).forEach(p => { const name = baseName(p), txt = (cur && cur.path === p ? cur.md : idx.get(p)) || "", ni = name.toLowerCase().includes(q), ti = txt.toLowerCase().indexOf(q); if (ni || ti >= 0) hits.push({ p, name, ti, txt, ni }); });
+    hits.sort((a, b) => (b.ni - a.ni) || cmp(a, b));
+    listEl.innerHTML = hits.length ? hits.map(h => { let sn = ""; if (h.ti >= 0) sn = h.txt.slice(Math.max(0, h.ti - 30), h.ti + q.length + 70).replace(/<[^>]+>/g, "").replace(/[#*_`>\[\]]/g, "").replace(/\s+/g, " ").trim(); return `<div role="button" tabindex="0" class="nt-row-i nt-item nt-hit${cur && cur.path === h.p ? " on" : ""}" data-path="${esc(h.p)}">${ic("file", 1.6)}<span>${esc(h.name)}${sn ? `<small>${esc(sn)}</small>` : ""}</span></div>`; }).join("") : `<div class="nt-empty">${idxLoad ? "Searching…" : "No matches"}</div>`;
+  }
   function renderList() {
     const trashed = files.filter(isTrash), pick = view === "trash" || selecting, cmp = (a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
     trashRow.innerHTML = view === "trash" ? `${ic("chev", 2)}<span>Back to notes</span>` : `${ic("trash", 1.6)}<span>Trash</span>${trashed.length ? `<small>${trashed.length}</small>` : ""}`; trashRow.classList.toggle("none", view !== "trash" && !trashed.length);
@@ -128,9 +142,10 @@ export function initNotes(root) {
     if (view === "trash") {
       listEl.innerHTML = trashed.length ? trashed.sort(cmp).map(p => { const r = p.slice(TRASH.length + 1); return `<div role="button" tabindex="0" class="nt-row-i nt-item${picked.has(p) ? " picked" : ""}" data-path="${esc(p)}">${ckIcon(picked.has(p))}<span>${esc(baseName(r))}${dirOf(r) ? `<em> ${esc(dirOf(r))}</em>` : ""}</span></div>`; }).join("") : `<div class="nt-empty">Trash is empty</div>`; drawSel(); return;
     }
+    if (query && !selecting) { renderResults(); drawSel(); return; }
     const notes = files.filter(isNote), tree = { dirs: {}, files: [] }, mk = path => { let n = tree; path.split("/").filter(Boolean).forEach(d => (n = n.dirs[d] ||= { dirs: {}, files: [] })); return n; };
     files.filter(p => p.endsWith("/" + KEEP) && !p.startsWith(TRASH + "/")).forEach(p => mk(dirOf(p))); notes.forEach(p => mk(dirOf(p)).files.push(p));
-    const draw = (n, path, depth) => Object.keys(n.dirs).sort(cmp).map(d => { const full = path ? path + "/" + d : d, open = !fold.has(full); return `<div role="button" tabindex="0" class="nt-row-i nt-dir${open ? " open" : ""}${selDir === full ? " sel" : ""}${picked.has(full) ? " picked" : ""}" style="--d:${depth}" data-dir="${esc(full)}">${pick ? ckIcon(picked.has(full)) : ic("chev", 2)}<span>${esc(d)}</span></div>${open ? draw(n.dirs[d], full, depth + 1) : ""}`; }).join("") + n.files.sort((a, b) => cmp(baseName(a), baseName(b))).map(p => `<div role="button" tabindex="0" ${pick ? "" : 'draggable="true"'} class="nt-row-i nt-item${cur && cur.path === p ? " on" : ""}${picked.has(p) ? " picked" : ""}" style="--d:${depth}" data-path="${esc(p)}">${pick ? ckIcon(picked.has(p)) : ic("file", 1.6)}<span>${esc(baseName(p))}</span>${/\.html$/i.test(p) ? "<i>html</i>" : ""}</div>`).join("");
+    const draw = (n, path, depth) => Object.keys(n.dirs).sort(cmp).map(d => { const full = path ? path + "/" + d : d, open = !fold.has(full); return `<div role="button" tabindex="0" class="nt-row-i nt-dir${open ? " open" : ""}${selDir === full ? " sel" : ""}${picked.has(full) ? " picked" : ""}" style="--d:${depth}" data-dir="${esc(full)}">${pick ? ckIcon(picked.has(full)) : ic("chev", 2)}<span>${esc(d)}</span></div>${open ? draw(n.dirs[d], full, depth + 1) : ""}`; }).join("") + n.files.sort((a, b) => (sortMode === "recent" ? (recent[b] || 0) - (recent[a] || 0) : 0) || cmp(baseName(a), baseName(b))).map(p => `<div role="button" tabindex="0" ${pick ? "" : 'draggable="true"'} class="nt-row-i nt-item${cur && cur.path === p ? " on" : ""}${picked.has(p) ? " picked" : ""}" style="--d:${depth}" data-path="${esc(p)}">${pick ? ckIcon(picked.has(p)) : ic("file", 1.6)}<span>${esc(baseName(p))}</span>${/\.html$/i.test(p) ? "<i>html</i>" : ""}</div>`).join("");
     listEl.innerHTML = draw(tree, "", 0) || `<div class="nt-empty">No notes</div>`; drawSel();
   }
   function drawSel() {
@@ -140,7 +155,7 @@ export function initNotes(root) {
   }
   const picksToDocs = () => { const out = new Set(); for (const k of picked) { if (isDoc(k)) out.add(k); else files.forEach(f => { if (isDoc(f) && f.startsWith(k + "/")) out.add(f); }); } return [...out]; };
   function renderTabs() {
-    tabsEl.innerHTML = (tabs.length > 1 ? '<div class="nt-cap">Open</div>' : "") + tabs.map(p => `<div class="nt-tab${cur && cur.path === p ? " on" : ""}" data-tab="${esc(p)}" role="tab"><span>${esc(baseName(p))}</span><button type="button" class="nt-x" data-close="${esc(p)}" aria-label="Close">${ic("x", 2)}</button></div>`).join("");
+    tabsEl.innerHTML = tabs.map(p => `<div class="nt-tab${cur && cur.path === p ? " on" : ""}" data-tab="${esc(p)}" role="tab"><span>${esc(baseName(p))}</span><button type="button" class="nt-x" data-close="${esc(p)}" aria-label="Close">${ic("x", 2)}</button></div>`).join("");
     const on = tabsEl.querySelector(".on"); if (on && on.scrollIntoView) on.scrollIntoView({ block: "nearest", inline: "nearest" });
   }
   async function refresh() { mode(); try { files = await store().list(); setStatus(""); } catch (e) { files = []; setStatus(e.status === 401 ? "token not accepted" : e.status === 404 ? "repo not found, or no access" : "could not reach GitHub: " + e.message, true); } tabs = tabs.filter(p => files.includes(p)); renderList(); renderTabs(); }
@@ -214,7 +229,7 @@ export function initNotes(root) {
   /* ----- saving ----- */
   async function save(force) {
     clearTimeout(timer); if (!cur || cur.md === cur.base || saving) return; saving = true; const c = cur, md = c.md; setStatus("saving…");
-    try { c.sha = await store().write(c.path, md, c.sha, `notes: ${baseName(c.path)}`); c.base = md; if (cur === c && c.md === md) lsSet(draftKey(c.path), null); setStatus(cfg.remote ? "saved" : "saved in this browser"); showBanner(""); }
+    try { c.sha = await store().write(c.path, md, c.sha, `notes: ${baseName(c.path)}`); c.base = md; touch(c.path); idx.set(c.path, md); if (cur === c && c.md === md) lsSet(draftKey(c.path), null); setStatus(cfg.remote ? "saved" : "saved in this browser"); showBanner(""); }
     catch (e) {
       if (cfg.remote && (e.status === 409 || e.status === 422)) {   // the file changed on GitHub since we opened it
         try { const r = await remote.read(c.path); if (r && (r.text === c.base || force)) { c.sha = r.sha; saving = false; return save(); } if (r) { c.remoteSha = r.sha; showBanner(`This note changed on GitHub since you opened it. <button type="button" class="nt-btn" data-a="over">Keep mine</button> <button type="button" class="nt-btn" data-a="reload">Load theirs</button>`); setStatus("conflict", true); } } catch {}
@@ -228,7 +243,7 @@ export function initNotes(root) {
   async function newNote() {
     await flush(); const dir = selDir || (cur ? dirOf(cur.path) : ""); let n = "Untitled", i = 2; const has = p => files.includes(p); while (has((dir ? dir + "/" : "") + n + ".md")) n = "Untitled " + i++;
     const path = (dir ? dir + "/" : "") + n + ".md"; try { await store().write(path, "\n", null, `notes: new ${n}`); } catch (e) { setStatus("could not create: " + e.message, true); return; }
-    files.push(path); await open(path); titleEl.focus(); titleEl.select();
+    files.push(path); touch(path); await open(path); titleEl.focus(); titleEl.select();
   }
   async function rename() {
     if (!cur) return; let n = titleEl.value.trim().replace(/[\\/:*?"<>|]/g, "-"); if (!n || n === baseName(cur.path)) { titleEl.value = baseName(cur.path); return; }
@@ -254,11 +269,44 @@ export function initNotes(root) {
     const wasCur = cur && cur.path === from, to = await moveFile(from, to0); if (!to) return;
     tabs = tabs.map(p => (p === from ? to : p)); saveTabs(); if (toDir) fold.delete(toDir); renderList(); renderTabs(); if (wasCur) { cur = null; await open(to); }
   }
+  /* ----- long-press (or right-click) a note to move it, a folder to rename it ----- */
+  const ctx = document.createElement("div"); ctx.className = "nt-pop nt-ctx"; ctx.hidden = true; nt.appendChild(ctx); let lpTimer = 0, lpFired = false, lpX = 0, lpY = 0, ctxRow = null;
+  const place = (x, y) => { ctx.hidden = false; ctx.style.left = Math.max(8, Math.min(x, innerWidth - ctx.offsetWidth - 8)) + "px"; ctx.style.top = Math.max(8, Math.min(y, innerHeight - ctx.offsetHeight - 8)) + "px"; };
+  function showCtx(row, x, y) { if (selecting || view === "trash") return; ctxRow = row; ctx.innerHTML = row.dataset.path ? '<button type="button" class="nt-pi" data-c="move">Move to…</button>' : '<button type="button" class="nt-pi" data-c="rename">Rename</button>'; place(x, y); }
+  function renameDir(full) {
+    const row = listEl.querySelector(`[data-dir="${CSS.escape(full)}"]`); if (!row) return; const old = full.split("/").pop(); row.removeAttribute("data-dir"); row.className = "nt-row-i nt-newdir"; row.innerHTML = `${ic("folder", 1.6)}<input spellcheck="false" autocomplete="off">`;
+    const inp = row.querySelector("input"); inp.value = old; inp.focus(); inp.select(); let done = false;
+    const fin = async ok => {
+      if (done) return; done = true; const n = inp.value.trim().replace(/[\\:*?"<>|\/]/g, "-"); if (!ok || !n || n === old) { renderList(); return; }
+      const parent = dirOf(full), to = (parent ? parent + "/" : "") + n; if (files.some(f => f === to || f.startsWith(to + "/"))) { setStatus("that folder already exists", true); renderList(); return; }
+      const moves = files.filter(f => f.startsWith(full + "/")).map(f => [f, to + f.slice(full.length)]), curPath = cur && cur.path; await flush();
+      if (selDir === full || selDir.startsWith(full + "/")) selDir = to + selDir.slice(full.length); fold = new Set([...fold].map(x => (x === full || x.startsWith(full + "/") ? to + x.slice(full.length) : x))); saveFold();
+      await commit(moves, [], `notes: rename folder ${old}`); if (curPath && curPath.startsWith(full + "/")) open(to + curPath.slice(full.length));
+    };
+    inp.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); fin(true); } else if (e.key === "Escape") fin(false); }); inp.addEventListener("blur", () => fin(true));
+  }
+  ctx.addEventListener("click", async e => {
+    const b = e.target.closest("button"); if (!b || !ctxRow) return; const row = ctxRow;
+    if (b.dataset.c === "rename") { ctx.hidden = true; renameDir(row.dataset.dir); }
+    else if (b.dataset.c === "move") { const here = dirOf(row.dataset.path), dirs = [...new Set(files.filter(f => f.endsWith("/" + KEEP) && !f.startsWith(TRASH + "/")).map(dirOf))].filter(d => d !== here).sort(); ctx.innerHTML = '<div class="nt-cap">Move to</div>' + (here ? '<button type="button" class="nt-pi" data-to="">Notes</button>' : "") + dirs.map(d => `<button type="button" class="nt-pi" data-to="${esc(d)}">${esc(d)}</button>`).join("") || '<div class="nt-empty">No other folders</div>'; place(parseFloat(ctx.style.left), parseFloat(ctx.style.top)); }
+    else if (b.dataset.to != null) { ctx.hidden = true; moveNote(row.dataset.path, b.dataset.to); }
+  });
+  document.addEventListener("pointerdown", e => { if (!ctx.hidden && !e.target.closest(".nt-ctx")) ctx.hidden = true; }, true);
+  listEl.addEventListener("pointerdown", e => { if (e.pointerType !== "touch") return; const row = e.target.closest(".nt-item,.nt-dir"); if (!row || selecting || view === "trash") return; lpX = e.clientX; lpY = e.clientY; clearTimeout(lpTimer); lpTimer = setTimeout(() => { lpFired = true; showCtx(row, lpX, lpY); }, 480); });
+  listEl.addEventListener("pointermove", e => { if (lpTimer && Math.hypot(e.clientX - lpX, e.clientY - lpY) > 10) { clearTimeout(lpTimer); lpTimer = 0; } });
+  ["pointerup", "pointercancel"].forEach(t => listEl.addEventListener(t, () => { clearTimeout(lpTimer); lpTimer = 0; setTimeout(() => { lpFired = false; }, 600); }));
+  listEl.addEventListener("contextmenu", e => { const row = e.target.closest(".nt-item,.nt-dir"); if (!row || selecting || view === "trash") return; e.preventDefault(); if (!lpFired) showCtx(row, e.clientX, e.clientY); });
+  root.addEventListener("click", e => { if (lpFired) { lpFired = false; e.stopPropagation(); e.preventDefault(); } }, true);
+  /* search and sort */
+  const findIn = $(".nt-find input"), sortBtn = $(".nt-sort"), drawSort = () => { sortBtn.classList.toggle("on", sortMode === "recent"); sortBtn.innerHTML = ic("clock", 1.7); sortBtn.title = sortMode === "recent" ? "Sorted by last edited on this device" : "Sort by last edited"; }; drawSort();
+  sortBtn.addEventListener("click", () => { sortMode = sortMode === "recent" ? "name" : "recent"; lsSet("notes.sort", sortMode); drawSort(); renderList(); });
+  let findT = 0; findIn.addEventListener("input", () => { clearTimeout(findT); findT = setTimeout(() => { query = findIn.value.trim(); if (query) loadIdx().then(() => { if (query) renderList(); }); renderList(); }, 140); });
+  findIn.addEventListener("keydown", e => { if (e.key === "Escape") { findIn.value = ""; query = ""; renderList(); } });
   const leave = () => { picked.clear(); selecting = false; };
   const uniq = (to, taken) => { while (taken.has(to)) to = to.replace(/( \(\d+\))?(\.[^./]+)$/, (m, a, b) => ` (${a ? +a.slice(2, -1) + 1 : 2})${b}`); taken.add(to); return to; };
   const refsOf = (path, text) => { const out = []; text.replace(/\]\(([^)\s]+)/g, (m, u) => { if (isRelative(u)) { const r = resolve(path, decodeURI(u)); if (r.startsWith(FILES + "/")) out.push(r); } return m; }); return out; };
   async function commit(moves, dels, message) {   // show the result now; one commit follows; undo the screen if it fails
-    files = files.filter(f => !moves.some(m => m[0] === f) && !dels.includes(f)).concat(moves.map(m => m[1]));
+    files = files.filter(f => !moves.some(m => m[0] === f) && !dels.includes(f)).concat(moves.map(m => m[1])); moves.forEach(m => { idx.delete(m[0]); if (recent[m[0]]) recent[m[1]] = recent[m[0]]; }); dels.forEach(d => idx.delete(d));
     const gone = new Set(moves.map(m => m[0]).concat(dels)); let closed = false; tabs = tabs.filter(t => { if (gone.has(t)) { if (cur && cur.path === t) closed = true; return false; } return true; }); saveTabs();
     gone.forEach(g => lsSet(draftKey(g), null)); if (closed) { cur = null; ++openSeq; await destroyEditor(); setTitle("", false); enable(false); const next = tabs[tabs.length - 1]; if (next) open(next); }
     renderList(); renderTabs(); setStatus("saving…");
@@ -311,6 +359,10 @@ export function initNotes(root) {
 
   /* ----- export ----- */
   const xmenu = $(".nt-xmenu"), download = (name, blob) => { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); };
+  function withFootnotes(md) {   // comments become [^1] footnotes that any markdown app can show
+    const notes = []; let t = md.replace(/<span data-comment="([^"]*)">([\s\S]*?)<\/span>/g, (m, enc, inner) => { let o = {}; try { o = JSON.parse(decodeURIComponent(enc)); } catch {} notes.push({ q: inner.replace(/<[^>]+>/g, ""), t: o.t || "", d: o.d || "" }); return inner + "[^" + notes.length + "]"; });
+    return notes.length ? t.replace(/\s*$/, "\n\n") + notes.map((o, i) => `[^${i + 1}]: "${o.q}", ${o.t}${o.d ? " (" + o.d + ")" : ""}`).join("\n") + "\n" : t;
+  }
   async function exportMd() {
     if (!cur) return; let md = cur.md;
     if (cfg.remote) {   // pictures live in the private repo, so write them into the file itself
@@ -320,11 +372,15 @@ export function initNotes(root) {
       await Promise.all([...new Set(jobs)].map(async u => { try { map[u] = await readAsDataURL(await remote.blob(resolve(cur.path, decodeURI(u)))); } catch {} }));
       md = md.replace(re, (m, a, u, z) => (map[u] ? a + map[u] + z : m)); setStatus("saved");
     }
+    md = withFootnotes(md);
     download(baseName(cur.path) + ".md", new Blob([md], { type: "text/markdown;charset=utf-8" }));
   }
   function exportPdf() {   // the page prints only the note (see the print rules in the stylesheet); choose "Save as PDF" in the dialog
     if (!cur) return; const was = document.title; document.title = baseName(cur.path); root.classList.add("printing"); document.documentElement.classList.add("nt-print");
-    const done = () => { document.title = was; root.classList.remove("printing"); document.documentElement.classList.remove("nt-print"); removeEventListener("afterprint", done); }; addEventListener("afterprint", done); setTimeout(() => print(), 60);
+    const els = [...edEl.querySelectorAll("[data-comment]")], notes = [], marked = [];   // a [n] after each comment, and the comments listed at the end
+    els.forEach((el, i) => { const a = el.getAttribute("data-comment"), nx = els[i + 1]; if (nx && el.nextElementSibling === nx && nx.getAttribute("data-comment") === a) return; let o = {}; try { o = JSON.parse(decodeURIComponent(a)); } catch {} notes.push({ q: el.textContent, t: o.t || "", d: o.d || "" }); el.dataset.fn = notes.length; marked.push(el); });
+    let fns = null; if (notes.length) { fns = document.createElement("div"); fns.className = "nt-fns"; fns.innerHTML = "<h4>Comments</h4>" + notes.map((o, i) => `<p><b>[${i + 1}]</b> <i>${esc(o.q)}</i> ${esc(o.t)}${o.d ? " <small>" + esc(o.d) + "</small>" : ""}</p>`).join(""); $(".nt-page").appendChild(fns); }
+    const done = () => { marked.forEach(el => delete el.dataset.fn); fns && fns.remove(); document.title = was; root.classList.remove("printing"); document.documentElement.classList.remove("nt-print"); removeEventListener("afterprint", done); }; addEventListener("afterprint", done); setTimeout(() => print(), 60);
   }
   function copyText() {   // plain text for pasting: formatting removed, each comment becomes a numbered note at the end
     if (!cur) return; const notes = [];
