@@ -436,7 +436,7 @@ const last2 = k => { for (let i = 0; i < 4; i++) { const v = byDate[addDays(toda
     const phone = matchMedia("(max-width:700px), (pointer:coarse) and (hover:none) and (max-width:1100px)"), dots = document.createElement("div");
     dots.id = "pageDots"; dots.setAttribute("aria-hidden", "true"); dots.innerHTML = TABS.map(t => `<i data-t="${t}"></i>`).join(""); document.body.appendChild(dots);
     const mark = () => dots.querySelectorAll("i").forEach(i => i.classList.toggle("on", i.dataset.t === document.body.dataset.tab)); addEventListener("tab", mark); mark();
-    const SKIP = "input,textarea,select,[contenteditable],.cal-ev,.gl-wheel,.cal-sheet,.cdev,.ag-path,.tm-plot,.tm-view";   // things that use horizontal touches themselves
+    const SKIP = "#notes,input,textarea,select,[contenteditable],.cal-ev,.gl-wheel,.cal-sheet,.cdev,.ag-path,.tm-plot,.tm-view";   // things that use horizontal touches themselves
     const hScroll = el => { for (; el && el !== document.body; el = el.parentElement) { const o = getComputedStyle(el).overflowX; if ((o === "auto" || o === "scroll") && el.scrollWidth > el.clientWidth + 2) return true; } return false; };
     let sx = 0, sy = 0, st = 0, ok = false;
     addEventListener("touchstart", e => { const t = e.touches[0]; ok = phone.matches && e.touches.length === 1 && t.clientX > 24 && t.clientX < innerWidth - 24 && !e.target.closest(SKIP) && !hScroll(e.target); sx = t.clientX; sy = t.clientY; st = Date.now(); }, { passive: true });

@@ -20,7 +20,7 @@ const blobToB64 = async blob => { const u = new Uint8Array(await blob.arrayBuffe
 /* ---------- storage: GitHub (private repo) or this browser ---------- */
 const remote = {
   async call(p, o = {}) {
-    const r = await fetch(`https://api.github.com/repos/${cfg.repo}/${p}`, { cache: "no-store", ...o, headers: { Authorization: `Bearer ${cfg.token}`, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", ...(o.headers || {}) } }).catch(() => { throw err(0, "offline"); });
+    const r = await fetch(`https://api.github.com/repos/${cfg.repo}${p ? "/" + p : ""}`, { cache: "no-store", ...o, headers: { Authorization: `Bearer ${cfg.token}`, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", ...(o.headers || {}) } }).catch(() => { throw err(0, "offline"); });
     const exp = r.headers.get(EXPIRY_HEADER) || lsGet(K_EXP); syncwarn.seen("notes", "Notes", "notes", r.status, exp);
     if (r.status === 404 && p.startsWith("git/trees")) syncwarn.broken("notes", "Notes", "notes", "Notes are not syncing: GitHub cannot find the notes repo, or the token has no access to it. Check the repo name and the token's repository access.");
     return r;
@@ -30,11 +30,27 @@ const remote = {
   async write(path, text, sha, message) { const r = await this.call(`contents/${encPath(path)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message, content: b64(text), ...(sha ? { sha } : {}) }) }); if (!r.ok) throw err(r.status); return (await r.json()).content.sha; },
   async putBlob(path, blob, message) { const r = await this.call(`contents/${encPath(path)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message, content: await blobToB64(blob) }) }); if (!r.ok) throw err(r.status); },
   async remove(path, sha, message) { const r = await this.call(`contents/${encPath(path)}`, { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message, sha }) }); if (!r.ok && r.status !== 404) throw err(r.status); },
+  branch: "", head: null,
+  async batch(moves, dels, message) {   // many moves and deletes in ONE commit, whatever the count (git data API)
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (!this.branch) { const r = await this.call(""); if (!r.ok) throw err(r.status); this.branch = (await r.json()).default_branch; }
+      let r = await this.call(`git/ref/heads/${this.branch}`); if (!r.ok) throw err(r.status); const head = (await r.json()).object.sha;
+      r = await this.call(`git/trees/${head}?recursive=1`); if (!r.ok) throw err(r.status); const t = await r.json(), shaOf = {}; t.tree.forEach(x => { if (x.type === "blob") shaOf[x.path] = x.sha; });
+      const entries = []; for (const [from, to] of moves) if (shaOf[from]) { entries.push({ path: to, mode: "100644", type: "blob", sha: shaOf[from] }, { path: from, mode: "100644", type: "blob", sha: null }); }
+      for (const d of dels) if (shaOf[d]) entries.push({ path: d, mode: "100644", type: "blob", sha: null });
+      if (!entries.length) return;
+      const J = { "Content-Type": "application/json" }; r = await this.call("git/trees", { method: "POST", headers: J, body: JSON.stringify({ base_tree: t.sha, tree: entries }) }); if (!r.ok) throw err(r.status); const tree = await r.json();
+      r = await this.call("git/commits", { method: "POST", headers: J, body: JSON.stringify({ message, tree: tree.sha, parents: [head] }) }); if (!r.ok) throw err(r.status); const commit = await r.json();
+      r = await this.call(`git/refs/heads/${this.branch}`, { method: "PATCH", headers: J, body: JSON.stringify({ sha: commit.sha }) }); if (r.ok) return; if (r.status !== 422 && r.status !== 409) throw err(r.status);
+    }
+    throw err(409, "the repo kept changing, try again");
+  },
   async sha(path) { const r = await this.call(`contents/${encPath(path)}`); return r.ok ? (await r.json()).sha : null; },
   async blob(path) { const r = await this.call(`contents/${encPath(path)}`, { headers: { Accept: "application/vnd.github.raw+json" } }); if (!r.ok) throw err(r.status); return r.blob(); },
 };
 const local = {
   all() { try { return JSON.parse(lsGet(K_LOCAL)) || {}; } catch { return {}; } }, save(o) { if (!lsSet(K_LOCAL, JSON.stringify(o))) throw err(0, "this browser's storage is full"); },
+  async batch(moves, dels) { const o = this.all(); for (const [a, b] of moves) if (a in o) { o[b] = o[a]; delete o[a]; } dels.forEach(d => delete o[d]); this.save(o); },
   async list() { return Object.keys(this.all()); }, async read(path) { const o = this.all(); return path in o ? { text: o[path], sha: null } : null; },
   async write(path, text) { const o = this.all(); o[path] = text; this.save(o); return null; }, async remove(path) { const o = this.all(); delete o[path]; this.save(o); },
 };
@@ -59,7 +75,7 @@ const ICON = {
   quote: '<path d="M6 17c-1.5-1-2-2.500-2-4.500C4 9 6 7 8.500 6.500M15 17c-1.500-1-2-2.500-2-4.500 0-3.500 2-5.500 4.500-6"/>', block: '<rect x="3.500" y="4.500" width="17" height="15" rx="3"/><path d="M9.500 10l-2 2 2 2M14.500 10l2 2-2 2"/>',
   sigma: '<path d="M17 5H7l5 7-5 7h10"/>', mblock: '<rect x="3.500" y="4.500" width="17" height="15" rx="3"/><path d="M15 9h-6l3 3-3 3h6"/>', table: '<rect x="3.500" y="5" width="17" height="14" rx="2.500"/><path d="M3.500 10h17M3.500 14.500h17M9.500 5v14M14.500 5v14"/>',
   img: '<rect x="3.500" y="5" width="17" height="14" rx="3"/><circle cx="9" cy="10" r="1.500"/><path d="M4 17l5-4.500 3.500 3 3-2.500L20 16"/>', clip: '<path d="M20 11.500l-7.500 7.500a5 5 0 0 1-7-7l8-8a3.300 3.300 0 0 1 4.700 4.700l-8 8a1.700 1.700 0 0 1-2.400-2.400l7.300-7.300"/>', hr: '<path d="M4 12h16"/>',
-  chev: '<path d="M9 6l6 6-6 6"/>', folderplus: '<path d="M3.5 7a2 2 0 0 1 2-2H10l2 2.500h6.500a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2zM12 10.500v5M9.500 13h5"/>', trash: '<path d="M4.5 7h15M10 4h4M6.5 7l.8 12a1.5 1.5 0 0 0 1.5 1.4h6.4a1.5 1.5 0 0 0 1.5-1.4L17.5 7M10 11v6M14 11v6"/>', comment: '<path d="M5 5.5h14a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5H11l-4 3.5V16.5H5A1.5 1.5 0 0 1 3.5 15V7A1.5 1.5 0 0 1 5 5.5z"/>', down: '<path d="M12 4v11M7.5 10.500L12 15l4.500-4.500M5 20h14"/>', x: '<path d="M7 7l10 10M17 7L7 17"/>', plus: '<path d="M12 5v14M5 12h14"/>', moon: '<path d="M20 14.500A8 8 0 0 1 9.500 4a8 8 0 1 0 10.500 10.500z"/>', sun: '<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.600 5.600L7 7M17 17l1.400 1.400M5.600 18.400L7 17M17 7l1.400-1.400"/>', file: '<path d="M6 3.500h8l4 4v13H6z"/>', folder: '<path d="M3.500 7a2 2 0 0 1 2-2H10l2 2.500h6.500a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>',
+  chev: '<path d="M9 6l6 6-6 6"/>', home: '<path d="M3.5 11.5L12 4l8.5 7.5M5.5 10v10h13V10"/>', folderplus: '<path d="M3.5 7a2 2 0 0 1 2-2H10l2 2.500h6.500a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2zM12 10.500v5M9.500 13h5"/>', trash: '<path d="M4.5 7h15M10 4h4M6.5 7l.8 12a1.5 1.5 0 0 0 1.5 1.4h6.4a1.5 1.5 0 0 0 1.5-1.4L17.5 7M10 11v6M14 11v6"/>', comment: '<path d="M5 5.5h14a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5H11l-4 3.5V16.5H5A1.5 1.5 0 0 1 3.5 15V7A1.5 1.5 0 0 1 5 5.5z"/>', down: '<path d="M12 4v11M7.5 10.500L12 15l4.500-4.500M5 20h14"/>', x: '<path d="M7 7l10 10M17 7L7 17"/>', plus: '<path d="M12 5v14M5 12h14"/>', moon: '<path d="M20 14.500A8 8 0 0 1 9.500 4a8 8 0 1 0 10.500 10.500z"/>', sun: '<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.600 5.600L7 7M17 17l1.400 1.400M5.600 18.400L7 17M17 7l1.400-1.400"/>', file: '<path d="M6 3.500h8l4 4v13H6z"/>', folder: '<path d="M3.500 7a2 2 0 0 1 2-2H10l2 2.500h6.500a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>',
 };
 const ic = (n, w = 1.8) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[n]}</svg>`;
 const TOOLS = [   // id, icon, title
@@ -71,7 +87,7 @@ export function initNotes(root) {
   { const f = document.createElement("link"); f.rel = "stylesheet"; f.href = FONT; document.head.appendChild(f); }
   root.innerHTML = `<div class="nt" data-th="dark">
     <aside class="nt-side">
-      <div class="nt-sbar"><b class="nt-brand">Notes</b><span class="nt-mode"></span><button type="button" class="nt-ib" data-a="folder" title="New folder" aria-label="New folder">${ic("folderplus")}</button><button type="button" class="nt-ib" data-a="new" title="New note" aria-label="New note">${ic("new")}</button><button type="button" class="nt-ib nt-selbtn" data-a="select" title="Select notes to delete" aria-label="Select notes to delete">${ic("trash")}</button></div>
+      <div class="nt-sbar"><button type="button" class="nt-ib nt-home" data-a="home" title="Dashboard" aria-label="Dashboard">${ic("home")}</button><b class="nt-brand">Notes</b><span class="nt-mode"></span><button type="button" class="nt-ib" data-a="folder" title="New folder" aria-label="New folder">${ic("folderplus")}</button><button type="button" class="nt-ib" data-a="new" title="New note" aria-label="New note">${ic("new")}</button><button type="button" class="nt-ib nt-selbtn" data-a="select" title="Select notes to delete" aria-label="Select notes to delete">${ic("trash")}</button></div>
       <div class="nt-list"></div>
       <div class="nt-selbar" hidden></div><div class="nt-trashrow" data-a="trashview" role="button" tabindex="0"></div>
       <form class="nt-conn" hidden><input name="repo" placeholder="owner/repo" autocomplete="off" spellcheck="false" data-1p-ignore><input class="nt-tok" name="tok" placeholder="token" autocomplete="off" autocapitalize="off" spellcheck="false" data-1p-ignore data-lpignore="true"><label class="nt-hint">Token expires<input type="date" name="exp"></label><div class="nt-row"><button type="submit" class="nt-btn">Save</button><button type="button" class="nt-btn" data-a="disc">Disconnect</button></div></form>
@@ -237,25 +253,32 @@ export function initNotes(root) {
     tabs = tabs.map(p => (p === from ? to : p)); saveTabs(); if (toDir) fold.delete(toDir); renderList(); renderTabs(); if (wasCur) { cur = null; await open(to); }
   }
   const leave = () => { picked.clear(); selecting = false; };
+  const uniq = (to, taken) => { while (taken.has(to)) to = to.replace(/( \(\d+\))?(\.[^./]+)$/, (m, a, b) => ` (${a ? +a.slice(2, -1) + 1 : 2})${b}`); taken.add(to); return to; };
+  const refsOf = (path, text) => { const out = []; text.replace(/\]\(([^)\s]+)/g, (m, u) => { if (isRelative(u)) { const r = resolve(path, decodeURI(u)); if (r.startsWith(FILES + "/")) out.push(r); } return m; }); return out; };
+  async function commit(moves, dels, message) {   // show the result now; one commit follows; undo the screen if it fails
+    files = files.filter(f => !moves.some(m => m[0] === f) && !dels.includes(f)).concat(moves.map(m => m[1]));
+    const gone = new Set(moves.map(m => m[0]).concat(dels)); let closed = false; tabs = tabs.filter(t => { if (gone.has(t)) { if (cur && cur.path === t) closed = true; return false; } return true; }); saveTabs();
+    gone.forEach(g => lsSet(draftKey(g), null)); if (closed) { cur = null; ++openSeq; await destroyEditor(); setTitle("", false); enable(false); const next = tabs[tabs.length - 1]; if (next) open(next); }
+    renderList(); renderTabs(); setStatus("saving…");
+    try { await store().batch(moves, dels, message); setStatus(cfg.remote ? "saved" : "saved in this browser"); } catch (e) { setStatus("could not save the change: " + e.message, true); await refresh(); }
+  }
   async function trashPicked() {   // nothing is destroyed: notes go to the Trash folder and can be restored
-    const docs = picksToDocs(), dirs = [...picked].filter(k => !isDoc(k)), keeps = files.filter(f => f.endsWith("/" + KEEP) && dirs.some(d => f.startsWith(d + "/")));
-    leave(); setStatus("moving to trash…");
-    for (const p of docs) { const to = await moveFile(p, TRASH + "/" + p); if (to && tabs.includes(p)) await closeTab(p); }
-    for (const k of keeps) { try { const f = await store().read(k); if (f) await store().remove(k, f.sha, `notes: remove folder`); files = files.filter(x => x !== k); } catch {} }
-    if (dirs.some(d => selDir === d || selDir.startsWith(d + "/"))) selDir = ""; renderList(); renderTabs(); setStatus(docs.length ? "saved" : "");
+    await flush(); const docs = picksToDocs(), dirs = [...picked].filter(k => !isDoc(k)), keeps = files.filter(f => f.endsWith("/" + KEEP) && dirs.some(d => f.startsWith(d + "/"))), taken = new Set(files);
+    leave(); if (dirs.some(d => selDir === d || selDir.startsWith(d + "/"))) selDir = ""; await commit(docs.map(p => [p, uniq(TRASH + "/" + p, taken)]), keeps, `notes: trash ${docs.length}`);
   }
   async function restorePicked() {
-    const docs = picksToDocs().filter(isTrash); picked.clear(); setStatus("restoring…");
-    for (const p of docs) await moveFile(p, p.slice(TRASH.length + 1)); renderList(); setStatus("saved");
+    await flush(); const docs = picksToDocs().filter(isTrash), taken = new Set(files); picked.clear(); await commit(docs.map(p => [p, uniq(p.slice(TRASH.length + 1), taken)]), [], `notes: restore ${docs.length}`);
   }
-  const refsOf = (path, text) => { const out = []; text.replace(/\]\(([^)\s]+)/g, (m, u) => { if (isRelative(u)) { const r = resolve(path, decodeURI(u)); if (r.startsWith(FILES + "/")) out.push(r); } return m; }); return out; };
   async function purgePicked() {   // the only permanent delete; pictures no other note uses go with it
-    const docs = picksToDocs().filter(isTrash); picked.clear(); purgeArm = 0; setStatus("deleting…"); const refs = new Set();
-    try { for (const p of docs) { const f = await store().read(p); if (!f) continue; if (/\.md$/i.test(p)) refsOf(p, f.text).forEach(r => refs.add(r)); await store().remove(p, f.sha, `notes: delete ${baseName(p)}`); files = files.filter(x => x !== p); }
-      if (cfg.remote && refs.size) { const used = new Set(); for (const q of files.filter(x => /\.md$/i.test(x) && !x.startsWith(FILES + "/"))) { const g = await store().read(q); if (g) refsOf(q, g.text).forEach(r => used.add(r)); }
-        for (const r of refs) if (!used.has(r) && files.includes(r)) { const sha = await remote.sha(r); if (sha) await remote.remove(r, sha, "notes: remove unused file"); files = files.filter(x => x !== r); } } }
-    catch (e) { setStatus("could not delete: " + e.message, true); }
-    renderList(); setStatus("saved");
+    const docs = picksToDocs().filter(isTrash); picked.clear(); purgeArm = 0; let dels = docs.slice();
+    if (cfg.remote) {
+      setStatus("deleting…"); const orig = p => p.slice(TRASH.length + 1), refs = new Set(), used = new Set(), mds = f => /\.md$/i.test(f) && !f.startsWith(FILES + "/");
+      try { const read = async list => (await Promise.all(list.map(async q => [q, await store().read(q).catch(() => null)]))).filter(x => x[1]);
+        (await read(docs.filter(mds))).forEach(([q, f]) => refsOf(orig(q), f.text).forEach(r => refs.add(r)));
+        if (refs.size) { (await read(files.filter(f => mds(f) && !docs.includes(f)))).forEach(([q, f]) => refsOf(isTrash(q) ? orig(q) : q, f.text).forEach(r => used.add(r))); refs.forEach(r => { if (!used.has(r) && files.includes(r)) dels.push(r); }); } }
+      catch (e) { setStatus("could not delete: " + e.message, true); return; }
+    }
+    await commit([], dels, `notes: delete ${docs.length}`);
   }
   async function newFolder(name) {
     name = name.trim().replace(/[\\:*?"<>|]/g, "-").replace(/^\/+|\/+$/g, ""); if (!name) return; const dir = (selDir ? selDir + "/" : "") + name, path = dir + "/" + KEEP;
@@ -272,6 +295,10 @@ export function initNotes(root) {
     try { let href; if (cfg.remote) { const repoPath = `${FILES}/${new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "")}-${slug(file.name)}${file.name.includes(".") ? file.name.slice(file.name.lastIndexOf(".")).toLowerCase() : ""}`; if (file.size > 25e6) throw new Error("that file is over 25 MB"); await remote.putBlob(repoPath, file, "notes: add file"); href = rel(cur.path, repoPath); } else { if (file.size > 1e6) throw new Error("connect GitHub to attach files over 1 MB"); href = await readAsDataURL(file); }
       crepe.editor.action(ext.kit.insert(`[${file.name}](${href.replace(/ /g, "%20")})`)); setStatus("unsaved…"); }
     catch (e) { setStatus("not attached: " + e.message, true); }
+  }
+  async function pasteImage() {   // for phones, where the keyboard cannot paste a picture into the page
+    try { for (const it of await navigator.clipboard.read()) { const t = it.types.find(x => x.startsWith("image/")); if (t) { const blob = await it.getType(t); return addPicture(new File([blob], "pasted." + t.split("/")[1], { type: t })); } } setStatus("No picture on the clipboard", true); }
+    catch (e) { setStatus("Allow clipboard access, or choose a photo", true); }
   }
   async function addPicture(file) {
     if (!cur || !crepe || !file) return; setStatus("uploading picture…");
@@ -343,7 +370,7 @@ export function initNotes(root) {
       case "ul": return cmd(cm.wrapInBulletListCommand); case "ol": return cmd(cm.wrapInOrderedListCommand); case "quote": return cmd(cm.wrapInBlockquoteCommand); case "cblock": return cmd(cm.createCodeBlockCommand); case "hr": return cmd(cm.insertHrCommand);
       case "table": return cmd(gfm.insertTableCommand, { row: 3, col: 3 });
       case "math": return run(ctx => ext.kit.insert("$x$")(ctx)); case "mblock": return run(ctx => ext.kit.insert("$$\n\n$$")(ctx));
-      case "img": return picIn.click(); case "attach": return fileIn.click();
+      case "img": return openPop("img", btn, `<button type="button" class="nt-pi" data-img="paste">Paste from clipboard</button><button type="button" class="nt-pi" data-img="file">Choose a photo</button>`); case "attach": return fileIn.click();
       case "h": return openPop("h", btn, ["Text", "Heading 1", "Heading 2", "Heading 3", "Heading 4"].map((t, i) => `<button type="button" class="nt-pi" data-h="${i}">${t}</button>`).join(""));
       case "color": return openPop("color", btn, `<div class="nt-sw">${COLORS.map(([n, c]) => `<button type="button" class="nt-dot" data-col="${c}" title="${n}" style="--c:${c}"></button>`).join("")}<button type="button" class="nt-dot nt-none" data-col="" title="Remove colour">${ic("x", 2)}</button></div>`);
       case "comment": return run((ctx, v) => { const sel = v.state.selection; if (sel.empty) { setStatus("Select some text first, then press Comment"); return; } commentBox(null, { from: sel.from, to: sel.to }, v); });
@@ -354,6 +381,7 @@ export function initNotes(root) {
   toolsEl.addEventListener("click", e => { const b = e.target.closest("[data-tool]"); if (b && !toolsEl.classList.contains("off")) tool(b.dataset.tool, b); });
   pop.addEventListener("mousedown", e => { if (!e.target.closest("input")) e.preventDefault(); });
   pop.addEventListener("click", e => {
+    const im = e.target.closest("[data-img]"); if (im) { closePop(); im.dataset.img === "paste" ? pasteImage() : picIn.click(); return; }
     const h = e.target.closest("[data-h]"), c = e.target.closest("[data-col]"); if (h) { const n = +h.dataset.h; n ? cmd(ext.cm.wrapInHeadingCommand, n) : cmd(ext.cm.turnIntoTextCommand); closePop(); refocus(); } else if (c) { setColor(c.dataset.col); closePop(); }
   });
   pop.addEventListener("submit", e => { e.preventDefault(); const u = pop.querySelector("input").value.trim(); if (u) { cmd(ext.cm.toggleLinkCommand, { href: /^[a-z][a-z0-9+.-]*:|^\//i.test(u) ? u : "https://" + u }); } closePop(); refocus(); });
@@ -372,7 +400,7 @@ export function initNotes(root) {
     if (selecting || view === "trash") { const row = e.target.closest(".nt-item,.nt-dir"); if (row) { const k = row.dataset.path || row.dataset.dir; picked.has(k) ? picked.delete(k) : picked.add(k); renderList(); return; } }
     const it = e.target.closest(".nt-item"); if (it) { selDir = dirOf(it.dataset.path); open(it.dataset.path); return; }
     const b = e.target.closest("[data-a]"); if (!b) return; const a = b.dataset.a;
-    if (a === "export") xmenu.hidden = !xmenu.hidden; else if (a === "new") newNote(); else if (a === "side") nt.classList.toggle("nofiles"); else if (a === "folder") askFolder(); else if (a === "select") { selecting = !selecting; picked.clear(); renderList(); } else if (a === "trashview") { view = view === "trash" ? "notes" : "trash"; leave(); renderList(); }
+    if (a === "export") xmenu.hidden = !xmenu.hidden; else if (a === "new") newNote(); else if (a === "side") nt.classList.toggle("nofiles"); else if (a === "folder") askFolder(); else if (a === "home") dispatchEvent(new CustomEvent("goto", { detail: "home" })); else if (a === "select") { selecting = !selecting; picked.clear(); renderList(); } else if (a === "trashview") { view = view === "trash" ? "notes" : "trash"; leave(); renderList(); }
     else if (a === "theme") { theme = nt.dataset.th === "dark" ? "light" : "dark"; lsSet(K_THEME, theme); nt.classList.add("nt-swap"); applyTheme(); requestAnimationFrame(() => requestAnimationFrame(() => nt.classList.remove("nt-swap"))); }
     else if (a === "gear") { conn.hidden = !conn.hidden; conn.elements.repo.value = cfg.repo; conn.elements.tok.value = ""; conn.elements.exp.value = lsGet(K_EXP); conn.elements.tok.placeholder = cfg.remote ? "token saved (paste a new one to replace)" : "token"; }
     else if (a === "disc") { lsSet(K_TOKEN, null); lsSet(K_EXP, null); syncwarn.seen("notes", "Notes", "notes", 200, null); conn.hidden = true; cur = null; tabs = []; saveTabs(); ++openSeq; await destroyEditor(); setTitle("", false); enable(false); await refresh(); }
@@ -385,7 +413,7 @@ export function initNotes(root) {
   listEl.addEventListener("dragover", e => { if (!e.dataTransfer.types.includes("text/plain")) return; const t = dropTarget(e); if (t === null) return; e.preventDefault(); listEl.querySelectorAll(".drop").forEach(x => x.classList.remove("drop")); (e.target.closest("[data-dir]") || listEl).classList.add("drop"); });
   listEl.addEventListener("dragleave", e => { if (!listEl.contains(e.relatedTarget)) listEl.querySelectorAll(".drop").forEach(x => x.classList.remove("drop")); });
   listEl.addEventListener("drop", e => { const t = dropTarget(e); listEl.querySelectorAll(".drop").forEach(x => x.classList.remove("drop")); const p = e.dataTransfer.getData("text/plain"); if (t === null || !p) return; e.preventDefault(); moveNote(p, t); });
-  edEl.addEventListener("paste", e => { const f = [...((e.clipboardData && e.clipboardData.files) || [])].find(x => /^image\//.test(x.type)); if (f) { e.preventDefault(); e.stopPropagation(); addPicture(f); } }, true);
+  edEl.addEventListener("paste", e => { const cd = e.clipboardData || {}, f = [...(cd.files || [])].find(x => /^image\//.test(x.type)) || [...(cd.items || [])].map(i => (i.kind === "file" && /^image\//.test(i.type) ? i.getAsFile() : null)).find(Boolean); if (f) { e.preventDefault(); e.stopPropagation(); addPicture(f); } }, true);
   edEl.addEventListener("dragover", e => { if (e.dataTransfer && [...e.dataTransfer.types].includes("Files")) e.preventDefault(); }, true);
   edEl.addEventListener("drop", e => { const fs = [...((e.dataTransfer && e.dataTransfer.files) || [])]; if (!fs.length) return; e.preventDefault(); e.stopPropagation(); /^image\//.test(fs[0].type) ? addPicture(fs[0]) : attach(fs[0]); }, true);
   fileIn.addEventListener("change", () => { const f = fileIn.files[0]; fileIn.value = ""; attach(f); });
@@ -393,7 +421,10 @@ export function initNotes(root) {
   titleEl.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); titleEl.blur(); crepe && crepe.editor.action(c => c.get(ext.core.editorViewCtx).focus()); } }); titleEl.addEventListener("change", rename);
   addEventListener("online", () => save());
   document.addEventListener("visibilitychange", () => { if (document.hidden) flush(); }); addEventListener("pagehide", () => { flush(); });
-  const fit = () => { if (nt.offsetParent) nt.style.setProperty("--nt-top", Math.round(nt.getBoundingClientRect().top + scrollY) + "px"); }; addEventListener("resize", fit); addEventListener("tab", () => setTimeout(fit, 30)); fit(); setTimeout(fit, 300);
+  const vv = window.visualViewport, fitV = () => { nt.style.setProperty("--vvh", (vv ? vv.height : innerHeight) + "px"); nt.style.setProperty("--vvt", (vv ? vv.offsetTop : 0) + "px"); }; if (vv) { vv.addEventListener("resize", fitV); vv.addEventListener("scroll", fitV); } fitV();
+  const centre = () => run((ctx, v) => { try { const c = v.coordsAtPos(v.state.selection.head), r = scrollEl.getBoundingClientRect(), d = (c.top + c.bottom) / 2 - (r.top + r.height * 0.4); if (Math.abs(d) > 8) scrollEl.scrollBy({ top: d, behavior: "auto" }); } catch {} });
+  edEl.addEventListener("input", () => requestAnimationFrame(centre)); edEl.addEventListener("keyup", e => { if (["Enter", "ArrowDown", "ArrowUp", "Backspace"].includes(e.key)) requestAnimationFrame(centre); });
+  const fit = () => { if (nt.offsetParent) { const tb = document.getElementById("tabs"), r = tb && tb.getBoundingClientRect(); nt.style.setProperty("--nt-top", Math.round(r && r.height ? r.bottom + 8 : 56) + "px"); } }; addEventListener("resize", fit); addEventListener("tab", () => setTimeout(fit, 30)); fit(); setTimeout(fit, 300);
   setTitle("", false); enable(false);
   refresh().then(() => { const last = tabs[tabs.length - 1]; if (last && files.includes(last) && innerWidth > 900) open(last); });
 }
