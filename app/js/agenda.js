@@ -45,7 +45,8 @@ function curveFor(day, loc) {
   return { A, y, Y: m => { const q = Math.min(287.999, m / 5), i = Math.floor(q); return y(A[i] + (A[i + 1] - A[i]) * (q - i)); }, horizon: HOR };
 }
 function timelineSVG(day, list, scrub, now, loc, k = 1.3) {
-  const dayEv = list.filter(e => !e.allDay && onDay(e, day)).sort((a, b) => a.s - b.s), isToday = !!now, nm = now ? mins(now) : -1, { rise, set } = sunTimes(day, loc), C = curveFor(day, loc);
+  const dayEv = list.filter(e => !e.allDay && !e.done && onDay(e, day)).sort((a, b) => a.s - b.s), isToday = !!now,   // a finished task leaves the path (it stays, struck through, on the calendar)
+     nm = now ? mins(now) : -1, { rise, set } = sunTimes(day, loc), C = curveFor(day, loc);
   let s = `<line x1="${X0}" x2="${X1}" y1="${C.horizon}" y2="${C.horizon}" stroke="#3d4150" stroke-dasharray="1.5 6"/>`;
   for (let m = 0; m <= 1440; m += 5) {   // the path itself, one dot per five minutes; larger and brighter where a task is on
     const a = at(day, m), b = new Date(+a + 5 * 6e4), hit = dayEv.filter(e => e.s < b && e.e > a), up = C.A[m / 5] > 0, past = isToday && +b <= +now;
@@ -59,7 +60,7 @@ function timelineSVG(day, list, scrub, now, loc, k = 1.3) {
   // task titles sit in their own band above the curve, on leader lines, staggered into lanes so no text ever touches the curve or another title
   const lanes = [];
   dayEv.forEach(e => {
-    const startM = e.s < at(day, 0) ? 0 : mins(e.s), x = Xm(startM), title = e.title.length > 28 ? e.title.slice(0, 27) + "…" : e.title, w = Math.max(60 / k, title.length * 7.4 / k + 8), flip = x + w > VW - 14, xs = flip ? x - w : x;
+    const startM = e.s < at(day, 0) ? 0 : mins(e.s), x = Xm(startM), title = e.title.length > 28 ? e.title.slice(0, 27) + "…" : e.title, w = Math.max(60 / k, title.length * 6.3 / k + 8), flip = x + w > VW - 14, xs = flip ? x - w : x;
     const lane = lanes.findIndex(r => r < xs - 8), ln = lane < 0 ? lanes.length : lane; if (ln > 3) return; lanes[ln] = xs + w;
     const by = C.Y(startM), ly = 24 + ln * 34, past = isToday && e.e <= now, col = heavyEv(e) ? RED : past ? "#8b90a3" : "#fff", dim = e.recurring && !heavyEv(e), tx = flip ? x - 5 : x + 5, anchor = flip ? "end" : "start";
     s += `<g class="ag-bead" data-id="${esc(e.id)}"><line x1="${x}" x2="${x}" y1="${ly + 20}" y2="${by - 4}" stroke="${col}" stroke-opacity=".55" stroke-width="1.4" stroke-dasharray="3 4"/>`
@@ -136,10 +137,10 @@ export function wireAgenda(root, ctx) {
     const pw = pathEl.getBoundingClientRect().width, k = pw > 0 ? pw / VW : 1.3; pathEl.style.setProperty("--k", k.toFixed(3)); pathEl.innerHTML = timelineSVG(focus, list, scrub, now, loc, k);
     const R = { B: budget(focus, list, m, loc) };
     tl.style.setProperty("--glow", `rgba(${r},${g},${b},${scrub != null ? .7 : .52})`);
-    const dayEv = list.filter(e => !e.allDay && onDay(e, focus)), when = at(focus, m), cur = dayEv.find(e => e.s <= when && e.e > when), B = R.B, ld = load(focus, list);
+    const dayEv = list.filter(e => !e.allDay && onDay(e, focus)), when = at(focus, m), cur = dayEv.find(e => !e.done && e.s <= when && e.e > when), B = R.B, ld = load(focus, list);
     let line;
     if (scrub != null) { line = `${light(focus, m, loc).toUpperCase()} · SUN ${a >= 0 ? "+" : "−"}${Math.abs(a).toFixed(0)}°<br>${cur ? `<b>${esc(cur.title)}</b>` : "FREE"}`; }
-    else if (now) { const fut = dayEv.filter(e => e.e > now).sort((x, y) => x.s - y.s), c = fut.find(e => e.s <= now), nx = fut.find(e => e.s > now); line = c ? `NOW · UNTIL ${hhmm(c.e)}<br><b>${esc(c.title)}</b>` : nx ? `NEXT IN ${Math.floor((nx.s - now) / 36e5) ? Math.floor((nx.s - now) / 36e5) + "H " : ""}${Math.round(((nx.s - now) / 6e4) % 60)}M<br><b>${esc(nx.title)}</b>` : "NOTHING MORE TODAY"; }
+    else if (now) { const fut = dayEv.filter(e => !e.done && e.e > now).sort((x, y) => x.s - y.s), c = fut.find(e => e.s <= now), nx = fut.find(e => e.s > now); line = c ? `NOW · UNTIL ${hhmm(c.e)}<br><b>${esc(c.title)}</b>` : nx ? `NEXT IN ${Math.floor((nx.s - now) / 36e5) ? Math.floor((nx.s - now) / 36e5) + "H " : ""}${Math.round(((nx.s - now) / 6e4) % 60)}M<br><b>${esc(nx.title)}</b>` : "NOTHING MORE TODAY"; }
     else { const d = new Date(focus + "T12:00:00"); line = `${d.toLocaleDateString("en-US", { weekday: "long", month: "short" }).toUpperCase()}<br><b>${dayEv.length} EVENT${dayEv.length === 1 ? "" : "S"}</b>${dayEv.length ? ` · ${hoursOn(list, focus).toFixed(1)} H` : ""}`; }
     cap.innerHTML = line; if (cap.offsetHeight > capH) capH = cap.offsetHeight; cap.style.minHeight = capH + "px";   // the caption only ever grows, so a longer title on one line of the day cannot make the page below it jump
     const dl = B.dl == null ? "—" : B.dl > 0 ? hm(B.dl / 60) : B.dl < 0 ? "IN " + hm(-B.dl / 60) : "OVER";

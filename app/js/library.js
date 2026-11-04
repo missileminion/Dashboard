@@ -12,7 +12,7 @@ const num = v => (v == null || Number.isNaN(v) ? null : +v), nn = a => a.filter(
 const mean = a => { a = nn(a); return a.length ? a.reduce((x, y) => x + y, 0) / a.length : null; };
 const sdev = a => { a = nn(a); if (a.length < 2) return null; const m = mean(a); return Math.sqrt(a.reduce((s, v) => s + (v - m) ** 2, 0) / (a.length - 1)); };
 const trim = (v, d = 2) => String(+(+v).toFixed(d)), thou = v => Math.round(v).toLocaleString("en-US");
-const chart = (node, text = "") => ({ node, text }), link = (go, label) => ({ buttons: [{ label, go }] }), PAGES = { buttons: [{ label: "Health", go: "health" }, { label: "Productivity", go: "prod" }, { label: "Gym log", go: "gym" }, { label: "Calendar", go: "cal" }] };
+const chart = (node, text = "") => ({ node, text }), link = (go, label) => ({ buttons: [{ label, go }] }), PAGES = { buttons: [{ label: "Home", go: "home" }, { label: "Health", go: "health" }, { label: "Productivity", go: "prod" }, { label: "Gym log", go: "gym" }, { label: "Calendar", go: "cal" }] };
 const clk = s => { s = Math.max(0, Math.round(s)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60; return h ? `${h}:${pad(m)}:${pad(x)}` : `${pad(m)}:${pad(x)}`; };
 const secT = s => { s = Math.round(s); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60; return h ? `${h}:${pad(m)}:${pad(x)}` : `${m}:${pad(x)}`; };
 const rd = (s, b) => (b ? `<span class="tm-red">${esc(s)}</span>` : esc(s));

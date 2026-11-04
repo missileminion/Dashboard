@@ -15,7 +15,7 @@ const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const pad = n => String(n).padStart(2, "0"), hhmm = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 const DOW = { sun: 0, sunday: 0, mon: 1, monday: 1, tue: 2, tues: 2, tuesday: 2, wed: 3, wednesday: 3, thu: 4, thur: 4, thurs: 4, thursday: 4, fri: 5, friday: 5, sat: 6, saturday: 6 };
 const MON = { jan: 0, january: 0, feb: 1, february: 1, mar: 2, march: 2, apr: 3, april: 3, may: 4, jun: 5, june: 5, jul: 6, july: 6, aug: 7, august: 7, sep: 8, sept: 8, september: 8, oct: 9, october: 9, nov: 10, november: 10, dec: 11, december: 11 };
-const TABS = { health: "health", home: "health", h: "health", prod: "prod", productivity: "prod", timer: "prod", stickynote: "prod", notes: "prod", gym: "gym", gymlog: "gym", log: "gym", cal: "cal", calendar: "cal", console: "console", terminal: "console" };
+const TABS = { home: "home", start: "home", newtab: "home", health: "health", h: "health", prod: "prod", productivity: "prod", timer: "prod", stickynote: "prod", notes: "prod", gym: "gym", gymlog: "gym", log: "gym", cal: "cal", calendar: "cal", console: "console", terminal: "console" };
 // the core commands: [group, name, usage, description, aliases]
 const CORE = [
   ["log", "add", "add gym thu 5pm", "add a calendar event (add lunch tomorrow 12:30 for 45m)", ["ev", "event"]],
