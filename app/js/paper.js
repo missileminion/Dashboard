@@ -113,3 +113,14 @@ $(".nt-ed").addEventListener("click", e => {
   const m = hlOn && e.target.closest && e.target.closest("mark"); if (!m || !getSelection().isCollapsed) return;
   const r = document.createRange(); r.selectNodeContents(m); const sl = getSelection(); sl.removeAllRanges(); sl.addRange(r); clearTimeout(hlT); hlT = setTimeout(applyHl, 120);
 });
+
+/* ----- open the note you were last reading, instead of "No note open" ----- */
+const K_LAST = "paper.last"; let restored = false;
+const remember = () => { const on = $(".nt-item.on"); if (on && on.dataset.path) ls.set(K_LAST, on.dataset.path); };
+const restore = () => {
+  if (restored || !$(".nt-item") || !$(".nt-ed").closest(".blank")) { if (restored || !$(".nt-ed").closest(".blank")) remember(); return; }
+  const p = ls.get(K_LAST); let el = p && document.querySelector('.nt-item[data-path="' + window.CSS.escape(p) + '"]');
+  if (!el && p) el = document.querySelector('.nt-tab[data-tab="' + window.CSS.escape(p) + '"]');
+  restored = true; if (el) el.click();
+};
+new MutationObserver(() => { remember(); restore(); }).observe($("#notesRoot"), { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] }); restore();
