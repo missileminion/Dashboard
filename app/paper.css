@@ -1,13 +1,13 @@
 /* The Reader: the Notes page as a quiet printed newspaper, for e-ink (Onyx Boox Go 10.3). Loaded after themes.css.
-   Fibre paper, ink-black Pressroom type (Newsreader, SIL OFL, softened and speckled by tools/soften.py), hairline rules, no colour, no glass, no motion.
+   Pure white paper, ink-black Pressroom type (Newsreader, SIL OFL, softened and speckled by tools/soften.py), hairline rules, no colour, no glass, no motion.
    It is a reader: you can select text and highlight it, nothing else. */
 @font-face{font-family:"Pressroom Text";src:url(fonts/pressroom-text-regular.woff2) format("woff2");font-weight:400;font-style:normal;font-display:swap}
 @font-face{font-family:"Pressroom Text";src:url(fonts/pressroom-text-italic.woff2) format("woff2");font-weight:400;font-style:italic;font-display:swap}
 @font-face{font-family:"Pressroom Text";src:url(fonts/pressroom-text-bold.woff2) format("woff2");font-weight:700;font-style:normal;font-display:swap}
 @font-face{font-family:"Pressroom Display";src:url(fonts/pressroom-display-bold.woff2) format("woff2");font-weight:700;font-style:normal;font-display:swap}
 @media screen{
-:root{--ink:#0c0c0c;--rule:#111;--hair:#bdbdbd;--paper:#f1f1ef;--body:"Pressroom Text",Newsreader,Georgia,"Times New Roman",serif;--head:"Pressroom Display","Pressroom Text",Georgia,serif;--lab:"Libre Franklin","Helvetica Neue",Arial,sans-serif;--black:UnifrakturCook,"Old English Text MT",Georgia,serif}
-html,body.paper{background:var(--paper) url(paper.png)!important;color:var(--ink)!important}
+:root{--ink:#0c0c0c;--rule:#111;--hair:#bdbdbd;--paper:#fff;--body:"Pressroom Text",Newsreader,Georgia,"Times New Roman",serif;--head:"Pressroom Display","Pressroom Text",Georgia,serif;--lab:"Libre Franklin","Helvetica Neue",Arial,sans-serif;--black:UnifrakturCook,"Old English Text MT",Georgia,serif}
+html,body.paper{background:#fff!important;color:var(--ink)!important}
 body.paper{margin:0!important;padding:0!important;overflow:hidden!important;font-family:var(--body);font-synthesis:none;-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%}
 body.paper *,body.paper *::before,body.paper *::after{transition:none!important;animation:none!important;scroll-behavior:auto!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;text-shadow:none!important}
 body.paper .panel{max-width:none!important;margin:0!important;padding:0!important}
@@ -15,7 +15,7 @@ body.paper #notes{position:static}
 body.paper .bg-orbs,body.paper .skybar,body.paper #ver{display:none!important}
 
 body.paper .nt,body.paper .nt[data-th]{--serif:var(--body);--ui:var(--lab);--tx:var(--ink);--tx2:#2b2b2b;--tx3:#666;--bd:var(--hair);--line:var(--rule);--hov:rgba(0,0,0,.06);--on:rgba(0,0,0,.1);--ac:#000;--hl:transparent;--err:#000;--code:#e6e6e4;--inp:transparent;--cmt:#000;
-  --main:transparent;--sidebg:transparent;--pill:var(--paper);--popbg:#f6f6f4;--sh:none;--glass:transparent;--gedge:var(--rule);--ghi:transparent;--gsh:transparent}
+  --main:transparent;--sidebg:transparent;--pill:var(--paper);--popbg:#fff;--sh:none;--glass:transparent;--gedge:var(--rule);--ghi:transparent;--gsh:transparent}
 
 /* layout: a slim library column, then the page; narrow screens take turns */
 body.paper .nt{position:fixed!important;inset:0!important;top:0!important;height:auto!important;min-height:0!important;display:grid!important;grid-template-columns:268px minmax(0,1fr)!important;gap:0!important;padding:0!important;margin:0!important;border:0!important;border-radius:0!important;box-shadow:none!important;background:none!important;z-index:1}
@@ -51,7 +51,7 @@ body.paper .nt-empty{font:italic 17px var(--body);color:#555}
 body.paper .nt-vault{border-top:1px solid var(--rule)!important;padding:8px 8px 8px 20px!important;font:500 10.5px var(--lab)!important;letter-spacing:.12em;text-transform:uppercase;color:#444!important}
 body.paper .nt-vault .nt-ib{width:44px!important;height:44px!important;border-radius:0!important;color:var(--ink)!important} body.paper .nt-vault .nt-ib svg{width:20px!important;height:20px!important}
 body.paper .nt-conn{border-top:1px solid var(--rule)!important;padding:12px 16px!important}
-body.paper .nt-conn input{height:46px;font:16px var(--lab)!important;border:1px solid var(--rule)!important;border-radius:0!important;background:#f6f6f4!important}
+body.paper .nt-conn input{height:46px;font:16px var(--lab)!important;border:1px solid var(--rule)!important;border-radius:0!important;background:#fff!important}
 body.paper .nt-btn,body.paper .nt-go{font:600 12px var(--lab)!important;letter-spacing:.12em;text-transform:uppercase;min-height:44px;border:1px solid var(--rule)!important;border-radius:0!important;background:none!important;color:var(--ink)!important}
 
 /* the slim bar above the page: back (narrow screens) and the save dot */
@@ -92,13 +92,13 @@ body.paper .nt .milkdown .ProseMirror code{background:#e6e6e4!important;color:va
 body.paper .nt .milkdown .milkdown-code-block{border:1px solid var(--rule)!important;border-radius:0!important;background:#e9e9e7!important;text-align:left}
 body.paper .nt .milkdown .ProseMirror table{border-collapse:collapse;text-align:left;text-indent:0} body.paper .nt .milkdown .ProseMirror table td,body.paper .nt .milkdown .ProseMirror table th{border:1px solid var(--rule)!important;padding:6px 10px}
 body.paper .nt .milkdown .ProseMirror img{border-radius:0;max-width:100%;height:auto;display:block;margin:1.2em auto;-webkit-user-drag:none}
-body.paper .nt .milkdown .ProseMirror ::selection{background:#000;color:#f1f1ef}
+body.paper .nt .milkdown .ProseMirror ::selection{background:#000;color:#fff}
 
 /* the highlight button over the selection */
 body.paper .nt-sel{background:var(--paper)!important;border:1px solid var(--rule)!important;border-radius:0!important;box-shadow:none!important;padding:0!important}
 body.paper .nt-sel button{width:56px!important;height:52px!important;border-radius:0!important;color:var(--ink)!important} body.paper .nt-sel button svg{width:24px!important;height:24px!important}
 body.paper .nt-sel button:active{background:#000!important;color:var(--paper)!important}
-body.paper .nt-pop,body.paper .nt-ctx{background:#f6f6f4!important;border:1px solid var(--rule)!important;border-radius:0!important;box-shadow:none!important}
+body.paper .nt-pop,body.paper .nt-ctx{background:#fff!important;border:1px solid var(--rule)!important;border-radius:0!important;box-shadow:none!important}
 
 /* the foot: previous, text size, page, clear screen, next */
 .pp-foot{display:flex;align-items:stretch;justify-content:space-between;min-height:64px;border-top:1px solid var(--rule);background:none;font:600 10.5px var(--lab);letter-spacing:.16em;text-transform:uppercase}

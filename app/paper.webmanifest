@@ -6,8 +6,8 @@
   "start_url": "paper.html",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#f1f1ef",
-  "theme_color": "#f1f1ef",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
   "icons": [
     {
       "src": "icons/icon-192.png",
