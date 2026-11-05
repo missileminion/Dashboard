@@ -1,0 +1,101 @@
+/* Paper Notes: the Notes tab set for e-ink (Onyx Boox Go 10.3). Pure white and pure black, no colour, no glass, no shadows, no motion,
+   big tap targets, a sturdy reading serif (Literata was drawn for e-readers). Loaded after themes.css, so it overrides the glass look. */
+@media screen{
+html,body.paper{background:#fff!important;color:#000!important}
+body.paper{margin:0!important;padding:0!important;overflow:hidden!important;font-family:Literata,Georgia,"Times New Roman",serif;-webkit-tap-highlight-color:transparent}
+body.paper *,body.paper *::before,body.paper *::after{transition:none!important;animation:none!important;scroll-behavior:auto!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;text-shadow:none!important}
+body.paper .panel{max-width:none!important;margin:0!important;padding:0!important}
+body.paper #notes{position:static}
+body.paper .bg-orbs,body.paper .skybar,body.paper #ver{display:none!important}
+
+/* every colour becomes black, white or one grey */
+body.paper .nt,body.paper .nt[data-th]{--serif:Literata,Georgia,"Times New Roman",serif;--ui:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --tx:#000;--tx2:#222;--tx3:#555;--bd:#000;--rule:#000;--hov:#ececec;--on:#dcdcdc;--ac:#000;--hl:#cfcfcf;--err:#000;--code:#efefef;--inl:#000;--inp:#fff;--cmt:#000;
+  --main:#fff;--sidebg:#fff;--line:#000;--pill:#fff;--popbg:#fff;--sh:none;--glass:#fff;--gedge:#000;--ghi:transparent;--gsh:transparent;
+  --crepe-color-primary:#000;--crepe-color-outline:#000}
+
+/* layout: the list on the left, the page beside it, a slim control strip on the right edge */
+body.paper .nt{position:fixed!important;inset:0 64px 0 0!important;top:0!important;height:auto!important;min-height:0!important;display:grid!important;grid-template-columns:330px minmax(0,1fr)!important;gap:0!important;padding:0!important;margin:0!important;border:0!important;border-radius:0!important;box-shadow:none!important;background:#fff!important;z-index:1}
+body.paper .nt.nofiles{grid-template-columns:minmax(0,1fr)!important}
+body.paper .nt-side{order:1!important;display:flex!important;background:#fff!important;border:0!important;border-right:2px solid #000!important;padding:0!important}
+body.paper .nt-main{order:2!important;display:flex!important;background:#fff!important;border:0!important;border-radius:0!important;box-shadow:none!important;overflow:hidden!important}
+body.paper .nt-main::before,body.paper .nt-main::after{display:none!important}
+body.paper .nt-home,body.paper [data-a=theme],body.paper .nt-mode{display:none!important}
+body.paper .nt-back{display:none!important}
+body.paper .nt-scroll{-webkit-mask-image:none!important;mask-image:none!important;overscroll-behavior:none}
+body.paper .nt-page{max-width:780px!important;padding:44px 44px 60vh!important}
+
+/* narrow screen: the list and the page take turns, like a book app */
+@media (max-width:760px){
+  body.paper .nt{grid-template-columns:minmax(0,1fr)!important}
+  body.paper #notesRoot:not(.open) .nt-main{display:none!important} body.paper #notesRoot.open .nt-side{display:none!important}
+  body.paper .nt-back{display:inline-flex!important} body.paper .nt-page{padding:28px 22px 60vh!important}
+}
+
+/* buttons: big and square, and they invert while pressed so you can see the tap register */
+body.paper .nt-ib{width:48px!important;height:48px!important;border-radius:0!important;color:#000!important;background:none!important}
+body.paper .nt-ib svg{width:24px!important;height:24px!important;stroke-width:2.2}
+body.paper .nt-ib:active,body.paper .nt-t:active,body.paper .nt-pi:active,body.paper .nt-sb:active,body.paper .nt-btn:active{background:#000!important;color:#fff!important}
+body.paper .nt-btn,body.paper .nt-sb,body.paper .nt-go{font:600 17px var(--ui)!important;min-height:46px;border:2px solid #000!important;border-radius:0!important;background:#fff!important;color:#000!important;padding:0 16px!important}
+body.paper .nt-sbar{padding:10px 8px 8px 14px!important;border-bottom:2px solid #000} body.paper .nt-brand{font:700 22px var(--serif)!important;letter-spacing:0}
+body.paper .nt-seg{border:2px solid #000!important;border-radius:0!important;background:#fff!important;padding:0!important;margin:10px 12px!important;gap:0!important}
+body.paper .nt-seg button{height:46px!important;font:600 16px var(--ui)!important;border-radius:0!important;color:#000!important;background:#fff!important;box-shadow:none!important}
+body.paper .nt-seg button+button{border-left:2px solid #000!important}
+body.paper .nt-seg button.on{background:#000!important;color:#fff!important}
+body.paper .nt-find{margin:0 12px 10px!important;height:50px!important;padding:0 4px 0 12px!important;border:2px solid #000!important;border-radius:0!important;background:#fff!important}
+body.paper .nt-find input{font:18px var(--ui)!important;color:#000!important;background:none!important;border:0!important;padding:0 8px!important}
+body.paper .nt-fi{color:#000!important} body.paper .nt-fi svg{width:20px!important;height:20px!important}
+body.paper .nt-list,body.paper .nt-cmts,body.paper .nt-ol{padding:0 0 12px!important}
+body.paper .nt-row-i{min-height:56px!important;font:500 19px/1.25 var(--ui)!important;border-radius:0!important;border-bottom:1px solid #9a9a9a!important;color:#000!important;padding-left:calc(14px + var(--d,0) * 18px)!important}
+body.paper .nt-row-i>svg{width:20px!important;height:20px!important;color:#000!important}
+body.paper .nt-item.on{background:#ececec!important;font-weight:700;box-shadow:inset 6px 0 0 #000!important}
+body.paper .nt-dir{font-weight:700!important}
+body.paper .nt-vault,body.paper .nt-trashrow,body.paper .nt-selbar,body.paper .nt-conn{border-top:2px solid #000!important;font:16px var(--ui)!important}
+body.paper .nt-conn input{height:48px;font:17px var(--ui)!important;border:2px solid #000!important;border-radius:0!important;background:#fff!important}
+
+/* the bar over the page */
+body.paper .nt-tabs{background:#fff!important;border-bottom:2px solid #000!important;padding:6px 8px!important;min-height:60px;box-sizing:border-box}
+body.paper .nt-tabs .nt-ib{margin-bottom:0!important}
+body.paper .nt-bt{font:700 19px var(--serif)!important;color:#000!important}
+body.paper .nt-status{font:15px var(--ui)!important;color:#000!important} body.paper .nt-rt{font:15px var(--ui)!important;color:#222!important}
+body.paper .nt-sd{width:14px!important;height:14px!important;border:2px solid #000} body.paper .nt-sd[data-s=saved]{background:#000!important} body.paper .nt-sd[data-s=dirty]{background:#fff!important}
+body.paper .nt-banner{background:#fff!important;color:#000!important;border-bottom:2px solid #000;font:600 16px var(--ui)!important}
+
+/* the page itself: a ruled title, generous leading, ink-black text */
+body.paper .nt textarea.nt-title,body.paper .nt input.nt-title{font:700 46px/1.1 var(--serif)!important;color:#000!important;padding-bottom:16px!important;margin-bottom:28px!important;border-bottom:3px double #000!important;letter-spacing:0!important}
+body.paper .nt textarea.nt-title::placeholder{color:#666}
+body.paper .nt .milkdown .ProseMirror{font-family:var(--serif)!important;font-size:var(--pp-fs,24px)!important;line-height:1.5!important;font-weight:420;color:#000!important;font-variant-numeric:lining-nums;caret-color:#000}
+body.paper .nt .milkdown .ProseMirror p{margin:0 0 .7em!important}
+body.paper .nt .milkdown .ProseMirror h1,body.paper .nt .milkdown .ProseMirror h2,body.paper .nt .milkdown .ProseMirror h3,body.paper .nt .milkdown .ProseMirror h4{color:#000!important;font-weight:700!important}
+body.paper .nt .milkdown .ProseMirror strong{color:#000!important;font-weight:800}
+body.paper .nt .milkdown .ProseMirror a{color:#000!important;text-decoration:underline!important;text-decoration-thickness:2px!important}
+body.paper .nt .milkdown .ProseMirror blockquote{border-top:2px solid #000;border-bottom:2px solid #000}
+body.paper .nt .milkdown .ProseMirror mark{background:#c8c8c8!important;color:#000!important;border-radius:0}
+body.paper .nt .milkdown .ProseMirror .nt-cmt{background:none!important;border-bottom:3px dotted #000!important}
+body.paper .nt .milkdown .ProseMirror code{background:#ececec!important;color:#000!important;border:1px solid #000;border-radius:0}
+body.paper .nt .milkdown .milkdown-code-block{border:2px solid #000!important;border-radius:0!important;background:#f4f4f4!important}
+body.paper .nt .milkdown .ProseMirror table td,body.paper .nt .milkdown .ProseMirror table th{border:1px solid #000!important}
+body.paper .nt .milkdown .ProseMirror img{border-radius:0}
+body.paper .nt .milkdown .ProseMirror ::selection{background:#000;color:#fff}
+
+/* formatting bar: a plain strip along the bottom of the page */
+body.paper .nt-foot{left:0!important;right:0!important;bottom:0!important;padding:0!important}
+body.paper .nt-tools{width:100%;justify-content:center;gap:2px;padding:6px 8px!important;background:#fff!important;border:0!important;border-top:2px solid #000!important;border-radius:0!important;box-shadow:none!important}
+body.paper .nt-t{min-width:48px!important;height:48px!important;border-radius:0!important;color:#000!important}
+body.paper .nt-t svg{width:23px!important;height:23px!important}
+body.paper .nt-sep{background:#000!important;width:2px!important;opacity:1!important}
+
+/* menus, pop-ups, the highlight/comment bar and the comment cards */
+body.paper .nt-pop,body.paper .nt-xmenu,body.paper .nt-cpop,body.paper .nt-ctx,body.paper .nt-sel{background:#fff!important;border:2px solid #000!important;border-radius:0!important;box-shadow:none!important}
+body.paper .nt-pi{font:600 18px var(--ui)!important;min-height:48px;border-radius:0!important;color:#000!important}
+body.paper .nt-cf textarea,body.paper .nt-lf input{border:2px solid #000!important;border-radius:0!important;background:#fff!important;color:#000!important}
+body.paper .nt-dot{border:2px solid #000!important}
+
+/* the control strip on the right edge */
+#ppCtl{position:fixed;top:0;right:0;bottom:0;width:64px;z-index:5;display:flex;flex-direction:column;justify-content:space-between;background:#fff;border-left:2px solid #000}
+#ppCtl button{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border:0;border-bottom:1px solid #000;background:#fff;color:#000;font:600 20px var(--ui,system-ui);padding:0;cursor:pointer}
+#ppCtl button:last-child{border-bottom:0} #ppCtl button:active{background:#000;color:#fff}
+#ppCtl svg{width:30px;height:30px} #ppCtl small{font:600 11px system-ui,sans-serif;letter-spacing:.04em;text-transform:uppercase}
+#ppFlash{position:fixed;inset:0;z-index:999} #ppFlash.k{background:#000} #ppFlash.w{background:#fff} #ppFlash[hidden]{display:none}
+}
+@media print{#ppCtl,#ppFlash{display:none!important}}
