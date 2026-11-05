@@ -35,19 +35,19 @@ const meta = () => {   // only touch the page when the text really changes, or t
 new MutationObserver(meta).observe($("#notesRoot"), { subtree: true, childList: true, attributes: true, attributeFilter: ["class"], characterData: true }); meta();
 
 /* ----- the foot: previous, text size, page x of y, clear screen, next ----- */
-const FS = "paper.fs", MIN = 15, MAX = 32;
-let size = Math.min(MAX, Math.max(MIN, +ls.get(FS) || 20));
-const setSize = n => { size = Math.min(MAX, Math.max(MIN, n)); document.body.style.setProperty("--pp-fs", size + "px"); ls.set(FS, String(size)); status(); };
+const FS = "paper.pt", MIN = 9, MAX = 22;   // the text size in points: 12 pt is the standard
+let size = Math.min(MAX, Math.max(MIN, +ls.get(FS) || 12));
+const setSize = n => { size = Math.min(MAX, Math.max(MIN, n)); document.body.style.setProperty("--pp-fs", size + "pt"); ls.set(FS, String(size)); status(); };
 const foot = document.createElement("div"); foot.className = "pp-foot";
-foot.innerHTML = `<button type="button" data-k="up" aria-label="Previous page">&#8592; Previous</button><div class="pp-pg"><button type="button" data-k="sm" aria-label="Smaller text">A&#8722;</button><button type="button" data-k="lg" aria-label="Larger text">A+</button><span class="pp-n"></span><button type="button" data-k="fx" aria-label="Clear the screen">Clear</button></div><button type="button" data-k="dn" aria-label="Next page">Next &#8594;</button>`;
+foot.innerHTML = `<button type="button" data-k="up" aria-label="Previous page">&#8592; Previous</button><div class="pp-pg"><button type="button" data-k="sm" aria-label="Smaller text">A&#8722;</button><button type="button" data-k="lg" aria-label="Larger text">A+</button><span class="pp-n"></span><button type="button" data-k="hl" class="pp-hl" aria-label="Highlight mode">Highlight</button><button type="button" data-k="fx" aria-label="Clear the screen">Clear</button></div><button type="button" data-k="dn" aria-label="Next page">Next &#8594;</button>`;
 $(".nt-main").appendChild(foot);
-const scroller = () => $(".nt-scroll"), lineH = () => { const p = $(".nt-ed .ProseMirror"); return p ? parseFloat(getComputedStyle(p).lineHeight) || size * 1.64 : size * 1.64; };
+const scroller = () => $(".nt-scroll"), lineH = () => { const p = $(".nt-ed .ProseMirror"); return p ? parseFloat(getComputedStyle(p).lineHeight) || size * 1.333 * 1.55 : size * 1.333 * 1.55; };
 const stepPx = el => Math.max(lineH(), Math.floor((el.clientHeight * 0.92) / lineH()) * lineH());
 const status = () => { const el = scroller(), n = foot.querySelector(".pp-n"); if (!el) return; const real = Math.max(1, el.scrollHeight - (el.clientHeight * 0.46)), st = stepPx(el), pages = Math.max(1, Math.ceil(real / st)), at = Math.min(pages, Math.round(el.scrollTop / st) + 1); n.textContent = `Page ${at} of ${pages}`; };
 let turns = 0;
 const flash = () => { const f = $("#ppFlash"); f.className = "k"; f.hidden = false; setTimeout(() => { f.className = "w"; setTimeout(() => { f.hidden = true; }, 160); }, 160); };
 const turn = dir => { const el = scroller(); if (!el) return; el.scrollTop += dir * stepPx(el); status(); if (++turns >= 10) { turns = 0; flash(); } };
-foot.addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; const k = b.dataset.k; if (k === "up") turn(-1); else if (k === "dn") turn(1); else if (k === "lg") setSize(size + 1); else if (k === "sm") setSize(size - 1); else if (k === "fx") flash(); });
+foot.addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; const k = b.dataset.k; if (k === "up") turn(-1); else if (k === "dn") turn(1); else if (k === "lg") setSize(size + 1); else if (k === "sm") setSize(size - 1); else if (k === "fx") flash(); else if (k === "hl") setHl(!hlOn); });
 addEventListener("keydown", e => { const t = e.target; if (t && /^(INPUT|TEXTAREA)$/.test(t.tagName)) return; if (e.key === "PageDown" || (e.key === " " && !e.shiftKey)) { turn(1); e.preventDefault(); } else if (e.key === "PageUp" || (e.key === " " && e.shiftKey)) { turn(-1); e.preventDefault(); } });
 const sc = scroller(); sc.addEventListener("scroll", status, { passive: true }); addEventListener("resize", status);
 new ResizeObserver(status).observe(page); setSize(size);
@@ -91,3 +91,16 @@ const showSync = () => { const local = (($(".nt-repo") || {}).textContent || "")
 if (sd) new MutationObserver(() => { if (sd.dataset.s === "saved") stamp(); else showSync(); }).observe(sd, { attributes: true, attributeFilter: ["data-s"] });
 let first = true; new MutationObserver(() => { if (first && $(".nt-item")) { first = false; stamp(); } }).observe($(".nt-list"), { childList: true });
 showSync(); if ($(".nt-item") && first) { first = false; stamp(); }
+
+/* ----- highlighting on a touch screen -----
+   A long press starts the phone's own Copy / Paste bar and cancels the pointer, so the little highlight button never settles. So there is a Highlight mode (on by default):
+   select text however you like, and a moment after you stop moving the handles it is highlighted. Select highlighted text again to take the highlight off. */
+const K_HL = "paper.hl"; let hlOn = ls.get(K_HL) !== "0", hlT = 0; const hlBtn = foot.querySelector(".pp-hl");
+const setHl = on => { hlOn = on; ls.set(K_HL, on ? "1" : "0"); hlBtn.classList.toggle("on", on); if (!on) clearTimeout(hlT); }; setHl(hlOn);
+const applyHl = () => {
+  const sl = getSelection(), pm = $(".nt-ed .ProseMirror"); if (!hlOn || !pm || !sl.rangeCount || sl.isCollapsed || !pm.contains(sl.anchorNode) || !pm.contains(sl.focusNode)) return;
+  const b = $(".nt-sel [data-st=hl]"); if (b) { b.click(); setTimeout(() => { try { getSelection().collapseToEnd(); } catch {} }, 60); }
+};
+document.addEventListener("selectionchange", () => { clearTimeout(hlT); if (hlOn) hlT = setTimeout(applyHl, 900); });
+// a long press cancels the pointer; tell notes.js the touch is over so its own highlight button (used when Highlight mode is off) can appear
+for (const t of ["pointercancel", "touchend"]) document.addEventListener(t, () => setTimeout(() => document.dispatchEvent(new PointerEvent("pointerup")), 0), true);

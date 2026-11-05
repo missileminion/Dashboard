@@ -74,7 +74,7 @@ body.paper .nt textarea.nt-title,body.paper .nt input.nt-title{font:700 clamp(34
 body.paper .nt textarea.nt-title::placeholder{color:#777}
 .pp-by{display:flex;justify-content:space-between;gap:12px;font:500 10.5px var(--lab);letter-spacing:.16em;text-transform:uppercase;color:#2b2b2b;border-top:1px solid var(--rule);padding:12px 0 0;margin:0 0 30px}
 body.paper .nt-hello{font:italic 22px/1.4 var(--body);color:#444;padding:40px 0}
-body.paper .nt .milkdown .ProseMirror{font-family:var(--body)!important;font-size:var(--pp-fs,20px)!important;line-height:1.64!important;color:var(--ink)!important;caret-color:transparent;font-variant-numeric:lining-nums;text-align:justify;hyphens:auto;-webkit-hyphens:auto;text-wrap:pretty}
+body.paper .nt .milkdown .ProseMirror{font-family:var(--body)!important;font-size:var(--pp-fs,12pt)!important;line-height:1.55!important;color:var(--ink)!important;caret-color:transparent;font-variant-numeric:lining-nums;text-align:justify;hyphens:auto;-webkit-hyphens:auto;text-wrap:pretty}
 body.paper .nt .milkdown .ProseMirror p{margin:0!important} body.paper .nt .milkdown .ProseMirror p+p{text-indent:1.6em}
 body.paper .nt .milkdown .ProseMirror li p+p{text-indent:0}
 body.paper .nt .milkdown .ProseMirror h1,body.paper .nt .milkdown .ProseMirror h2,body.paper .nt .milkdown .ProseMirror h3,body.paper .nt .milkdown .ProseMirror h4{font-family:var(--head)!important;font-weight:700!important;color:var(--ink)!important;text-align:left;text-indent:0!important;line-height:1.14!important;letter-spacing:-.008em;margin:1.5em 0 .45em!important}
@@ -111,6 +111,7 @@ body.paper .nt-pop,body.paper .nt-ctx{background:#fff!important;border:1px solid
 .pp-foot .pp-pg{flex:1;display:flex;align-items:center;justify-content:center;gap:2px;padding:0 6px;text-align:center}
 .pp-foot .pp-pg button{min-width:52px;padding:0 10px;font-size:13px}
 .pp-foot .pp-n{min-width:92px}
+.pp-foot .pp-hl{min-width:0;padding:0 12px;margin:0 4px} .pp-foot .pp-hl.on{background:#000;color:#fff}
 #ppFlash{position:fixed;inset:0;z-index:999} #ppFlash.k{background:#000} #ppFlash.w{background:#fff} #ppFlash[hidden]{display:none}
 }
 @media print{.pp-foot,#ppFlash,.pp-kick,.pp-by,.pp-side,.pp-sync{display:none!important}}
