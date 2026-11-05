@@ -1,38 +1,79 @@
-// Paper Notes: the Notes tab on its own page, set for e-ink (Onyx Boox). The editor, storage and sync are exactly the ones in notes.js;
-// this file only forces the light theme, hides what a one-purpose page does not need, and adds the controls an e-ink screen wants:
-// page up / page down buttons (swiping smears on e-ink), a text size setting, and a "clear screen" flash to wipe ghosting.
+// The Reader: the Notes page as a quiet printed reader for e-ink (Onyx Boox). Same notes.js, same repo, same sync; this file turns it into a reader:
+// no typing or editing (you can select text and highlight it), a masthead and byline, paged reading, text size, a clear-screen flash,
+// and every picture redrawn as halftone dots like newsprint.
 import { initNotes } from "./notes.js";
 const ls = { get: k => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
 ls.set("notes.theme", "light");
-initNotes(document.getElementById("notesRoot"));
+const $ = s => document.querySelector(s);
+initNotes($("#notesRoot"));
+const brand = $(".nt-brand"); if (brand) brand.textContent = "The Reader";
 
-const FS = "paper.fs", MIN = 18, MAX = 40;
-let size = Math.min(MAX, Math.max(MIN, +ls.get(FS) || 24));
-const setSize = n => { size = Math.min(MAX, Math.max(MIN, n)); document.body.style.setProperty("--pp-fs", size + "px"); ls.set(FS, String(size)); };
-setSize(size);
+/* ----- read only: keep the editor live (so selecting and highlighting work) but refuse every edit ----- */
+const inEd = e => e.target && e.target.closest && e.target.closest(".nt-ed");
+for (const t of ["beforeinput", "paste", "cut", "drop", "dragstart", "compositionstart"]) document.addEventListener(t, e => { if (inEd(e)) { e.preventDefault(); e.stopPropagation(); } }, true);
+document.addEventListener("keydown", e => {
+  if (!inEd(e)) return; const mod = e.ctrlKey || e.metaKey;
+  if (e.key.length === 1 && !mod) { e.preventDefault(); e.stopPropagation(); }
+  else if (["Enter", "Backspace", "Delete", "Tab"].includes(e.key) || (mod && ["z", "y", "x", "v", "b", "i", "u"].includes(e.key.toLowerCase()))) { e.preventDefault(); e.stopPropagation(); }
+}, true);
+const noKeys = () => document.querySelectorAll(".nt-ed .ProseMirror").forEach(p => { p.setAttribute("inputmode", "none"); p.setAttribute("autocapitalize", "off"); p.setAttribute("spellcheck", "false"); });
+new MutationObserver(noKeys).observe($(".nt-ed"), { childList: true, subtree: true }); noKeys();
 
-const ico = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true">${d}</svg>`;
-const ctl = document.getElementById("ppCtl");
-ctl.innerHTML = [
-  ["up", ico('<path d="M5 15l7-7 7 7"/>'), "Page up"],
-  ["dn", ico('<path d="M5 9l7 7 7-7"/>'), "Page down"],
-  ["lg", "<b>A+</b>", "Larger text"],
-  ["sm", "<b>A−</b>", "Smaller text"],
-  ["fx", ico('<path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v5h-5"/>'), "Clear screen"],
-].map(([k, h, t]) => `<button type="button" data-k="${k}" aria-label="${t}">${h}<small>${t.split(" ")[0]}</small></button>`).join("");
-
-const scroller = () => document.querySelector(".nt-scroll"), list = () => document.querySelector(".nt-list");
-const page = dir => {   // jump by almost one screen, instantly: no smooth scrolling, so the screen refreshes once
-  const side = document.querySelector(".nt-side"), useList = side && side.offsetParent && !document.querySelector(".nt-main").offsetParent ? true : false;
-  const el = useList ? list() : scroller(); if (el) el.scrollTop += dir * Math.round(el.clientHeight * 0.9);
-  if (++turns >= 12) { turns = 0; flash(); }
-}; let turns = 0;
-const flash = () => {   // black, then white, then back: the usual way to clear ghosting on an e-ink panel
-  const f = document.getElementById("ppFlash"); f.className = "k"; f.hidden = false;
-  setTimeout(() => { f.className = "w"; setTimeout(() => { f.hidden = true; }, 160); }, 160);
+/* ----- the kicker over the headline and the byline under it ----- */
+const page = $(".nt-page"), title = $(".nt-title");
+const kick = document.createElement("div"); kick.className = "pp-kick"; const by = document.createElement("div"); by.className = "pp-by";
+page.insertBefore(kick, title); title.after(by);
+let lastMeta = "";
+const meta = () => {   // only touch the page when the text really changes, or the observer below would feed on its own edits
+  const on = $(".nt-item.on"), path = on ? on.dataset.path || "" : "", dir = path.includes("/") ? path.split("/").slice(-2, -1)[0] : "Notes";
+  const rt = ($(".nt-rt") || {}).textContent || "", has = !!on && !$(".nt-ed").closest(".blank");
+  const words = ($(".nt-ed .ProseMirror") || { textContent: "" }).textContent.trim().split(/\s+/).filter(Boolean).length;
+  const key = [has, dir, rt, words].join("|"); if (key === lastMeta) return; lastMeta = key;
+  kick.textContent = has ? dir : ""; kick.hidden = !has; by.hidden = !has;
+  by.innerHTML = has ? `<span>${words.toLocaleString("en-GB")} words</span><span>${rt ? rt.replace(/\s*min$/i, " min read") : ""}</span>` : "";
 };
-ctl.addEventListener("click", e => {
-  const b = e.target.closest("button"); if (!b) return; const k = b.dataset.k;
-  if (k === "up") page(-1); else if (k === "dn") page(1); else if (k === "lg") setSize(size + 2); else if (k === "sm") setSize(size - 2); else if (k === "fx") flash();
-});
-addEventListener("keydown", e => { const t = e.target; if (t && (t.isContentEditable || /^(INPUT|TEXTAREA)$/.test(t.tagName))) return; if (e.key === "PageDown") { page(1); e.preventDefault(); } else if (e.key === "PageUp") { page(-1); e.preventDefault(); } });
+new MutationObserver(meta).observe($("#notesRoot"), { subtree: true, childList: true, attributes: true, attributeFilter: ["class"], characterData: true }); meta();
+
+/* ----- the foot: previous, text size, page x of y, clear screen, next ----- */
+const FS = "paper.fs", MIN = 15, MAX = 32;
+let size = Math.min(MAX, Math.max(MIN, +ls.get(FS) || 20));
+const setSize = n => { size = Math.min(MAX, Math.max(MIN, n)); document.body.style.setProperty("--pp-fs", size + "px"); ls.set(FS, String(size)); status(); };
+const foot = document.createElement("div"); foot.className = "pp-foot";
+foot.innerHTML = `<button type="button" data-k="up" aria-label="Previous page">&#8592; Previous</button><div class="pp-pg"><button type="button" data-k="sm" aria-label="Smaller text">A&#8722;</button><button type="button" data-k="lg" aria-label="Larger text">A+</button><span class="pp-n"></span><button type="button" data-k="fx" aria-label="Clear the screen">Clear</button></div><button type="button" data-k="dn" aria-label="Next page">Next &#8594;</button>`;
+$(".nt-main").appendChild(foot);
+const scroller = () => $(".nt-scroll"), lineH = () => { const p = $(".nt-ed .ProseMirror"); return p ? parseFloat(getComputedStyle(p).lineHeight) || size * 1.64 : size * 1.64; };
+const stepPx = el => Math.max(lineH(), Math.floor((el.clientHeight * 0.92) / lineH()) * lineH());
+const status = () => { const el = scroller(), n = foot.querySelector(".pp-n"); if (!el) return; const real = Math.max(1, el.scrollHeight - (el.clientHeight * 0.46)), st = stepPx(el), pages = Math.max(1, Math.ceil(real / st)), at = Math.min(pages, Math.round(el.scrollTop / st) + 1); n.textContent = `Page ${at} of ${pages}`; };
+let turns = 0;
+const flash = () => { const f = $("#ppFlash"); f.className = "k"; f.hidden = false; setTimeout(() => { f.className = "w"; setTimeout(() => { f.hidden = true; }, 160); }, 160); };
+const turn = dir => { const el = scroller(); if (!el) return; el.scrollTop += dir * stepPx(el); status(); if (++turns >= 10) { turns = 0; flash(); } };
+foot.addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; const k = b.dataset.k; if (k === "up") turn(-1); else if (k === "dn") turn(1); else if (k === "lg") setSize(size + 1); else if (k === "sm") setSize(size - 1); else if (k === "fx") flash(); });
+addEventListener("keydown", e => { const t = e.target; if (t && /^(INPUT|TEXTAREA)$/.test(t.tagName)) return; if (e.key === "PageDown" || (e.key === " " && !e.shiftKey)) { turn(1); e.preventDefault(); } else if (e.key === "PageUp" || (e.key === " " && e.shiftKey)) { turn(-1); e.preventDefault(); } });
+const sc = scroller(); sc.addEventListener("scroll", status, { passive: true }); addEventListener("resize", status);
+new ResizeObserver(status).observe(page); setSize(size);
+
+/* ----- halftone: every picture is redrawn as a 45 degree screen of black dots ----- */
+const CELL = 4.6;   // device pixels between dots: about 75 lines an inch on a 300 ppi screen, like a newspaper
+function dots(img) {
+  const st = img.__ht || (img.__ht = {}); if (!img.src || img.src === st.out || st.busy) return;
+  st.busy = true; const orig = img.src, o = new Image();
+  o.onload = () => setTimeout(() => {
+    try {
+      const dpr = window.devicePixelRatio || 1, cw = Math.max(200, Math.min(img.parentElement ? img.parentElement.clientWidth : 640, 640)), W = Math.round(Math.min(cw * dpr, o.naturalWidth)), H = Math.round(W * o.naturalHeight / o.naturalWidth);
+      const c1 = document.createElement("canvas"); c1.width = W; c1.height = H; const x1 = c1.getContext("2d", { willReadFrequently: true }); x1.fillStyle = "#fff"; x1.fillRect(0, 0, W, H); if ("filter" in x1) x1.filter = "blur(1.2px)"; x1.drawImage(o, 0, 0, W, H);
+      const px = x1.getImageData(0, 0, W, H).data, out = document.createElement("canvas"); out.width = W; out.height = H; const x2 = out.getContext("2d"); x2.fillStyle = "#fff"; x2.fillRect(0, 0, W, H); x2.fillStyle = "#000";
+      const th = Math.PI / 4, ct = Math.cos(th), sn = Math.sin(th), R = Math.ceil(Math.hypot(W, H) / CELL) + 2, cx = W / 2, cy = H / 2; x2.beginPath();
+      for (let i = -R; i < R; i++) for (let j = -R; j < R; j++) {
+        const u = i * CELL, v = j * CELL, x = cx + u * ct - v * sn, y = cy + u * sn + v * ct; if (x < 0 || y < 0 || x >= W || y >= H) continue;
+        const k = (Math.floor(y) * W + Math.floor(x)) * 4, lum = (px[k] * .299 + px[k + 1] * .587 + px[k + 2] * .114) / 255, dark = 1 - Math.pow(lum, .62), r = CELL * .5 * Math.sqrt(dark) * 1.08;
+        if (r > .3) { x2.moveTo(x + r, y); x2.arc(x, y, r, 0, 6.2832); }
+      }
+      x2.fill(); st.out = out.toDataURL("image/png"); st.orig = orig; img.src = st.out;
+    } catch { st.out = orig; }
+    st.busy = false;
+  }, 30);
+  o.onerror = () => { st.out = orig; st.busy = false; }; o.src = orig;
+}
+const scan = () => document.querySelectorAll(".nt-ed .ProseMirror img").forEach(i => { if (i.closest(".katex")) return; if (i.complete && i.naturalWidth) dots(i); else i.addEventListener("load", () => dots(i), { once: true }); });
+const dup = () => { const h = $(".nt-ed .ProseMirror > h1:first-child"), same = !!h && h.textContent.trim().toLowerCase() === title.value.trim().toLowerCase() && !!title.value.trim(); if (page.dataset.dup !== (same ? "1" : "0")) page.dataset.dup = same ? "1" : "0"; };
+new MutationObserver(() => { scan(); dup(); }).observe($(".nt-ed"), { childList: true, subtree: true, attributes: true, attributeFilter: ["src"] }); scan(); dup(); title.addEventListener("input", dup); new MutationObserver(dup).observe($(".nt-bt"), { childList: true, characterData: true, subtree: true });

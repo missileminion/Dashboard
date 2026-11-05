@@ -1,101 +1,112 @@
-/* Paper Notes: the Notes tab set for e-ink (Onyx Boox Go 10.3). Pure white and pure black, no colour, no glass, no shadows, no motion,
-   big tap targets, a sturdy reading serif (Literata was drawn for e-readers). Loaded after themes.css, so it overrides the glass look. */
+/* The Reader: the Notes page as a quiet printed newspaper, for e-ink (Onyx Boox Go 10.3). Loaded after themes.css.
+   Fibre paper, ink-black Pressroom type (Newsreader, SIL OFL, softened and speckled by tools/soften.py), hairline rules, no colour, no glass, no motion.
+   It is a reader: you can select text and highlight it, nothing else. */
+@font-face{font-family:"Pressroom Text";src:url(fonts/pressroom-text-regular.woff2) format("woff2");font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:"Pressroom Text";src:url(fonts/pressroom-text-italic.woff2) format("woff2");font-weight:400;font-style:italic;font-display:swap}
+@font-face{font-family:"Pressroom Text";src:url(fonts/pressroom-text-bold.woff2) format("woff2");font-weight:700;font-style:normal;font-display:swap}
+@font-face{font-family:"Pressroom Display";src:url(fonts/pressroom-display-bold.woff2) format("woff2");font-weight:700;font-style:normal;font-display:swap}
 @media screen{
-html,body.paper{background:#fff!important;color:#000!important}
-body.paper{margin:0!important;padding:0!important;overflow:hidden!important;font-family:Literata,Georgia,"Times New Roman",serif;-webkit-tap-highlight-color:transparent}
+:root{--ink:#0c0c0c;--rule:#111;--hair:#bdbdbd;--paper:#f1f1ef;--body:"Pressroom Text",Newsreader,Georgia,"Times New Roman",serif;--head:"Pressroom Display","Pressroom Text",Georgia,serif;--lab:"Libre Franklin","Helvetica Neue",Arial,sans-serif;--black:UnifrakturCook,"Old English Text MT",Georgia,serif}
+html,body.paper{background:var(--paper) url(paper.png)!important;color:var(--ink)!important}
+body.paper{margin:0!important;padding:0!important;overflow:hidden!important;font-family:var(--body);font-synthesis:none;-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%}
 body.paper *,body.paper *::before,body.paper *::after{transition:none!important;animation:none!important;scroll-behavior:auto!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;text-shadow:none!important}
 body.paper .panel{max-width:none!important;margin:0!important;padding:0!important}
 body.paper #notes{position:static}
 body.paper .bg-orbs,body.paper .skybar,body.paper #ver{display:none!important}
 
-/* every colour becomes black, white or one grey */
-body.paper .nt,body.paper .nt[data-th]{--serif:Literata,Georgia,"Times New Roman",serif;--ui:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-  --tx:#000;--tx2:#222;--tx3:#555;--bd:#000;--rule:#000;--hov:#ececec;--on:#dcdcdc;--ac:#000;--hl:#cfcfcf;--err:#000;--code:#efefef;--inl:#000;--inp:#fff;--cmt:#000;
-  --main:#fff;--sidebg:#fff;--line:#000;--pill:#fff;--popbg:#fff;--sh:none;--glass:#fff;--gedge:#000;--ghi:transparent;--gsh:transparent;
-  --crepe-color-primary:#000;--crepe-color-outline:#000}
+body.paper .nt,body.paper .nt[data-th]{--serif:var(--body);--ui:var(--lab);--tx:var(--ink);--tx2:#2b2b2b;--tx3:#666;--bd:var(--hair);--line:var(--rule);--hov:rgba(0,0,0,.06);--on:rgba(0,0,0,.1);--ac:#000;--hl:transparent;--err:#000;--code:#e6e6e4;--inp:transparent;--cmt:#000;
+  --main:transparent;--sidebg:transparent;--pill:var(--paper);--popbg:#f6f6f4;--sh:none;--glass:transparent;--gedge:var(--rule);--ghi:transparent;--gsh:transparent}
 
-/* layout: the list on the left, the page beside it, a slim control strip on the right edge */
-body.paper .nt{position:fixed!important;inset:0 64px 0 0!important;top:0!important;height:auto!important;min-height:0!important;display:grid!important;grid-template-columns:330px minmax(0,1fr)!important;gap:0!important;padding:0!important;margin:0!important;border:0!important;border-radius:0!important;box-shadow:none!important;background:#fff!important;z-index:1}
+/* layout: a slim library column, then the page; narrow screens take turns */
+body.paper .nt{position:fixed!important;inset:0!important;top:0!important;height:auto!important;min-height:0!important;display:grid!important;grid-template-columns:268px minmax(0,1fr)!important;gap:0!important;padding:0!important;margin:0!important;border:0!important;border-radius:0!important;box-shadow:none!important;background:none!important;z-index:1}
 body.paper .nt.nofiles{grid-template-columns:minmax(0,1fr)!important}
-body.paper .nt-side{order:1!important;display:flex!important;background:#fff!important;border:0!important;border-right:2px solid #000!important;padding:0!important}
-body.paper .nt-main{order:2!important;display:flex!important;background:#fff!important;border:0!important;border-radius:0!important;box-shadow:none!important;overflow:hidden!important}
+body.paper .nt-side{order:1!important;display:flex!important;background:none!important;border:0!important;border-right:1px solid var(--rule)!important;padding:0!important}
+body.paper .nt-main{order:2!important;display:flex!important;flex-direction:column;background:none!important;border:0!important;border-radius:0!important;box-shadow:none!important;overflow:hidden!important}
 body.paper .nt-main::before,body.paper .nt-main::after{display:none!important}
-body.paper .nt-home,body.paper [data-a=theme],body.paper .nt-mode{display:none!important}
-body.paper .nt-back{display:none!important}
-body.paper .nt-scroll{-webkit-mask-image:none!important;mask-image:none!important;overscroll-behavior:none}
-body.paper .nt-page{max-width:780px!important;padding:44px 44px 60vh!important}
-
-/* narrow screen: the list and the page take turns, like a book app */
 @media (max-width:760px){
   body.paper .nt{grid-template-columns:minmax(0,1fr)!important}
   body.paper #notesRoot:not(.open) .nt-main{display:none!important} body.paper #notesRoot.open .nt-side{display:none!important}
-  body.paper .nt-back{display:inline-flex!important} body.paper .nt-page{padding:28px 22px 60vh!important}
+  body.paper .nt-back{display:inline-flex!important} body.paper .nt-page{padding:34px 26px 40vh!important}
 }
+/* everything a reader does not need */
+body.paper .nt-home,body.paper [data-a=theme],body.paper .nt-mode,body.paper .nt-sbar .nt-ib,body.paper .nt-seg,body.paper .nt-sort,body.paper .nt-trashrow,body.paper .nt-selbar,body.paper .nt-foot,body.paper .nt-tools,body.paper .nt-tablist,
+body.paper .nt-tabs [data-a=new],body.paper .nt-tabs [data-a=export],body.paper .nt-bt,body.paper .nt-rt,body.paper .nt-xmenu,body.paper .nt-cpop,body.paper .nt-sel [data-st=comment],body.paper .nt-dateline,body.paper .nt-rm,
+body.paper .nt .milkdown .block-handle,body.paper .nt .milkdown .operation-item,body.paper .nt .milkdown .milkdown-slash-menu,body.paper .nt .milkdown .milkdown-block-handle{display:none!important}
+body.paper .nt-back{display:none}
 
-/* buttons: big and square, and they invert while pressed so you can see the tap register */
-body.paper .nt-ib{width:48px!important;height:48px!important;border-radius:0!important;color:#000!important;background:none!important}
-body.paper .nt-ib svg{width:24px!important;height:24px!important;stroke-width:2.2}
-body.paper .nt-ib:active,body.paper .nt-t:active,body.paper .nt-pi:active,body.paper .nt-sb:active,body.paper .nt-btn:active{background:#000!important;color:#fff!important}
-body.paper .nt-btn,body.paper .nt-sb,body.paper .nt-go{font:600 17px var(--ui)!important;min-height:46px;border:2px solid #000!important;border-radius:0!important;background:#fff!important;color:#000!important;padding:0 16px!important}
-body.paper .nt-sbar{padding:10px 8px 8px 14px!important;border-bottom:2px solid #000} body.paper .nt-brand{font:700 22px var(--serif)!important;letter-spacing:0}
-body.paper .nt-seg{border:2px solid #000!important;border-radius:0!important;background:#fff!important;padding:0!important;margin:10px 12px!important;gap:0!important}
-body.paper .nt-seg button{height:46px!important;font:600 16px var(--ui)!important;border-radius:0!important;color:#000!important;background:#fff!important;box-shadow:none!important}
-body.paper .nt-seg button+button{border-left:2px solid #000!important}
-body.paper .nt-seg button.on{background:#000!important;color:#fff!important}
-body.paper .nt-find{margin:0 12px 10px!important;height:50px!important;padding:0 4px 0 12px!important;border:2px solid #000!important;border-radius:0!important;background:#fff!important}
-body.paper .nt-find input{font:18px var(--ui)!important;color:#000!important;background:none!important;border:0!important;padding:0 8px!important}
-body.paper .nt-fi{color:#000!important} body.paper .nt-fi svg{width:20px!important;height:20px!important}
-body.paper .nt-list,body.paper .nt-cmts,body.paper .nt-ol{padding:0 0 12px!important}
-body.paper .nt-row-i{min-height:56px!important;font:500 19px/1.25 var(--ui)!important;border-radius:0!important;border-bottom:1px solid #9a9a9a!important;color:#000!important;padding-left:calc(14px + var(--d,0) * 18px)!important}
-body.paper .nt-row-i>svg{width:20px!important;height:20px!important;color:#000!important}
-body.paper .nt-item.on{background:#ececec!important;font-weight:700;box-shadow:inset 6px 0 0 #000!important}
-body.paper .nt-dir{font-weight:700!important}
-body.paper .nt-vault,body.paper .nt-trashrow,body.paper .nt-selbar,body.paper .nt-conn{border-top:2px solid #000!important;font:16px var(--ui)!important}
-body.paper .nt-conn input{height:48px;font:17px var(--ui)!important;border:2px solid #000!important;border-radius:0!important;background:#fff!important}
+/* the library: a masthead and a plain list */
+body.paper .nt-sbar{display:block!important;padding:26px 16px 16px!important;border-bottom:1px solid var(--rule)!important;text-align:center}
+body.paper .nt-brand{font:700 30px/1 var(--black)!important;letter-spacing:0;color:var(--ink)}
+body.paper .nt-find{margin:0!important;height:54px!important;padding:0 18px!important;border:0!important;border-bottom:1px solid var(--hair)!important;border-radius:0!important;background:none!important}
+body.paper .nt-find input{font:500 14px var(--lab)!important;letter-spacing:.02em;color:var(--ink)!important;background:none!important;border:0!important;padding:0 8px!important}
+body.paper .nt-find input::placeholder{color:#777;text-transform:uppercase;letter-spacing:.14em;font-size:11px}
+body.paper .nt-fi{color:var(--ink)!important} body.paper .nt-fi svg{width:17px!important;height:17px!important}
+body.paper .nt-list{padding:0 0 16px!important}
+body.paper .nt-row-i{min-height:58px!important;font:400 18px/1.28 var(--body)!important;border-radius:0!important;border-bottom:1px solid var(--hair)!important;color:var(--ink)!important;background:none!important;padding:12px 20px 12px calc(20px + var(--d,0) * 18px)!important;box-shadow:none}
+body.paper .nt-row-i>svg{display:none!important}
+body.paper .nt-item.on{font-weight:700!important;box-shadow:inset 4px 0 0 var(--ink)!important}
+body.paper .nt-dir{font:600 11px var(--lab)!important;letter-spacing:.16em;text-transform:uppercase;min-height:46px!important;color:#333!important}
+body.paper .nt-dir>svg{display:inline-block!important;width:10px!important;height:10px!important}
+body.paper .nt-empty{font:italic 17px var(--body);color:#555}
+body.paper .nt-vault{border-top:1px solid var(--rule)!important;padding:8px 8px 8px 20px!important;font:500 10.5px var(--lab)!important;letter-spacing:.12em;text-transform:uppercase;color:#444!important}
+body.paper .nt-vault .nt-ib{width:44px!important;height:44px!important;border-radius:0!important;color:var(--ink)!important} body.paper .nt-vault .nt-ib svg{width:20px!important;height:20px!important}
+body.paper .nt-conn{border-top:1px solid var(--rule)!important;padding:12px 16px!important}
+body.paper .nt-conn input{height:46px;font:16px var(--lab)!important;border:1px solid var(--rule)!important;border-radius:0!important;background:#f6f6f4!important}
+body.paper .nt-btn,body.paper .nt-go{font:600 12px var(--lab)!important;letter-spacing:.12em;text-transform:uppercase;min-height:44px;border:1px solid var(--rule)!important;border-radius:0!important;background:none!important;color:var(--ink)!important}
 
-/* the bar over the page */
-body.paper .nt-tabs{background:#fff!important;border-bottom:2px solid #000!important;padding:6px 8px!important;min-height:60px;box-sizing:border-box}
-body.paper .nt-tabs .nt-ib{margin-bottom:0!important}
-body.paper .nt-bt{font:700 19px var(--serif)!important;color:#000!important}
-body.paper .nt-status{font:15px var(--ui)!important;color:#000!important} body.paper .nt-rt{font:15px var(--ui)!important;color:#222!important}
-body.paper .nt-sd{width:14px!important;height:14px!important;border:2px solid #000} body.paper .nt-sd[data-s=saved]{background:#000!important} body.paper .nt-sd[data-s=dirty]{background:#fff!important}
-body.paper .nt-banner{background:#fff!important;color:#000!important;border-bottom:2px solid #000;font:600 16px var(--ui)!important}
+/* the slim bar above the page: back (narrow screens) and the save dot */
+body.paper .nt-tabs{display:flex!important;justify-content:space-between;align-items:center;background:none!important;border:0!important;border-bottom:1px solid var(--hair)!important;padding:0 12px!important;min-height:52px;box-sizing:border-box}
+body.paper .nt-ib{width:48px!important;height:48px!important;border-radius:0!important;color:var(--ink)!important;background:none!important} body.paper .nt-ib svg{width:22px!important;height:22px!important}
+body.paper .nt-status{font:500 11px var(--lab)!important;letter-spacing:.12em;text-transform:uppercase;color:var(--ink)!important;margin-left:auto}
+body.paper .nt-sd{width:11px!important;height:11px!important;border:1.5px solid var(--ink)} body.paper .nt-sd[data-s=saved]{background:var(--ink)!important} body.paper .nt-sd[data-s=dirty]{background:transparent!important}
+body.paper .nt-banner{background:none!important;color:var(--ink)!important;border-bottom:1px solid var(--rule);font:600 14px var(--lab)!important}
 
-/* the page itself: a ruled title, generous leading, ink-black text */
-body.paper .nt textarea.nt-title,body.paper .nt input.nt-title{font:700 46px/1.1 var(--serif)!important;color:#000!important;padding-bottom:16px!important;margin-bottom:28px!important;border-bottom:3px double #000!important;letter-spacing:0!important}
-body.paper .nt textarea.nt-title::placeholder{color:#666}
-body.paper .nt .milkdown .ProseMirror{font-family:var(--serif)!important;font-size:var(--pp-fs,24px)!important;line-height:1.5!important;font-weight:420;color:#000!important;font-variant-numeric:lining-nums;caret-color:#000}
-body.paper .nt .milkdown .ProseMirror p{margin:0 0 .7em!important}
-body.paper .nt .milkdown .ProseMirror h1,body.paper .nt .milkdown .ProseMirror h2,body.paper .nt .milkdown .ProseMirror h3,body.paper .nt .milkdown .ProseMirror h4{color:#000!important;font-weight:700!important}
-body.paper .nt .milkdown .ProseMirror strong{color:#000!important;font-weight:800}
-body.paper .nt .milkdown .ProseMirror a{color:#000!important;text-decoration:underline!important;text-decoration-thickness:2px!important}
-body.paper .nt .milkdown .ProseMirror blockquote{border-top:2px solid #000;border-bottom:2px solid #000}
-body.paper .nt .milkdown .ProseMirror mark{background:#c8c8c8!important;color:#000!important;border-radius:0}
-body.paper .nt .milkdown .ProseMirror .nt-cmt{background:none!important;border-bottom:3px dotted #000!important}
-body.paper .nt .milkdown .ProseMirror code{background:#ececec!important;color:#000!important;border:1px solid #000;border-radius:0}
-body.paper .nt .milkdown .milkdown-code-block{border:2px solid #000!important;border-radius:0!important;background:#f4f4f4!important}
-body.paper .nt .milkdown .ProseMirror table td,body.paper .nt .milkdown .ProseMirror table th{border:1px solid #000!important}
-body.paper .nt .milkdown .ProseMirror img{border-radius:0}
-body.paper .nt .milkdown .ProseMirror ::selection{background:#000;color:#fff}
+/* the page: one quiet column */
+body.paper .nt-scroll{flex:1;-webkit-mask-image:none!important;mask-image:none!important;overscroll-behavior:none}
+body.paper .nt-page{max-width:640px!important;padding:52px 48px 46vh!important}
+.pp-kick[hidden],.pp-by[hidden]{display:none!important}
+.pp-kick{font:600 10.5px var(--lab);letter-spacing:.22em;text-transform:uppercase;margin:0 0 16px;color:var(--ink)}
+body.paper .nt textarea.nt-title,body.paper .nt input.nt-title{font:700 clamp(34px,5vw,46px)/1.08 var(--head)!important;letter-spacing:-.012em!important;color:var(--ink)!important;padding:0!important;margin:0 0 22px!important;border:0!important;pointer-events:none;-webkit-user-select:none;user-select:none;text-wrap:balance}
+body.paper .nt textarea.nt-title::placeholder{color:#777}
+.pp-by{display:flex;justify-content:space-between;gap:12px;font:500 10.5px var(--lab);letter-spacing:.16em;text-transform:uppercase;color:#2b2b2b;border-top:1px solid var(--rule);padding:12px 0 0;margin:0 0 30px}
+body.paper .nt-hello{font:italic 22px/1.4 var(--body);color:#444;padding:40px 0}
+body.paper .nt .milkdown .ProseMirror{font-family:var(--body)!important;font-size:var(--pp-fs,20px)!important;line-height:1.64!important;color:var(--ink)!important;caret-color:transparent;font-variant-numeric:lining-nums;text-align:justify;hyphens:auto;-webkit-hyphens:auto;text-wrap:pretty}
+body.paper .nt .milkdown .ProseMirror p{margin:0!important} body.paper .nt .milkdown .ProseMirror p+p{text-indent:1.6em}
+body.paper .nt .milkdown .ProseMirror li p+p{text-indent:0}
+body.paper .nt .milkdown .ProseMirror h1,body.paper .nt .milkdown .ProseMirror h2,body.paper .nt .milkdown .ProseMirror h3,body.paper .nt .milkdown .ProseMirror h4{font-family:var(--head)!important;font-weight:700!important;color:var(--ink)!important;text-align:left;text-indent:0!important;line-height:1.14!important;letter-spacing:-.008em;margin:1.5em 0 .45em!important}
+body.paper .nt .milkdown .ProseMirror h1{font-size:1.7em!important} body.paper .nt .milkdown .ProseMirror h2{font-size:1.4em!important} body.paper .nt .milkdown .ProseMirror h3{font-size:1.2em!important}
+body.paper .nt .milkdown .ProseMirror h4{font:600 .52em/1.3 var(--lab)!important;letter-spacing:.2em;text-transform:uppercase}
+body.paper .nt .milkdown .ProseMirror strong{font-weight:700;color:var(--ink)!important} body.paper .nt .milkdown .ProseMirror em{font-style:italic}
+body.paper .nt .milkdown .ProseMirror a{color:var(--ink)!important;text-decoration:underline!important;text-decoration-thickness:1px!important;text-underline-offset:.18em}
+body.paper .nt .milkdown .ProseMirror ul,body.paper .nt .milkdown .ProseMirror ol{margin:.7em 0;text-align:left}
+body.paper .nt .milkdown .ProseMirror li{margin:.25em 0!important}
+body.paper .nt .milkdown .ProseMirror blockquote{border:0!important;margin:1.5em 6%!important;padding:0!important;font-style:italic;font-size:1.22em;line-height:1.34;text-align:center;text-indent:0}
+body.paper .nt .milkdown .ProseMirror blockquote::before,body.paper .nt .milkdown .ProseMirror blockquote::after{content:""!important;display:block!important;width:38px;border-top:1px solid var(--rule);margin:0 auto 14px}
+body.paper .nt .milkdown .ProseMirror blockquote::before,body.paper .nt .milkdown .ProseMirror blockquote::after{position:static!important;left:auto!important;top:auto!important;height:0!important;background:none!important;border-radius:0!important;border-left:0!important;border-bottom:0!important;opacity:1!important}
+body.paper .nt .milkdown .ProseMirror blockquote::after{margin:14px auto 0}
+body.paper .nt-page[data-dup="1"] .ProseMirror>h1:first-child{display:none}
+body.paper .nt .milkdown .ProseMirror hr{margin:1.8em 0;color:var(--ink)}
+body.paper .nt .milkdown .ProseMirror mark{background-color:transparent!important;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Ccircle cx='2' cy='2' r='.8'/%3E%3C/svg%3E")!important;color:var(--ink)!important;border-radius:0;padding:0}
+body.paper .nt .milkdown .ProseMirror .nt-cmt{background:none!important;border:0!important;cursor:text}
+body.paper .nt .milkdown .ProseMirror code{background:#e6e6e4!important;color:var(--ink)!important;border:0;border-radius:2px;font-size:.88em}
+body.paper .nt .milkdown .milkdown-code-block{border:1px solid var(--rule)!important;border-radius:0!important;background:#e9e9e7!important;text-align:left}
+body.paper .nt .milkdown .ProseMirror table{border-collapse:collapse;text-align:left;text-indent:0} body.paper .nt .milkdown .ProseMirror table td,body.paper .nt .milkdown .ProseMirror table th{border:1px solid var(--rule)!important;padding:6px 10px}
+body.paper .nt .milkdown .ProseMirror img{border-radius:0;max-width:100%;height:auto;display:block;margin:1.2em auto;-webkit-user-drag:none}
+body.paper .nt .milkdown .ProseMirror ::selection{background:#000;color:#f1f1ef}
 
-/* formatting bar: a plain strip along the bottom of the page */
-body.paper .nt-foot{left:0!important;right:0!important;bottom:0!important;padding:0!important}
-body.paper .nt-tools{width:100%;justify-content:center;gap:2px;padding:6px 8px!important;background:#fff!important;border:0!important;border-top:2px solid #000!important;border-radius:0!important;box-shadow:none!important}
-body.paper .nt-t{min-width:48px!important;height:48px!important;border-radius:0!important;color:#000!important}
-body.paper .nt-t svg{width:23px!important;height:23px!important}
-body.paper .nt-sep{background:#000!important;width:2px!important;opacity:1!important}
+/* the highlight button over the selection */
+body.paper .nt-sel{background:var(--paper)!important;border:1px solid var(--rule)!important;border-radius:0!important;box-shadow:none!important;padding:0!important}
+body.paper .nt-sel button{width:56px!important;height:52px!important;border-radius:0!important;color:var(--ink)!important} body.paper .nt-sel button svg{width:24px!important;height:24px!important}
+body.paper .nt-sel button:active{background:#000!important;color:var(--paper)!important}
+body.paper .nt-pop,body.paper .nt-ctx{background:#f6f6f4!important;border:1px solid var(--rule)!important;border-radius:0!important;box-shadow:none!important}
 
-/* menus, pop-ups, the highlight/comment bar and the comment cards */
-body.paper .nt-pop,body.paper .nt-xmenu,body.paper .nt-cpop,body.paper .nt-ctx,body.paper .nt-sel{background:#fff!important;border:2px solid #000!important;border-radius:0!important;box-shadow:none!important}
-body.paper .nt-pi{font:600 18px var(--ui)!important;min-height:48px;border-radius:0!important;color:#000!important}
-body.paper .nt-cf textarea,body.paper .nt-lf input{border:2px solid #000!important;border-radius:0!important;background:#fff!important;color:#000!important}
-body.paper .nt-dot{border:2px solid #000!important}
-
-/* the control strip on the right edge */
-#ppCtl{position:fixed;top:0;right:0;bottom:0;width:64px;z-index:5;display:flex;flex-direction:column;justify-content:space-between;background:#fff;border-left:2px solid #000}
-#ppCtl button{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border:0;border-bottom:1px solid #000;background:#fff;color:#000;font:600 20px var(--ui,system-ui);padding:0;cursor:pointer}
-#ppCtl button:last-child{border-bottom:0} #ppCtl button:active{background:#000;color:#fff}
-#ppCtl svg{width:30px;height:30px} #ppCtl small{font:600 11px system-ui,sans-serif;letter-spacing:.04em;text-transform:uppercase}
+/* the foot: previous, text size, page, clear screen, next */
+.pp-foot{display:flex;align-items:stretch;justify-content:space-between;min-height:64px;border-top:1px solid var(--rule);background:none;font:600 10.5px var(--lab);letter-spacing:.16em;text-transform:uppercase}
+.pp-foot button{flex:none;min-width:84px;padding:0 16px;border:0;background:none;color:var(--ink);font:inherit;letter-spacing:inherit;text-transform:inherit;cursor:pointer;min-height:64px}
+.pp-foot button:active{background:#000;color:var(--paper)}
+.pp-foot .pp-pg{flex:1;display:flex;align-items:center;justify-content:center;gap:2px;padding:0 6px;text-align:center}
+.pp-foot .pp-pg button{min-width:52px;padding:0 10px;font-size:13px}
+.pp-foot .pp-n{min-width:92px}
 #ppFlash{position:fixed;inset:0;z-index:999} #ppFlash.k{background:#000} #ppFlash.w{background:#fff} #ppFlash[hidden]{display:none}
 }
-@media print{#ppCtl,#ppFlash{display:none!important}}
+@media print{.pp-foot,#ppFlash,.pp-kick,.pp-by{display:none!important}}
