@@ -104,18 +104,19 @@ body.paper .nt-sel button{width:56px!important;height:52px!important;border-radi
 body.paper .nt-sel button:active{background:#000!important;color:var(--paper)!important}
 body.paper .nt-pop,body.paper .nt-ctx{background:#fff!important;border:1px solid var(--rule)!important;border-radius:0!important;box-shadow:none!important}
 
-/* the foot: previous, text size, page, highlight, clear, refresh, next */
+/* the foot: previous, page x of y, highlight, clear, refresh, next. Every button is as tall as the bar, so a finger can find it. */
 .pp-foot{display:flex;align-items:stretch;justify-content:space-between;height:52px;min-height:52px;box-sizing:border-box;border-top:1px solid var(--rule);font:600 10px var(--lab);letter-spacing:.14em;text-transform:uppercase}
-.pp-foot button{flex:none;display:flex;align-items:center;justify-content:center;border:0;background:none;color:var(--ink);font:inherit;letter-spacing:inherit;text-transform:inherit;cursor:pointer;padding:0 16px;min-height:50px}
+.pp-foot button{display:flex;align-items:center;justify-content:center;border:0;background:none;color:var(--ink);font:inherit;letter-spacing:inherit;text-transform:inherit;cursor:pointer;padding:0 16px;margin:0;height:100%}
 .pp-foot button:active{background:#000;color:#fff}
-.pp-foot .pp-pg{display:flex;align-items:center;justify-content:center;min-width:0}
-.pp-foot .pp-pg>*{display:flex;align-items:center;height:22px;padding:0 11px;border-left:1px solid #b5b5b5;min-height:0}
-.pp-foot .pp-pg>*:first-child{border-left:0}
-.pp-foot .pp-pg button{min-height:0;padding:0 11px}
-.pp-foot .pp-n{min-width:84px;justify-content:center;color:#2b2b2b;font-weight:500}
-.pp-foot .pp-pg .pp-hl{height:26px;margin:0 8px;padding:0 12px;border:1px solid var(--ink)}
-.pp-foot .pp-pg .pp-hl.on{background:#000;color:#fff}
-@media (max-width:760px){.pp-foot button{padding:0 10px}.pp-foot .pp-pg>*,.pp-foot .pp-pg button{padding:0 7px}.pp-foot .pp-n{min-width:72px}.pp-foot .pp-pg .pp-hl{margin:0 4px;padding:0 9px}}
+.pp-foot .pp-arrow{flex:none;width:68px;padding:0;font:400 22px var(--lab);letter-spacing:0}
+.pp-foot .pp-pg{flex:1;min-width:0;display:flex;align-items:stretch;justify-content:center}
+.pp-foot .pp-n{display:flex;align-items:center;justify-content:center;flex:1;min-width:0;padding:0 8px;color:#2b2b2b;font-weight:500;white-space:nowrap}
+.pp-foot .pp-pg button{flex:none;position:relative;padding:0 14px}
+.pp-foot .pp-pg button::before{content:"";position:absolute;left:0;top:15px;bottom:15px;border-left:1px solid #b5b5b5}
+.pp-foot .pp-hl i{font-style:normal;display:block;padding:5px 10px;border:1px solid var(--ink)}
+.pp-foot .pp-hl.on i{background:#000;color:#fff}
+.pp-foot .pp-hl:active{background:none;color:var(--ink)} .pp-foot .pp-hl:active i{background:#000;color:#fff}
+@media (max-width:760px){.pp-foot .pp-pg button{padding:0 10px}.pp-foot .pp-hl i{padding:5px 8px}.pp-foot .pp-arrow{width:56px}}
 #ppFlash{position:fixed;inset:0;z-index:999} #ppFlash.k{background:#000} #ppFlash.w{background:#fff} #ppFlash[hidden]{display:none}
 }
 @media print{.pp-foot,#ppFlash,.pp-kick,.pp-by,.pp-side,.pp-sync{display:none!important}}
