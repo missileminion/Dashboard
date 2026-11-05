@@ -77,3 +77,17 @@ function dots(img) {
 const scan = () => document.querySelectorAll(".nt-ed .ProseMirror img").forEach(i => { if (i.closest(".katex")) return; if (i.complete && i.naturalWidth) dots(i); else i.addEventListener("load", () => dots(i), { once: true }); });
 const dup = () => { const h = $(".nt-ed .ProseMirror > h1:first-child"), same = !!h && h.textContent.trim().toLowerCase() === title.value.trim().toLowerCase() && !!title.value.trim(); if (page.dataset.dup !== (same ? "1" : "0")) page.dataset.dup = same ? "1" : "0"; };
 new MutationObserver(() => { scan(); dup(); }).observe($(".nt-ed"), { childList: true, subtree: true, attributes: true, attributeFilter: ["src"] }); scan(); dup(); title.addEventListener("input", dup); new MutationObserver(dup).observe($(".nt-bt"), { childList: true, characterData: true, subtree: true });
+
+/* ----- collapsible library, and "last synced" in military time ----- */
+const nt = $(".nt"), tabs = $(".nt-tabs"), K_SIDE = "paper.side";
+const sideBtn = document.createElement("button"); sideBtn.type = "button"; sideBtn.className = "pp-side";
+const setSide = hide => { nt.classList.toggle("nofiles", hide); sideBtn.textContent = hide ? "Show library" : "Hide library"; ls.set(K_SIDE, hide ? "1" : "0"); };
+sideBtn.addEventListener("click", () => setSide(!nt.classList.contains("nofiles"))); tabs.insertBefore(sideBtn, tabs.querySelector(".nt-status")); setSide(ls.get(K_SIDE) === "1");
+const sync = document.createElement("span"); sync.className = "pp-sync"; tabs.insertBefore(sync, tabs.querySelector(".nt-status")); const sd = $(".nt-sd"), msg = $(".nt-msg");
+const hhmm = d => String(d.getHours()).padStart(2, "0") + String(d.getMinutes()).padStart(2, "0");
+let lastSync = ls.get("paper.sync") || "";
+const stamp = () => { lastSync = hhmm(new Date()); ls.set("paper.sync", lastSync); showSync(); };
+const showSync = () => { const local = (($(".nt-repo") || {}).textContent || "").trim() === "Local notes", s = sd && sd.dataset.s; sync.textContent = local ? "Not synced, local notes" : s === "dirty" ? "Saving" : lastSync ? "Last synced: " + lastSync : ""; };
+if (sd) new MutationObserver(() => { if (sd.dataset.s === "saved") stamp(); else showSync(); }).observe(sd, { attributes: true, attributeFilter: ["data-s"] });
+let first = true; new MutationObserver(() => { if (first && $(".nt-item")) { first = false; stamp(); } }).observe($(".nt-list"), { childList: true });
+showSync(); if ($(".nt-item") && first) { first = false; stamp(); }
