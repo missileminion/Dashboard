@@ -5,8 +5,11 @@
 @font-face{font-family:"Pressroom Text";src:url(fonts/pressroom-text-italic.woff2) format("woff2");font-weight:400;font-style:italic;font-display:swap}
 @font-face{font-family:"Pressroom Text";src:url(fonts/pressroom-text-bold.woff2) format("woff2");font-weight:700;font-style:normal;font-display:swap}
 @font-face{font-family:"Pressroom Display";src:url(fonts/pressroom-display-bold.woff2) format("woff2");font-weight:700;font-style:normal;font-display:swap}
+@font-face{font-family:"Pressroom Symbols";src:url(fonts/pressroom-sym-digits.woff2) format("woff2");unicode-range:U+2070-2079,U+207A-207E,U+2080-2089,U+208A-208E;font-display:swap}
+@font-face{font-family:"Pressroom Symbols";src:url(fonts/pressroom-sym-letters.woff2) format("woff2");unicode-range:U+2090-209C,U+207F,U+2071;font-display:swap}
+@font-face{font-family:"Pressroom Symbols";src:url(fonts/pressroom-math.woff2) format("woff2");unicode-range:U+00B1,U+00D7,U+00F7,U+0391-03C9,U+2032-2034,U+2102,U+210D,U+2115,U+211A,U+211D,U+2124,U+2190-22FF;font-display:swap}
 @media screen{
-:root{--ink:#0c0c0c;--rule:#111;--hair:#bdbdbd;--paper:#fff;--body:"Pressroom Text","STIX Two Text",Newsreader,Georgia,"Times New Roman",serif;--head:"Pressroom Display","Pressroom Text","STIX Two Text",Georgia,serif;--lab:"Libre Franklin","Helvetica Neue",Arial,sans-serif;--black:UnifrakturCook,"Old English Text MT",Georgia,serif}
+:root{--ink:#0c0c0c;--rule:#111;--hair:#bdbdbd;--paper:#fff;--body:"Pressroom Text","Pressroom Symbols",Newsreader,Georgia,"Times New Roman",serif;--head:"Pressroom Display","Pressroom Text","Pressroom Symbols",Georgia,serif;--lab:"Libre Franklin","Helvetica Neue",Arial,sans-serif;--black:UnifrakturCook,"Old English Text MT",Georgia,serif}
 html,body.paper{background:#fff!important;color:var(--ink)!important}
 body.paper{margin:0!important;padding:0!important;overflow:hidden!important;font-family:var(--body);font-synthesis:none;-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%}
 body.paper *,body.paper *::before,body.paper *::after{transition:none!important;animation:none!important;scroll-behavior:auto!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;text-shadow:none!important}
