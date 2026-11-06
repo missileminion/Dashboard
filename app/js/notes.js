@@ -248,7 +248,11 @@ export function initNotes(root) {
   async function rename() {
     if (!cur) return; let n = titleEl.value.trim().replace(/[\\/:*?"<>|]/g, "-"); if (!n || n === baseName(cur.path)) { titleEl.value = baseName(cur.path); mirror(); return; }
     const e = /\.html$/i.test(cur.path) ? ".html" : ".md", from = cur.path, to = (dirOf(from) ? dirOf(from) + "/" : "") + n + e; if (files.includes(to)) { setStatus("a note with that name exists", true); titleEl.value = baseName(from); return; }
-    try { await flush(); const text = cur.md; const sha = await store().write(to, text, null, `notes: rename ${baseName(from)}`); await store().remove(from, cur.sha, `notes: rename ${baseName(from)}`); files = files.filter(p => p !== from).concat(to); tabs = tabs.map(p => (p === from ? to : p)); saveTabs(); cur.path = to; cur.sha = sha; cur.base = text; titleEl.value = baseName(to); mirror(); renderList(); renderTabs(); setStatus("renamed"); }
+    try {
+      await flush(); if (cfg.remote && await remote.sha(to)) { setStatus("a note with that name exists on GitHub, refresh the list", true); titleEl.value = baseName(from); return; }
+      await store().batch([[from, to]], [], `notes: rename ${baseName(from)}`);   // one atomic commit: no half-renamed copies
+      const text = cur.md, sha = cfg.remote ? await remote.sha(to) : null; files = files.filter(p => p !== from).concat(to); tabs = tabs.map(p => (p === from ? to : p)); saveTabs(); cur.path = to; cur.sha = sha; cur.base = text; titleEl.value = baseName(to); mirror(); renderList(); renderTabs(); setStatus("renamed");
+    }
     catch (x) { setStatus("could not rename: " + x.message, true); }
   }
   async function closeTab(p) {
