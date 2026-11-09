@@ -25,10 +25,51 @@ export function addMore(X) {
     const w = parseWhen(m[2].split(/\s+/)); if (!w.hasDate && !w.hasTime) U(`I could not read a day or time in "${m[2]}".`);
     await pickEvent(m[1], async ev => { const day = w.hasDate ? midnight(w.start) : midnight(ev.s), s = at(day, w.hasTime ? minOf(w.start) : minOf(ev.s)), e = new Date(+s + (ev.e - ev.s)); await shift(ev, s, e, "move"); });
   });
-  def("cal", "postpone push delay", "postpone <event> [by 1h | 1d]", "push an event later (default one hour)", async a => {
+  /* ----- calendar tasks by day: list them, pick some ("yesterday 1, 3", "today 1-5", "today all"), then postpone or complete them ----- */
+  const DAYSEL = { yesterday: -1, yest: -1, today: 0 };
+  const dayTasks = off => { const d0 = addDaysD(midnight(new Date()), off); return calApi().events().filter(e => !e.done && e.writable !== false && e.s < addDaysD(d0, 1) && e.e > d0).sort((x, y) => (y.allDay - x.allDay) || x.s - y.s); };
+  const showDayTasks = async () => {
+    const gs = [["yesterday", dayTasks(-1)], ["today", dayTasks(0)]], out = [];
+    gs.forEach(([k, l]) => { out.push(k); out.push(...(l.length ? l.map((e, i) => `  ${String(i + 1).padStart(2)}  ${e.allDay ? "all day " : hhmm(e.s) + "   "} ${e.title}`) : ["   nothing open"])); });
+    await print(out, "tm-dim"); return Object.fromEntries(gs);
+  };
+  const TARGET = /\b(?:to\s+)?(tomorrow|tmr|2\s*days?|2d|1\s*days?|1d|1\s*weeks?|week|1w|7d|1\s*months?|month|1m)\s*$/i;
+  const targetKey = w => { w = w.toLowerCase().replace(/\s+/g, ""); return /^(tomorrow|tmr|1d|1day|1days)$/.test(w) ? "1" : /^(2d|2day|2days)$/.test(w) ? "2" : /^(week|1w|7d|1week|1weeks)$/.test(w) ? "7" : "m"; };
+  const parsePicks = (text, gs) => {   // "yesterday 1, 3  today 1-5"; numbers before any day word mean today
+    let t = text.toLowerCase().replace(/[–—]/g, "-").replace(/\s*-\s*/g, "-"), key = null; const m = t.match(TARGET); if (m) { key = targetKey(m[1]); t = t.slice(0, m.index); }
+    let grp = "today"; const picks = [], seen = new Set(), add = (g, i) => { const e = gs[g][i - 1]; if (!e) U(`there is no ${g} task ${i}.`); if (!seen.has(e.id)) { seen.add(e.id); picks.push(e); } };
+    for (const w of t.split(/[\s,;]+/).filter(Boolean)) {
+      if (w in DAYSEL) grp = DAYSEL[w] === -1 ? "yesterday" : "today"; else if (w === "all") gs[grp].forEach((_, i) => add(grp, i + 1)); else if (/^\d+$/.test(w)) add(grp, +w);
+      else if (/^\d+-\d+$/.test(w)) { const [x, y] = w.split("-").map(Number); for (let i = Math.min(x, y); i <= Math.max(x, y); i++) add(grp, i); } else if (!/^(and|&|the|task|tasks)$/.test(w)) U(`I could not read "${w}". Try: yesterday 1, 3   ·   today 1-5   ·   today all`);
+    }
+    if (!picks.length) U("no tasks picked."); return { picks, key };
+  };
+  const PICK_HINT = "which ones?  yesterday 1, 3  ·  today 1-5  ·  today all   (or cancel)";
+  const postponePicks = async (picks, key) => {
+    const moved = []; for (const e of picks) { try { const r = await calApi().postpone(e.id, key); moved.push({ e, r }); await print(`✓ ${e.title}: ${fmtDay(r.s)}${e.allDay ? "" : " " + hhmm(r.s)}`); } catch (x) { await err(`${e.title}: ${x.message}`); } }
+    const back = moved.filter(x => !x.e.allDay); if (moved.length) undos.push({ label: `postpone ${moved.length} task${moved.length > 1 ? "s" : ""}`, fn: async () => { for (const x of back) await calApi().update(x.e.id, { start: x.r.old.s, end: x.r.old.e }); } });
+  };
+  const doPostpone = async text => {
+    const gs = Object.fromEntries([["yesterday", dayTasks(-1)], ["today", dayTasks(0)]]), { picks, key } = parsePicks(text, gs);
+    if (key) return postponePicks(picks, key);
+    return choose(`postpone ${picks.length} task${picks.length > 1 ? "s" : ""} to:`, [["1", "tomorrow"], ["2", "in 2 days"], ["7", "in 1 week"], ["m", "in 1 month"]].map(([k, l]) => ({ label: l, value: k })), o => postponePicks(picks, o.value));
+  };
+  def("cal", "postpone push delay", "postpone   |   postpone today 1-3 tomorrow   |   postpone <event> [by 1h | 1d]", "lists yesterday's and today's open tasks to pick from and push to tomorrow, 2 days, 1 week or 1 month; or push one event by a length (postpone gym by 2h)", async a => {
+    const sel = /^(yesterday|yest|today)\b/i.test(a.trim()) || /^[\d,\s\-–]+(?:\s+(?:to\s+)?(?:tomorrow|tmr|2\s*days?|2d|1d|1w|week|1m|month))?$/i.test(a.trim());
+    if (!a.trim()) { const gs = await showDayTasks(); if (!gs.yesterday.length && !gs.today.length) return; return askInput(PICK_HINT.replace("(or cancel)", "(add tomorrow, 2d, 1w or 1m to skip the next question; or cancel)"), l => doPostpone(l), true); }
+    if (sel) return doPostpone(a);
     const m = a.match(/^(.*?)(?:\s+by\s+(\S.*))?$/i); if (!m[1].trim()) U("usage: postpone gym by 2h");
     let by = 60, days = 0; if (m[2]) { const d = m[2].trim().match(/^(\d+)\s*d(?:ays?)?$/i); if (d) { days = +d[1]; by = 0; } else by = parseDur(m[2]); if (by == null) U(`I could not read "${m[2]}" as a length of time.`); }
     await pickEvent(m[1], async ev => { const s = new Date(+ev.s + by * 6e4); s.setDate(s.getDate() + days); await shift(ev, s, new Date(+s + (ev.e - ev.s)), "postpone"); });
+  });
+  const doComplete = async text => {
+    const gs = Object.fromEntries([["yesterday", dayTasks(-1)], ["today", dayTasks(0)]]), { picks } = parsePicks(text.trim(), gs), did = [];
+    for (const e of picks) { try { await calApi().setDone(e.id, true); did.push(e); await print(`✓ done: ${e.title}`); } catch (x) { await err(`${e.title}: ${x.message}`); } }
+    if (did.length) undos.push({ label: `complete ${did.length} task${did.length > 1 ? "s" : ""}`, fn: async () => { for (const e of did) await calApi().setDone(e.id, false); } });
+  };
+  def("cal", "completetasks", "tasks complete <number | 1-3 | all>", "tick calendar tasks done: pick from today's list (tasks complete 2, tasks complete all), or name the day (tasks complete yesterday 1, 3)", async a => {
+    if (!a.trim()) { const gs = await showDayTasks(); if (!gs.yesterday.length && !gs.today.length) return; return askInput(PICK_HINT, l => doComplete(l), true); }
+    await doComplete(a);
   });
   def("cal", "extend lengthen", "extend <event> by 30m", "make an event longer", async a => {
     const m = a.match(/^(.*\S)\s+by\s+(.+)$/i); if (!m) U("usage: extend lecture by 30m"); const d = parseDur(m[2]); if (!d) U(`I could not read "${m[2]}".`);

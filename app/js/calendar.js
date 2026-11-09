@@ -154,6 +154,18 @@ export function initCalendar(root, { demo = false } = {}) {
     };
   }
 
+  /* ---------- postpone: tomorrow, 2 days, 1 week, 1 month (counted from today, or from the event's own day if that is later; the time of day stays) ---------- */
+  const POSTPONE = { "1": ["Tomorrow", { days: 1 }], "2": ["2 days", { days: 2 }], "7": ["1 week", { days: 7 }], m: ["1 month", { months: 1 }] };
+  async function postponeEv(ev, key) {
+    if (ev.writable === false) throw new Error("That calendar is read-only.");
+    const by = POSTPONE[key][1], now = new Date(), t0 = new Date(now.getFullYear(), now.getMonth(), now.getDate()), e0 = new Date(ev.s.getFullYear(), ev.s.getMonth(), ev.s.getDate()), day = new Date(Math.max(+t0, +e0));
+    by.months ? day.setMonth(day.getMonth() + by.months) : day.setDate(day.getDate() + by.days);
+    let s, e, patch;
+    if (ev.allDay) { const span = Math.max(1, Math.round((ev.e - ev.s) / 864e5)); s = day; e = new Date(day.getFullYear(), day.getMonth(), day.getDate() + span); patch = { start: { date: ymd(s) }, end: { date: ymd(e) } }; }
+    else { s = new Date(day.getFullYear(), day.getMonth(), day.getDate(), ev.s.getHours(), ev.s.getMinutes()); e = new Date(+s + (ev.e - ev.s)); patch = { start: { dateTime: s.toISOString(), timeZone: TZ }, end: { dateTime: e.toISOString(), timeZone: TZ } }; }
+    await bridge("update", { calendarId: ev.cal, id: ev.id, patch }); await load(); return { s, e, old: { s: ev.s, e: ev.e } };
+  }
+
   /* ---------- the editor ---------- */
   let closeEd = null;
   function openEditor(ev, when, host) {   // host: an element inside the tasks card to open the editor in place; without it, a pop-up sheet
@@ -168,6 +180,7 @@ export function initCalendar(root, { demo = false } = {}) {
       <input id="ceLoc" type="text" placeholder="Location" value="${esc(ev ? ev.location : "")}" aria-label="Location">
       <textarea id="ceDesc" rows="3" placeholder="Notes" aria-label="Notes">${esc(ev ? ev.desc : "")}</textarea>
       ${ev ? `<div class="basis">${ev.recurring ? "Repeating event: changes apply to this occurrence only. " : ""}${ev.writable === false ? "This calendar is read-only." : ""}</div>` : `<select id="ceCal" aria-label="Calendar">${writable.map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("")}</select>`}
+      ${ev && ev.writable !== false ? `<div class="cal-pp"><span>Postpone</span>${Object.entries(POSTPONE).map(([k, v]) => `<button type="button" class="btn" data-pp="${k}">${v[0]}</button>`).join("")}</div>` : ""}
       <div class="cal-err" id="ceErr"></div>
       <div class="cal-btns">${ev && ev.writable !== false ? `<button type="button" class="btn cal-del" id="ceDel">Delete</button>` : ""}<span style="flex:1"></span><button type="button" class="btn" id="ceCancel">Cancel</button>${ev && ev.writable === false ? "" : `<button type="button" class="btn cal-save" id="ceSave">Save</button>`}</div></div>`;
     if (!inline) root.appendChild(m);
@@ -185,6 +198,10 @@ export function initCalendar(root, { demo = false } = {}) {
       q("ceSave").disabled = true; q("ceErr").textContent = "Saving…";
       try { ev ? await bridge(scope === "following" ? "updateFollowing" : "update", { calendarId: ev.cal, id: ev.id, patch: body }) : await bridge("create", { calendarId: q("ceCal").value, event: { ...body, reminders: { useDefault: false, overrides: [] } } }); close(); load(); } catch (err) { q("ceErr").textContent = "Could not save: " + err.message; q("ceSave").disabled = false; }
     });
+    m.querySelectorAll("[data-pp]").forEach(b => (b.onclick = async () => {
+      m.querySelectorAll("[data-pp]").forEach(x => (x.disabled = true)); q("ceErr").textContent = "Postponing…";
+      try { await postponeEv(ev, b.dataset.pp); close(); } catch (err) { q("ceErr").textContent = "Could not postpone: " + err.message; m.querySelectorAll("[data-pp]").forEach(x => (x.disabled = false)); }
+    }));
     q("ceDel") && (q("ceDel").onclick = async () => {
       if (!confirm("Delete this event from your Google Calendar?")) return;
       q("ceErr").textContent = "Deleting…";
@@ -347,6 +364,7 @@ export function initCalendar(root, { demo = false } = {}) {
       if (p.title != null) { await bridge("update", { calendarId: ev.cal, id, patch: { summary: (ev.done ? "✓ " : "") + p.title } }); await load(); return ev; }
       await applyChange(ev, { start: { dateTime: p.start.toISOString(), timeZone: TZ }, end: { dateTime: p.end.toISOString(), timeZone: TZ } }, "this"); return ev;
     },
+    async postpone(id, key) { const ev = events.find(x => x.id === id); if (!ev) throw new Error("That event is not loaded."); return postponeEv(ev, key); },
     async remove(id, calId) { await bridge("delete", { calendarId: calId, id }); await load(); },
     async setDone(id, want) { const ev = events.find(x => x.id === id); if (!ev) throw new Error("That event is not loaded."); if (want !== undefined && ev.done === want) return ev; await setDone(id); return ev; }
   };
