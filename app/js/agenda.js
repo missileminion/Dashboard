@@ -6,6 +6,7 @@
 import { sunPos } from "./sky.js";
 import { esc, addDays, pad } from "./util.js";
 import { plannedFor, TARGET } from "./analytics.js";
+import { tminusHTML, wireTminus } from "./tminus.js";
 
 const RED = "#ff2d37", HEAVY = /exam|midterm|final|quiz|due|deadline/i;
 const GLYPH = { 0: ["01110", "10001", "10011", "10101", "11001", "10001", "01110"], 1: ["00100", "01100", "00100", "00100", "00100", "00100", "01110"], 2: ["01110", "10001", "00001", "00010", "00100", "01000", "11111"], 3: ["11110", "00001", "00001", "01110", "00001", "00001", "11110"], 4: ["00010", "00110", "01010", "10010", "11111", "00010", "00010"], 5: ["11111", "10000", "11110", "00001", "00001", "10001", "01110"], 6: ["00110", "01000", "10000", "11110", "10001", "10001", "01110"], 7: ["11111", "00001", "00010", "00100", "01000", "01000", "01000"], 8: ["01110", "10001", "10001", "01110", "10001", "10001", "01110"], 9: ["01110", "10001", "10001", "01111", "00001", "00010", "01100"], ":": ["0", "0", "1", "0", "1", "0", "0"] };
@@ -123,13 +124,13 @@ export function agendaHTML(ctx) {
       <div class="ag-week">${days.map(x => chipHTML(x, list, focus, today)).join("")}</div></div>
     <div class="ag-right"><section class="ag-card${ui.open ? " open" : ""}" tabindex="0" role="button" aria-expanded="${ui.open}" aria-label="Tasks for the day, click to expand"><div class="ag-dh"><div class="ag-dh1"><b>${d.toLocaleDateString("en-US", { weekday: "long" }).toUpperCase()} ${d.getDate()}</b>${day === today ? '<i class="ag-red">TODAY</i>' : ""}<i class="ag-chev" aria-hidden="true">⌄</i></div><div class="ag-dh2">${plannedFor(day).toUpperCase()}${evs.length ? ` · ${doneCount}/${evs.length} DONE` : ""}${h ? ` · ${h.toFixed(1)} H` : ""}</div></div>
       <div class="ag-fold ag-foldmin"><div class="ag-fi">${min}</div></div><div class="ag-fold ag-foldfull"><div class="ag-fi">${full}</div></div></section>
-      <div class="ag-info"><div class="ag-cap" id="agCap"></div><div class="ag-stats" id="agStats"></div></div></div></div></div>`;
+      <div class="ag-info"><div class="ag-cap" id="agCap"></div><div class="ag-stats" id="agStats"></div></div>${tminusHTML()}</div></div></div>`;
 }
 
 // paint and wire (runs after the HTML is in the page)
 let capH = 0;
 export function wireAgenda(root, ctx) {
-  const tl = root.querySelector("#agTl"), pathEl = root.querySelector("#agPath"), cap = root.querySelector("#agCap"), stats = root.querySelector("#agStats"), sc = root.querySelector("#agScroll"); if (!tl) return;
+  wireTminus(root); const tl = root.querySelector("#agTl"), pathEl = root.querySelector("#agPath"), cap = root.querySelector("#agCap"), stats = root.querySelector("#agStats"), sc = root.querySelector("#agScroll"); if (!tl) return;
   const { focus, list, today } = ctx, loc = place(), isToday = focus === today;
   let scrub = null, timer = null;
   const paint = () => {

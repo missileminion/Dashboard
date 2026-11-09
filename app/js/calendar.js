@@ -334,7 +334,7 @@ export function initCalendar(root, { demo = false } = {}) {
   document.addEventListener("pointerup", () => finish(false));
   document.addEventListener("pointercancel", () => finish(true));
   document.addEventListener("keydown", e => { if (e.key === "Escape" && drag && drag.moved) finish(true); });   // Esc puts the block back
-  document.addEventListener("click", e => { if (agUi.open && root.isConnected && !e.target.closest(".ag-card") && !e.target.closest(".cal-modal")) toggleCard(root); });   // a click anywhere outside the tasks card folds it
+  document.addEventListener("click", e => { if (agUi.open && root.isConnected && !e.target.closest(".ag-card") && !e.target.closest(".ag-t") && !e.target.closest(".cal-modal")) toggleCard(root); });   // a click anywhere outside the tasks card folds it
   document.addEventListener("keydown", e => { if (e.key === "Escape" && agUi.open && !editing) toggleCard(root); });
   document.addEventListener("keydown", e => { if (e.key === "Escape" && drag) endDrag(); });
   root.addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.classList?.contains("ag-card")) { e.preventDefault(); toggleCard(root); } });

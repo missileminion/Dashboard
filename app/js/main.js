@@ -10,7 +10,6 @@ import { sleepMonth, earlyOrb, yearRing, weakLink, nightFlow, drawLanes, lastRun
 import { INFO } from "./info.js";
 import { buildReport } from "./report.js";
 import { initTimer } from "./timer.js";
-import { initTasks } from "./tasks.js";
 import { initGymLog, e1rm } from "./gymlog.js";
 import { fitLift, fitGroup, journeyHTML, bodyStats, GROUPS, groupOf } from "./progress.js";
 import { initCalendar } from "./calendar.js";
@@ -421,9 +420,9 @@ const last2 = k => { for (let i = 0; i < 4; i++) { const v = byDate[addDays(toda
   { const want = new URLSearchParams(location.search).get("tab"); if (want && TABS.includes(want)) k = want; }   // home.html links straight to a tab: ?tab=cal
   setTab(TABS.includes(k) ? k : "health");
   initHome($("homeRoot")); { let on = false; const go = () => { if (!on && document.body.dataset.tab === "notes") { on = true; initNotes($("notesRoot")); } }; addEventListener("tab", go); go(); }
-  const timerApi = initTimer($("timerRoot")), calApi = initCalendar($("calRoot"), { demo: DEMO }), tasksApi = initTasks($("tasksRoot"));
+  const timerApi = initTimer($("timerRoot")), calApi = initCalendar($("calRoot"), { demo: DEMO });
   gymLogApi = initGymLog($("glogRoot"), { demo: DEMO });
-  initTerminal($("consoleRoot"), { demo: DEMO, api: { timer: timerApi, cal: calApi, tasks: tasksApi, gym: () => gymLogApi, health: () => ({ days, byDate, today, A, addDays, bad }) } });
+  initTerminal($("consoleRoot"), { demo: DEMO, api: { timer: timerApi, cal: calApi, gym: () => gymLogApi, health: () => ({ days, byDate, today, A, addDays, bad }) } });
   // HAL lives on the Home tab. Cmd/Ctrl+K takes you there from anywhere, and pressed again (or Esc on an empty line) returns you to the page you came from; on Home with nowhere to return to it just focuses the line
   let prevTab = null;
   addEventListener("goto", e => { if (document.body.dataset.tab !== "home") prevTab = document.body.dataset.tab; setTab(e.detail); });

@@ -19,7 +19,7 @@ const TABS = { home: "home", start: "home", newtab: "home", health: "health", h:
 // the core commands: [group, name, usage, description, aliases]
 const CORE = [
   ["log", "add", "add gym thu 5pm", "add a calendar event (add lunch tomorrow 12:30 for 45m)", ["ev", "event"]],
-  ["log", "done", "done rocketry", "mark a calendar event complete", ["d"]], ["log", "note", "note buy shoes", "add a line to Stickynote", ["n"]], ["log", "task", "task buy shoes", "add a checkbox to Stickynote", ["t"]],
+  ["log", "done", "done rocketry", "mark a calendar event complete", ["d"]],
   ["log", "rm", "delete set | weight | <event title words>", "delete the last set, today's weight or a calendar event (asks first)", ["delete", "del", "remove"]], ["log", "undo", "undo", "take back the last change"], ["sys", "end", "end", "stop whatever is looping: a question being asked, a countdown or stopwatch", ["cancel"]], ["sys", "errors", "errors", "open the error log in the developer panel (copy all, then paste it to Claude)", ["err", "error", "errorlog", "errlog"]], ["sys", "rerun", "rerun [n]", "run your previous command again (rerun 2 for the one before)", ["!!"]],
   ["log", "today", "today", "your day: the plan and the events"], ["log", "next", "next", "your next calendar event"], ["log", "status", "status", "last night, recovery and the plan"], ["log", "go", "go gym", "jump to a tab: health, prod, gym, cal"],
   ["timer", "timer", "timer 25", "start a focus session of that many minutes"], ["timer", "start", "start study now", "start a focus session (a label is optional)"], ["timer", "stop", "stop", "stop the focus timer"], ["timer", "pause", "pause", "pause the focus timer"], ["timer", "resume", "resume", "resume the focus timer"],
@@ -218,8 +218,6 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
       if (list.length > 1 && args.trim()) return choose(`"${args}" matches more than one event:`, list.slice(0, 5).map(e => ({ label: `${fmtDay(e.s)} ${e.allDay ? "all day" : hhmm(e.s)}  ${e.title}`, value: e })), o => go(o.value));
       await go(list[0]);
     },
-    async note(args) { const t = A().tasks; if (!t) return err("Stickynote is not ready yet."); if (!args.trim()) return askInput("what should the note say?   (or cancel)", l => exec("note " + l), true); const line = t.append(args.trim()); undos.push({ label: "note", fn: () => t.removeLine(line) }); await print(`✓ added to Stickynote: ${args.trim()}`); },
-    async task(args) { const t = A().tasks; if (!t) return err("Stickynote is not ready yet."); if (!args.trim()) return askInput("what is the task?   (or cancel)", l => exec("task " + l), true); const line = t.append("- [ ] " + args.trim()); undos.push({ label: "task", fn: () => t.removeLine(line) }); await print(`✓ task added to Stickynote: ${args.trim()}`); },
     async timer(args) { const m = parseInt(args); await cmds.start(m ? String(m) : ""); },
     async start(args) {
       const tm = A().timer; if (!tm) return err("the timer is not ready yet.");

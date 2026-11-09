@@ -67,6 +67,7 @@ export function addMore(X) {
     for (const e of picks) { try { await calApi().setDone(e.id, true); did.push(e); await print(`✓ done: ${e.title}`); } catch (x) { await err(`${e.title}: ${x.message}`); } }
     if (did.length) undos.push({ label: `complete ${did.length} task${did.length > 1 ? "s" : ""}`, fn: async () => { for (const e of did) await calApi().setDone(e.id, false); } });
   };
+  def("cal", "opentasks", "opentasks", "your open calendar tasks for yesterday and today", async () => { const gs = await showDayTasks(); if (!gs.yesterday.length && !gs.today.length) await dim("no open tasks on the calendar. Only weeks opened on the Calendar page are known."); });
   def("cal", "completetasks", "tasks complete <number | 1-3 | all>", "tick calendar tasks done: pick from today's list (tasks complete 2, tasks complete all), or name the day (tasks complete yesterday 1, 3)", async a => {
     if (!a.trim()) { const gs = await showDayTasks(); if (!gs.yesterday.length && !gs.today.length) return; return askInput(PICK_HINT, l => doComplete(l), true); }
     await doComplete(a);

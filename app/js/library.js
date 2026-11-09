@@ -66,7 +66,7 @@ export { GROUPS };
 export function buildLibrary(c) {
   const { print, err, dim, ask, choose, A, calc, today, undos, parseWhen, fmtDay, hhmm, midnight, addDaysD, loadWeights, setWeight, delWeight, call, log, bottom, lastOut, history, aliases, names, timers, askInput } = c;
   const L = {}, meta = [];
-  const def = (cat, nm, use, d, fn) => { const [n, ...al] = nm.split(" "); L[n] = fn; meta.push({ n, cat, use, d, al }); };
+  const def = (cat, nm, use, d, fn) => { if (cat === "tasks" && !(A.tasks && A.tasks.text)) return; const [n, ...al] = nm.split(" "); L[n] = fn; meta.push({ n, cat, use, d, al }); };
   const H = () => { const h = A.health && A.health(); if (!h || !h.days || !h.days.length) U("the health numbers are not loaded yet."); return h; };
   const gymApi = () => { const g = A.gym && A.gym(); if (!g) U("the gym log is not ready yet."); return g; };
   const calApi = () => A.cal || U("the calendar is not ready yet."), tasksApi = () => (A.tasks && A.tasks.text ? A.tasks : U("Stickynote is not ready yet."));
@@ -381,7 +381,7 @@ export function buildLibrary(c) {
   const taskList = () => { const t = tasksApi().text().split("\n"); return t.map((line, i) => { const m = line.match(TASK); return m && m[3].trim() ? { i, done: m[2] !== " ", text: m[3], line } : null; }).filter(Boolean); };
   const pickTask = (q, wantDone) => { const l = taskList().filter(t => t.done === wantDone); if (/^\d+$/.test(q)) { const open = taskList().filter(t => t.done === wantDone); return [open[+q - 1]].filter(Boolean); } const low = q.toLowerCase(); return l.filter(t => t.text.toLowerCase().includes(low)); };
   const rewrite = (idx, newLine) => { const api = tasksApi(), ls = api.text().split("\n"), old = api.text(); ls[idx] = newLine; api.set(ls.join("\n")); return old; };
-  def("tasks", "tasks todo todos", "tasks   |   tasks complete <number | all>", "your open Stickynote checkboxes, numbered; \"tasks complete\" ticks off calendar tasks (today by default)", async a => { if (/^(complete|done)\b/i.test((a || "").trim())) return call("completetasks", a.trim().replace(/^\w+\s*/, "")); const t = taskList(), open = t.filter(x => !x.done); await print(open.length ? [`OPEN (${open.length})`, ...open.map((x, k) => `  ${String(k + 1).padStart(2)}  ${x.text}`), `${t.length - open.length} done`] : [`no open tasks${t.length ? `, ${t.length} done` : ""}. task <text> adds one.`], "tm-dim"); });
+  def("cal", "tasks todo todos", "tasks   |   tasks complete <number | all>", "your open calendar tasks for yesterday and today, numbered; \"tasks complete\" ticks them off", async a => { if (/^(complete|done)\b/i.test((a || "").trim())) return call("completetasks", a.trim().replace(/^\w+\s*/, "")); await call("opentasks", ""); });
   def("tasks", "finish check tick", "finish <number | words>", "tick a Stickynote task done (numbers are from the tasks list)", async a => {
     if (!a.trim()) U("usage: finish 2   ·   finish buy shoes"); const hit = pickTask(a.trim(), false); if (!hit.length) U(`no open task matches "${a.trim()}".`);
     const go = async t => { const prev = rewrite(t.i, t.line.replace(/\[ \]/, "[x]")); undos.push({ label: `finish ${t.text}`, fn: () => tasksApi().set(prev) }); await print(`✓ done: ${t.text}`); };
