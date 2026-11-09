@@ -3,6 +3,7 @@
 // The bridge URL and secret are kept in this browser only. Events are fetched into the page and never stored anywhere else.
 import { esc, ymd, addDays, pad } from "./util.js";
 import { plannedFor } from "./analytics.js";
+import { setTminusSource } from "./tminus.js";
 import { agendaHTML as mergedAgenda, wireAgenda, toggleCard, ui as agUi } from "./agenda.js";
 
 const CFG = "cal.cfg", HIDDEN = "cal.hidden", VIEW = "cal.view", CACHE = "cal.cache", CALS = "cal.cals";
@@ -342,6 +343,15 @@ export function initCalendar(root, { demo = false } = {}) {
   addEventListener("resize", () => { if (root.isConnected && root.offsetParent) draw(); });
   document.addEventListener("visibilitychange", () => { if (!document.hidden && root.offsetParent && cfg && !editing) load(); });
   setInterval(() => { if (!document.hidden && root.offsetParent && cfg && !editing && !busy) load(); }, 5 * 60000);
+  // the next six months of events, for the T- block to pick from (one-off events only: repeating classes and gym sessions would bury the exams)
+  let upCache = null, upAt = 0;
+  setTminusSource(async () => {
+    if (upCache && Date.now() - upAt < 3e5) return upCache;
+    if (!cals.length) cals = (await bridge("calendars")).calendars;
+    const timeMin = new Date().toISOString(), timeMax = new Date(Date.now() + 180 * 864e5).toISOString(), now = new Date();
+    const res = await Promise.all(cals.filter(c => !hidden.has(c.id)).map(async c => (await bridge("list", { calendarId: c.id, timeMin, timeMax })).events.map(e => norm(e, c))));
+    upCache = res.flat().filter(e => !e.done && !e.recurring && e.e > now).sort((a, b) => a.s - b.s).slice(0, 80).map(e => ({ id: e.id, title: e.title, at: e.s.toISOString(), allDay: e.allDay })); upAt = Date.now(); return upCache;
+  });
   draw(); if (demo || (cfg && cfg.url)) load();
   // used by the command line
   const norm_ = s => String(s).toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();

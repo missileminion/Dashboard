@@ -893,3 +893,5 @@ body.lm .ag-card{background:rgba(255,255,255,.66)!important;border-color:rgba(20
 .cal-col.today{background-color:rgba(255,200,140,.04)!important;animation:calGlow 7s ease-in-out infinite;z-index:1}
 .cal-dh.today{color:#ffd9a0}
 @media (prefers-reduced-motion:reduce){.cal-col.today{animation:none;box-shadow:inset 0 0 46px rgba(255,170,90,.08)}}
+
+.ag-t .tm-row.edit{flex-direction:column;align-items:stretch;gap:6px} .ag-t .tm-row.edit select{width:100%;min-width:0;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14);border-radius:10px;color:#fff;padding:8px 9px;font:12px var(--mono);color-scheme:dark} .ag-t .tm-cu{display:flex;gap:8px;flex-wrap:wrap} .ag-t .tm-cu[hidden]{display:none}

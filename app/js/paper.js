@@ -117,10 +117,17 @@ $(".nt-ed").addEventListener("click", e => {
 /* ----- open the note you were last reading, instead of "No note open" ----- */
 const K_LAST = "paper.last"; let restored = false;
 const remember = () => { const on = $(".nt-item.on"); if (on && on.dataset.path) ls.set(K_LAST, on.dataset.path); };
-const restore = () => {
-  if (restored || !$(".nt-item") || !$(".nt-ed").closest(".blank")) { if (restored || !$(".nt-ed").closest(".blank")) remember(); return; }
-  const p = ls.get(K_LAST); let el = p && document.querySelector('.nt-item[data-path="' + window.CSS.escape(p) + '"]');
-  if (!el && p) el = document.querySelector('.nt-tab[data-tab="' + window.CSS.escape(p) + '"]');
-  restored = true; if (el) el.click();
+const tried = new Set(), t0 = Date.now(); let attempts = 0;
+const restore = () => {   // keeps trying until the note really opens: the list may arrive late, or the note may sit in a folder that is closed
+  const blank = $(".nt-ed").closest(".blank"); if (!blank) { restored = true; remember(); return; }
+  const p = ls.get(K_LAST); if (restored || !p || Date.now() - t0 > 25000) return;
+  let el = document.querySelector('.nt-item[data-path="' + window.CSS.escape(p) + '"]') || document.querySelector('.nt-tab[data-tab="' + window.CSS.escape(p) + '"]');
+  if (!el) {   // open the folders on the way to it, one at a time; each click redraws the list and brings us back here
+    const parts = p.split("/").slice(0, -1); let pre = "";
+    for (const part of parts) { pre = pre ? pre + "/" + part : part; const row = document.querySelector('[data-dir="' + window.CSS.escape(pre) + '"]'); if (row && !row.classList.contains("open") && !tried.has(pre)) { tried.add(pre); row.click(); return; } }
+    return;
+  }
+  restored = true; el.click(); attempts++;
+  setTimeout(() => { if ($(".nt-ed").closest(".blank") && attempts < 4) { restored = false; restore(); } }, 2500);   // did not open: try again
 };
 new MutationObserver(() => { remember(); restore(); }).observe($("#notesRoot"), { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] }); restore();
