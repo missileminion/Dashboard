@@ -238,12 +238,6 @@ export function initCalendar(root, { demo = false } = {}) {
     q("cpAdd").onclick = async () => { if (!ok) return; q("cpAdd").disabled = true; q("cpPv").textContent = "Adding…"; try { const n = await commitItems(apiObj, ok); q("cpPv").textContent = `Added ${n} event${n > 1 ? "s" : ""}. The console command unpaste removes them again.`; q("cpText").value = ""; ok = null; } catch (err) { q("cpPv").innerHTML = `<span class="bad">${esc("Could not add: " + err.message)}</span>`; q("cpAdd").disabled = false; } };
   }
 
-  // once the week buttons have scrolled away, a small floating switcher takes their place
-  { const fly = document.createElement("div"); fly.id = "calFly"; fly.hidden = true; fly.innerHTML = '<button type="button" data-f="prev" aria-label="Previous week">‹</button><span></span><button type="button" data-f="today" aria-label="This week">•</button><button type="button" data-f="next" aria-label="Next week">›</button>'; document.body.appendChild(fly);
-    fly.addEventListener("click", e => { const b = e.target.closest("button"); if (b) { const t = root.querySelector(`[data-a="${b.dataset.f}"]`); if (t) t.click(); } });
-    const upd = () => { const top = root.querySelector(".cal-top"), on = document.body.dataset.tab === "cal" && top && top.getBoundingClientRect().bottom < 30 && !editing; fly.hidden = !on; if (on) fly.querySelector("span").textContent = (root.querySelector(".cal-range") || {}).textContent || ""; };
-    addEventListener("scroll", upd, { passive: true, capture: true }); addEventListener("tab", upd); setInterval(upd, 800); }
-
   // flip weeks without reaching for the buttons: arrow keys, or a sideways swipe on the grid
   addEventListener("keydown", e => {
     if (document.body.dataset.tab !== "cal" || editing || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey || /^(INPUT|TEXTAREA|SELECT)$/.test((e.target && e.target.tagName) || "") || (e.target && e.target.isContentEditable)) return;
