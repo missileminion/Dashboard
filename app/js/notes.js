@@ -99,11 +99,11 @@ export function initNotes(root) {
       <div class="nt-vault"><span class="nt-repo"></span><button type="button" class="nt-ib" data-a="theme" aria-label="Light or dark"></button><button type="button" class="nt-ib" data-a="gear" title="GitHub connection" aria-label="GitHub connection">${ic("gear")}</button></div>
     </aside>
     <div class="nt-main">
-      <div class="nt-tabs"><button type="button" class="nt-ib nt-back" data-a="list" aria-label="All notes">${ic("chev")}</button><span class="nt-bt"></span><button type="button" class="nt-ib" data-a="new" title="New note" aria-label="New note">${ic("plus")}</button><button type="button" class="nt-ib nt-exp" data-a="export" title="Export this note" aria-label="Export this note" disabled>${ic("down")}</button><span class="nt-rt"></span><span class="nt-status" role="status"><i class="nt-sd"></i><span class="nt-msg"></span></span></div>
+      <div class="nt-tabs"><button type="button" class="nt-ib nt-back" data-a="list" aria-label="All notes">${ic("chev")}</button><span class="nt-bt"></span><button type="button" class="nt-ib nt-exp" data-a="export" title="Export this note" aria-label="Export this note" disabled>${ic("down")}</button><span class="nt-rt"></span><span class="nt-status" role="status"><i class="nt-sd"></i><span class="nt-msg"></span></span></div>
+      <div class="nt-foot"><div class="nt-tools"></div></div>
       <div class="nt-xmenu" hidden><button type="button" class="nt-pi" data-x="md">Markdown</button><button type="button" class="nt-pi" data-x="pdf">PDF</button><button type="button" class="nt-pi" data-x="txt">Copy text</button></div><div class="nt-banner" hidden></div>
       <div class="nt-scroll"><div class="nt-page"><textarea class="nt-title" rows="1" placeholder="Untitled" spellcheck="false" disabled></textarea><div class="nt-ed"></div><div class="nt-hello">No note open</div></div></div>
       <div class="nt-pop" hidden></div><div class="nt-cpop" hidden></div>
-      <div class="nt-foot"><div class="nt-tools"></div></div>
       <input type="file" class="nt-file" hidden><input type="file" class="nt-pic" accept="image/*" hidden>
     </div></div>`;
   const $ = s => root.querySelector(s), nt = $(".nt"), listEl = $(".nt-list"), titleEl = $(".nt-title"), statusEl = $(".nt-status"), edEl = $(".nt-ed"), banner = $(".nt-banner"), conn = $(".nt-conn"), modeEl = $(".nt-mode"), fileIn = $(".nt-file"), picIn = $(".nt-pic"), tabsEl = $(".nt-tablist"), pop = $(".nt-pop"), toolsEl = $(".nt-tools"), rtEl = $(".nt-rt"), selbar = $(".nt-selbar"), trashRow = $(".nt-trashrow"), cpop = $(".nt-cpop"), sdEl = $(".nt-sd"), msgEl = $(".nt-msg"), scrollEl = $(".nt-scroll");
@@ -476,7 +476,7 @@ export function initNotes(root) {
   const cmd = (c, payload) => run(ctx => ctx.get(ext.core.commandsCtx).call(c.key, payload));
   const refocus = () => run((c, v) => v.focus());
   function closePop() { pop.hidden = true; pop.innerHTML = ""; pop.dataset.for = ""; }
-  function openPop(kind, btn, html) { if (!pop.hidden && pop.dataset.for === kind) return closePop(); pop.innerHTML = html; pop.dataset.for = kind; pop.hidden = false; const r = btn.getBoundingClientRect(), pr = pop.offsetParent ? pop.offsetParent.getBoundingClientRect() : { left: 0, top: 0, width: innerWidth }; pop.style.left = Math.max(8, Math.min(r.left - pr.left, pr.width - pop.offsetWidth - 8)) + "px"; }
+  function openPop(kind, btn, html) { if (!pop.hidden && pop.dataset.for === kind) return closePop(); pop.innerHTML = html; pop.dataset.for = kind; pop.hidden = false; const r = btn.getBoundingClientRect(), pr = pop.offsetParent ? pop.offsetParent.getBoundingClientRect() : { left: 0, top: 0, width: innerWidth }; pop.style.left = Math.max(8, Math.min(r.left - pr.left, pr.width - pop.offsetWidth - 8)) + "px"; pop.style.top = Math.round(r.bottom - pr.top + 8) + "px"; }
   const setColor = c => run((ctx, v) => { const t = ext.col.type(ctx), { from, to, empty } = v.state.selection; let tr = v.state.tr; if (empty) { tr = c ? tr.addStoredMark(t.create({ color: c })) : tr.removeStoredMark(t); } else { tr = tr.removeMark(from, to, t); if (c) tr = tr.addMark(from, to, t.create({ color: c })); } v.dispatch(tr); v.focus(); });
   function tool(id, btn) {
     if (!crepe || !ext) return; const { cm, gfm } = ext;

@@ -953,3 +953,10 @@ body.lm .ag-card{background:rgba(255,255,255,.66)!important;border-color:rgba(20
 /* notes: inline code is scaled down so the monospace letters match the height of the serif text around them (in a monospace page font it stays 1em) */
 .nt .milkdown .ProseMirror :not(pre)>code{font-size:.82em!important;line-height:inherit}
 .nt[data-mono] .milkdown .ProseMirror :not(pre)>code{font-size:1em!important}
+
+/* notes: the formatting toolbar sits at the top, docked under the header, not floating at the bottom */
+.nt-foot{position:static!important;bottom:auto!important;padding:7px 12px 6px!important;pointer-events:auto;border-bottom:1px solid var(--line)}
+.nt-foot .nt-tools{box-shadow:none;background:none;border:0;-webkit-backdrop-filter:none;backdrop-filter:none;padding:0 2px}
+.nt-pop{bottom:auto!important}
+.nt-scroll{-webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - 28px),transparent 100%)!important;mask-image:linear-gradient(to bottom,#000 calc(100% - 28px),transparent 100%)!important}
+.nt-page{padding-top:40px!important;padding-bottom:140px!important}
