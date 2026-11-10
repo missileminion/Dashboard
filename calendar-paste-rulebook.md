@@ -11,8 +11,8 @@ TYPE|DATE|START|END|PRI|CAL|TITLE|PLACE|REPEAT|NOTES
 4 END     E: HH:MM (must be later than START), or +HH:MM for a duration, or - if unknown (the dashboard uses 1 hour)
           A: always -
           B: required, as a duration +HH:MM (for example +02:00)
-5 PRI     priority, judged from the screenshot (colour, bold, stars, words like urgent, exam, due)
-          -   regular (the default, use it unless there is a clear signal)
+5 PRI     priority. Use the PRIORITY GUIDE below first. Only if no category fits, judge from the screenshot (colour, bold, stars, words like urgent, exam, due).
+          -   none (the default, use it unless there is a clear signal)
           !   low
           !!  medium
           !!! high
@@ -21,6 +21,13 @@ TYPE|DATE|START|END|PRI|CAL|TITLE|PLACE|REPEAT|NOTES
 8 PLACE   location (room, address) or -
 9 REPEAT  - for none, otherwise one of: DAILY, WEEKLY, WEEKLY:MON,WED, MONTHLY. Optionally end it with ;UNTIL=YYYY-MM-DD
 10 NOTES  anything else worth keeping (links, "bring ID", instructor), or -
+
+PRIORITY GUIDE
+!!! HIGH: exams, midterms, finals, tests, quizzes, major project or report deadlines, important meetings, application/registration deadlines, anything with a hard penalty if missed.
+!!  MEDIUM: regular assignment due dates (homework, worksheets, prelabs, lab reports), group-project meetings, appointments (advising, office hours I booked), time-sensitive errands.
+!   LOW: leisure and social: friend hangouts, social events, run club, parties, trips, optional events.
+-   NONE: routine and recurring items: classes, lectures, gym, rocketry/club meetings, study sessions, homework work blocks (B lines), daily habits, meds.
+If an item fits two categories, use the higher one. A study block for an exam is still NONE; the exam itself is HIGH.
 
 RULES
 - Lines starting with # are comments. Start the block with the line:   #cal v1
@@ -31,8 +38,10 @@ RULES
 
 EXAMPLE
 #cal v1
-E|2026-11-12|09:00|-|!!|personal|Thermodynamics|Eng B|-|-
-E|2026-11-12|13:00|15:00|!!!|classes|Machine Design lab|-|-|bring lab coat
+E|2026-11-12|09:00|-|-|personal|Thermodynamics|Eng B|-|-
+E|2026-11-12|13:00|15:00|-|classes|Machine Design lab|-|-|bring lab coat
 B|2026-11-12|-|+02:00|-|personal|Study fluids|-|-|-
 A|2026-11-12|-|-|!!!|personal|Midterm sign-up deadline|-|-|-
+A|2026-11-13|-|-|!!|classes|GRAPHICS - Worksheet 4.1|-|-|-
+E|2026-11-14|18:00|20:00|!|personal|Dinner with friends|-|-|-
 E|2026-11-13|07:00|-|-|personal|Meds|-|DAILY|-

@@ -214,7 +214,6 @@ export function initCalendar(root, { demo = false } = {}) {
       try { await postponeEv(ev, b.dataset.pp); close(); } catch (err) { q("ceErr").textContent = "Could not postpone: " + err.message; m.querySelectorAll("[data-pp]").forEach(x => (x.disabled = false)); }
     }));
     q("ceDel") && (q("ceDel").onclick = async () => {
-      if (!confirm("Delete this event from your Google Calendar?")) return;
       q("ceErr").textContent = "Deleting…";
       try { await bridge("delete", { calendarId: ev.cal, id: ev.id }); close(); load(); } catch (err) { q("ceErr").textContent = "Could not delete: " + err.message; }
     });

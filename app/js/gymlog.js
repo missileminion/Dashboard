@@ -212,7 +212,7 @@ export function initGymLog(root, { demo = false } = {}) {
       const dl = delta[e.id], dh = dl > 0 ? `<span class="gl-up">+${fmt(dl)}</span>` : dl < 0 ? `<span class="gl-down">−${fmt(Math.abs(dl))}</span>` : "";
       const row = document.createElement("div"); row.className = "gl-entry";
       row.innerHTML = `<div class="gl-main"><div class="gl-ex">${esc(e.exercise)}</div><div class="basis">${esc(dayName(e.day || ""))}</div></div><div class="gl-w"><b class="num">${fmt(e.weight)}<span>lb</span></b><small class="num">${dh}${e.sets} × ${e.reps}</small></div><button class="gl-del" type="button" aria-label="Delete entry">×</button>`;
-      row.querySelector(".gl-del").onclick = () => { if (confirm("Delete this entry?")) { entries = entries.filter(x => x.id !== e.id); deleted.add(e.id); changed(); render(); onExercise(); } };
+      row.querySelector(".gl-del").onclick = () => { { entries = entries.filter(x => x.id !== e.id); deleted.add(e.id); changed(); render(); onExercise(); } };
       box.appendChild(row);
     }
   }

@@ -45,5 +45,5 @@ export function wireWeight(root, today) {
   const go = () => { const kg = parseFloat(root.querySelector("#wlKg").value), d = root.querySelector("#wlDate").value || today; if (isFinite(kg) && kg >= 30 && kg <= 250) setWeight(d, Math.round(kg * 10) / 10); };
   root.querySelector("#wlSave").onclick = go;
   root.querySelector("#wlKg").onkeydown = e => { if (e.key === "Enter") go(); };
-  root.querySelectorAll(".wl-row .gl-del").forEach(b => (b.onclick = () => { if (confirm("Delete this weigh-in?")) delWeight(b.dataset.d); }));
+  root.querySelectorAll(".wl-row .gl-del").forEach(b => (b.onclick = () => { delWeight(b.dataset.d); }));
 }
