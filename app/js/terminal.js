@@ -102,7 +102,7 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
     const line = document.createElement("div"); line.className = "tm-line " + cls; log.appendChild(line);
     if (reduce) { line.textContent = text; return; }
     const cur = document.createElement("i"); cur.className = "tm-cur"; line.appendChild(cur); const node = document.createTextNode(""); line.insertBefore(node, cur);
-    for (let i = 0; i < text.length; i++) { node.nodeValue = text.slice(0, i + 1); bottom(); await sleep(28); }
+    for (let i = 0; i < text.length; i++) { node.nodeValue = text.slice(0, i + 1); bottom(); await sleep(9); }
     node.nodeValue = text; cur.remove(); bottom();
   }
   const ask = (prompt, then) => { pending = then; return dim(prompt); };
@@ -409,7 +409,6 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
   async function boot() {
     if (booted) return; booted = true;
     await type("HAL 9000", "tm-head"); await type("─────────────────────────────", "tm-head");
-    await dim("type hi, or help");
     await print(""); sugRender();
   }
 
@@ -438,6 +437,6 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
   const vv = window.visualViewport;
   if (vv) { let busyFit = false; const fit = () => { if (busyFit) return; busyFit = true; requestAnimationFrame(() => { busyFit = false; const over = Math.round(root.getBoundingClientRect().bottom - (vv.offsetTop + vv.height)); scr.style.bottom = over > 40 && document.activeElement === inp ? over + "px" : ""; if (over > 40) bottom(); }); };
     vv.addEventListener("resize", fit); vv.addEventListener("scroll", fit); inp.addEventListener("blur", () => { scr.style.bottom = ""; }); inp.addEventListener("focus", () => setTimeout(fit, 300)); }
-  addEventListener("tab", e => { if (e.detail === "home") setTimeout(() => { boot(); inp.focus(); }, 450); });
+  addEventListener("tab", e => { if (e.detail === "home") setTimeout(() => { boot(); inp.focus(); }, 120); });
   if (document.body.dataset.tab === "home") { boot(); setTimeout(() => inp.focus(), 500); }
 }
