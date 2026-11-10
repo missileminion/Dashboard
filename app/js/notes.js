@@ -536,6 +536,33 @@ export function initNotes(root) {
   listEl.addEventListener("dragover", e => { if (!e.dataTransfer.types.includes("text/plain")) return; const t = dropTarget(e); if (t === null) return; e.preventDefault(); listEl.querySelectorAll(".drop").forEach(x => x.classList.remove("drop")); (e.target.closest("[data-dir]") || listEl).classList.add("drop"); });
   listEl.addEventListener("dragleave", e => { if (!listEl.contains(e.relatedTarget)) listEl.querySelectorAll(".drop").forEach(x => x.classList.remove("drop")); });
   listEl.addEventListener("drop", e => { const t = dropTarget(e); listEl.querySelectorAll(".drop").forEach(x => x.classList.remove("drop")); const p = e.dataTransfer.getData("text/plain"); if (t === null || !p) return; e.preventDefault(); moveNote(p, t); });
+  /* ----- resize pictures: hover a picture (or tap it) for size buttons and a corner grip ----- */
+  const imgUi = document.createElement("div"); imgUi.id = "imgSize"; imgUi.hidden = true;
+  imgUi.innerHTML = '<div class="is-sz"><button type="button" data-p=".25">S</button><button type="button" data-p=".5">M</button><button type="button" data-p=".75">L</button><button type="button" data-p="1">Full</button></div><i class="is-grip" aria-label="Drag to resize"></i>';
+  document.body.appendChild(imgUi); let imgBlock = null, imgHide = 0;
+  const withNode = (block, fn) => { if (!crepe || !ext) return; crepe.editor.action(ctx => { const view = ctx.get(ext.core.editorViewCtx); let hit = null; view.state.doc.descendants((n, pos) => { if (hit) return false; if (n.type.name === "image-block") { const d = view.nodeDOM(pos); if (d === block || (d && d.nodeType === 1 && (d.contains(block) || block.contains(d)))) { hit = { n, pos }; return false; } } }); if (hit) fn(view, hit.n, hit.pos); }); };
+  const setRatio = (block, ratio) => withNode(block, (view, n, pos) => { const r = Math.round(Math.max(0.05, ratio) * 100) / 100; view.dispatch(view.state.tr.setNodeMarkup(pos, undefined, { ...n.attrs, ratio: r })); const im = imgOf(block); if (im && im.naturalHeight) im.style.height = (im.naturalHeight * r) + "px"; });   // the node view doesn't redraw from attrs, so size the picture too
+  const imgOf = b => b && b.querySelector("img");
+  const placeImgUi = () => { const im = imgOf(imgBlock); if (!im || !imgBlock.isConnected) { imgUi.hidden = true; return; } const r = im.getBoundingClientRect(); Object.assign(imgUi.style, { left: r.left + "px", top: r.top + "px", width: r.width + "px", height: r.height + "px" }); };
+  const showImgUi = block => { imgBlock = block; clearTimeout(imgHide); imgUi.hidden = false; placeImgUi(); };
+  const hideImgUi = (ms = 450) => { clearTimeout(imgHide); imgHide = setTimeout(() => { imgUi.hidden = true; imgBlock = null; }, ms); };
+  edEl.addEventListener("pointerover", e => { if (e.pointerType === "touch") return; const b = e.target.closest && e.target.closest(".milkdown-image-block"); if (b && cur && !root.classList.contains("html")) showImgUi(b); });
+  edEl.addEventListener("pointerout", e => { if (e.pointerType === "touch") return; const b = e.target.closest && e.target.closest(".milkdown-image-block"); if (b && !(e.relatedTarget && (b.contains(e.relatedTarget) || imgUi.contains(e.relatedTarget)))) hideImgUi(); });
+  edEl.addEventListener("pointerdown", e => { if (e.pointerType !== "touch") return; const b = e.target.closest && e.target.closest(".milkdown-image-block"); if (b && cur) showImgUi(b); });   // on a phone, tap the picture
+  document.addEventListener("pointerdown", e => { if (!imgUi.hidden && !imgUi.contains(e.target) && !(e.target.closest && e.target.closest(".milkdown-image-block"))) imgUi.hidden = true; }, true);
+  imgUi.addEventListener("pointerenter", () => clearTimeout(imgHide)); imgUi.addEventListener("pointerleave", e => { if (e.pointerType !== "touch") hideImgUi(); });
+  addEventListener("scroll", () => { if (!imgUi.hidden) placeImgUi(); }, true); addEventListener("resize", () => { if (!imgUi.hidden) placeImgUi(); });
+  imgUi.querySelector(".is-sz").addEventListener("click", e => {
+    const b = e.target.closest("button"), im = imgOf(imgBlock); if (!b || !im || !im.naturalWidth) return;
+    const full = imgBlock.clientWidth || im.getBoundingClientRect().width; setRatio(imgBlock, Math.min(+b.dataset.p * full / im.naturalWidth, Math.max(1, full / im.naturalWidth))); requestAnimationFrame(placeImgUi); setTimeout(placeImgUi, 120);
+  });
+  imgUi.querySelector(".is-grip").addEventListener("pointerdown", e => {
+    const im = imgOf(imgBlock), block = imgBlock; if (!im || !im.naturalWidth) return; e.preventDefault(); const grip = e.currentTarget; grip.setPointerCapture(e.pointerId);
+    const x0 = e.clientX, w0 = im.getBoundingClientRect().width, full = block.clientWidth || w0; let raf = 0, want = w0;
+    const move = ev => { want = Math.max(48, Math.min(full, w0 + (ev.clientX - x0))); if (!raf) raf = requestAnimationFrame(() => { raf = 0; setRatio(block, want / im.naturalWidth); placeImgUi(); }); };
+    const up = () => { grip.removeEventListener("pointermove", move); grip.removeEventListener("pointerup", up); grip.removeEventListener("pointercancel", up); setTimeout(placeImgUi, 80); };
+    grip.addEventListener("pointermove", move); grip.addEventListener("pointerup", up); grip.addEventListener("pointercancel", up);
+  });
   edEl.addEventListener("paste", e => { const cd = e.clipboardData || {}, f = [...(cd.files || [])].find(x => /^image\//.test(x.type)) || [...(cd.items || [])].map(i => (i.kind === "file" && /^image\//.test(i.type) ? i.getAsFile() : null)).find(Boolean); if (f) { e.preventDefault(); e.stopPropagation(); addPicture(f); } }, true);
   edEl.addEventListener("dragover", e => { if (e.dataTransfer && [...e.dataTransfer.types].includes("Files")) e.preventDefault(); }, true);
   edEl.addEventListener("drop", e => { const fs = [...((e.dataTransfer && e.dataTransfer.files) || [])]; if (!fs.length) return; e.preventDefault(); e.stopPropagation(); /^image\//.test(fs[0].type) ? addPicture(fs[0]) : attach(fs[0]); }, true);

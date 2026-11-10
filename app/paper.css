@@ -123,3 +123,5 @@ body.paper .nt-pop,body.paper .nt-ctx{background:#fff!important;border:1px solid
 #ppFlash{position:fixed;inset:0;z-index:999} #ppFlash.k{background:#000} #ppFlash.w{background:#fff} #ppFlash[hidden]{display:none}
 }
 @media print{.pp-foot,#ppFlash,.pp-kick,.pp-by,.pp-side,.pp-sync{display:none!important}}
+
+@media screen{#imgSize{display:none!important}}   /* the Reader only reads */

@@ -48,6 +48,8 @@ export function initHome(root) {
     if (editing && editing.own) ex[editing.i] = [g, n, u]; else { if (editing) wr(HIDE, [...rd(HIDE, []), editing.u]); ex.push([g, n, u]); }
     wr(EXTRA, ex); stopEdit(); render();
   });
+  // a soft light follows the pointer inside a link group (mouse and pen only; a finger has no hover)
+  root.addEventListener("pointermove", e => { if (e.pointerType === "touch") return; const g = e.target.closest(".hm-group"); if (!g) return; const r = g.getBoundingClientRect(); g.style.setProperty("--gx", (e.clientX - r.left).toFixed(0) + "px"); g.style.setProperty("--gy", (e.clientY - r.top).toFixed(0) + "px"); }, { passive: true });
   // HAL runs from just under the tab bar to the bottom of the window; measure where the page content starts
   const fitTop = () => { const h = root.closest("#home"); if (h && h.offsetParent) document.documentElement.style.setProperty("--hm-top", Math.round(h.getBoundingClientRect().top + scrollY) + "px"); };
   addEventListener("tab", e => { if (e.detail === "home") requestAnimationFrame(fitTop); }); addEventListener("resize", fitTop); requestAnimationFrame(fitTop);
