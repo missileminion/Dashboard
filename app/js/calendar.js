@@ -67,8 +67,8 @@ export function initCalendar(root, { demo = false } = {}) {
   // A finished event wears a check mark at the front of its title ("✓ Title") in Google Calendar itself, so it shows on every device and in every calendar app.
   const DONE = /^✓\s*/;
   // Priority is a run of "!" after the check mark ("!!! Title"): none = regular, ! low, !! medium, !!! high. Like the check mark it lives in the title, so it syncs to Google with no extra setup.
-  const PRI = /^(!{1,3})\s+/, wrapT = (done, pri, t) => (done ? "✓ " : "") + (pri ? "!".repeat(pri) + " " : "") + t, PRI_NAME = ["None", "!", "!!", "!!!"];
-  const norm = (e, c) => { const allDay = e.allDay, done = DONE.test(e.title || ""), t0 = done ? e.title.replace(DONE, "") : e.title, pm = PRI.exec(t0 || ""), pri = pm ? pm[1].length : 0; return { id: e.id, cal: c.id, color: EVC[e.colorId] || c.color, writable: c.writable, title: pm ? t0.slice(pm[0].length) : t0, pri, allDay, s: allDay ? new Date(e.start + "T00:00:00") : new Date(e.start), e: allDay ? new Date(e.end + "T00:00:00") : new Date(e.end), location: e.location, desc: e.description, recurring: e.recurring, done }; };
+  const PRI = /^(!{1,3})\s+/, wrapT = (done, pri, t) => (done ? "✓ " : "") + (pri ? "!".repeat(pri) + " " : "") + t, PRI_NAME = ["None", "!", "!!", "!!!"], PRI_COL = ["var(--tx3)", "var(--t-work,#9DB8FF)", "var(--t-extra,#FFC46B)", "var(--t-over,#FF5C5C)"];
+  const norm = (e, c) => { const allDay = e.allDay, done = DONE.test(e.title || ""), t0 = done ? e.title.replace(DONE, "") : e.title, pm = PRI.exec(t0 || ""), pri = pm ? pm[1].length : 0; return { id: e.id, cal: c.id, color: PRI_COL[pri], writable: c.writable, title: pm ? t0.slice(pm[0].length) : t0, pri, allDay, s: allDay ? new Date(e.start + "T00:00:00") : new Date(e.start), e: allDay ? new Date(e.end + "T00:00:00") : new Date(e.end), location: e.location, desc: e.description, recurring: e.recurring, done }; };
   let lastSig = "";   // what was last drawn; identical data is never redrawn
   const sigOf = () => JSON.stringify([week, view, status, calsOpen, [...hidden], cals.map(c => [c.id, c.name, c.color]), events.map(e => [e.id, +e.s, +e.e, e.title, e.pri, e.done, e.color, e.allDay, e.location, e.recurring])]);
   async function load() {
@@ -237,6 +237,20 @@ export function initCalendar(root, { demo = false } = {}) {
     };
     q("cpAdd").onclick = async () => { if (!ok) return; q("cpAdd").disabled = true; q("cpPv").textContent = "Adding…"; try { const n = await commitItems(apiObj, ok); q("cpPv").textContent = `Added ${n} event${n > 1 ? "s" : ""}. The console command unpaste removes them again.`; q("cpText").value = ""; ok = null; } catch (err) { q("cpPv").innerHTML = `<span class="bad">${esc("Could not add: " + err.message)}</span>`; q("cpAdd").disabled = false; } };
   }
+
+  // once the week buttons have scrolled away, a small floating switcher takes their place
+  { const fly = document.createElement("div"); fly.id = "calFly"; fly.hidden = true; fly.innerHTML = '<button type="button" data-f="prev" aria-label="Previous week">‹</button><span></span><button type="button" data-f="today" aria-label="This week">•</button><button type="button" data-f="next" aria-label="Next week">›</button>'; document.body.appendChild(fly);
+    fly.addEventListener("click", e => { const b = e.target.closest("button"); if (b) { const t = root.querySelector(`[data-a="${b.dataset.f}"]`); if (t) t.click(); } });
+    const upd = () => { const top = root.querySelector(".cal-top"), on = document.body.dataset.tab === "cal" && top && top.getBoundingClientRect().bottom < 30 && !editing; fly.hidden = !on; if (on) fly.querySelector("span").textContent = (root.querySelector(".cal-range") || {}).textContent || ""; };
+    addEventListener("scroll", upd, { passive: true, capture: true }); addEventListener("tab", upd); setInterval(upd, 800); }
+
+  // flip weeks without reaching for the buttons: arrow keys, or a sideways swipe on the grid
+  addEventListener("keydown", e => {
+    if (document.body.dataset.tab !== "cal" || editing || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey || /^(INPUT|TEXTAREA|SELECT)$/.test((e.target && e.target.tagName) || "") || (e.target && e.target.isContentEditable)) return;
+    if (e.key === "ArrowLeft" || e.key === "ArrowRight") { const b = root.querySelector(`[data-a="${e.key === "ArrowLeft" ? "prev" : "next"}"]`); if (b) { e.preventDefault(); b.click(); } }
+  });
+  { let sx = 0, sy = 0, st = 0; root.addEventListener("touchstart", e => { if (e.touches.length === 1 && !drag) { sx = e.touches[0].clientX; sy = e.touches[0].clientY; st = Date.now(); } else st = 0; }, { passive: true });
+    root.addEventListener("touchend", e => { if (!st || editing || drag || !e.changedTouches.length) return; const dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy; if (Date.now() - st < 600 && Math.abs(dx) > 90 && Math.abs(dy) < 40 && !e.target.closest(".cal-modal,input,textarea")) { const b = root.querySelector(`[data-a="${dx < 0 ? "next" : "prev"}"]`); if (b) b.click(); } st = 0; }, { passive: true }); }
 
   /* ---------- events ---------- */
   root.addEventListener("click", e => {
