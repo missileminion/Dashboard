@@ -896,3 +896,8 @@ body.lm .ag-card{background:rgba(255,255,255,.66)!important;border-color:rgba(20
 .cal-col.today{background-color:rgba(255,200,140,.04)!important;animation:calGlow 7s ease-in-out infinite;z-index:1}
 .cal-dh.today{color:#ffd9a0}
 @media (prefers-reduced-motion:reduce){.cal-col.today{animation:none;box-shadow:inset 0 0 46px rgba(255,170,90,.08)}}
+
+/* list numbers and bullets were drawn in the faint border colour; use the readable secondary text colour (dark and light) */
+.nt .milkdown .milkdown-list-item-block .label-wrapper .label,.nt .milkdown .label-wrapper .label{color:var(--tx2)!important;opacity:1;font-variant-numeric:tabular-nums}
+.nt .milkdown .label-wrapper .label.bullet{color:var(--tx2)!important}
+.nt .milkdown .label-wrapper .label.bullet svg,.nt .milkdown .label-wrapper .label.bullet svg *{fill:var(--tx2)!important}
