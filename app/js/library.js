@@ -352,7 +352,7 @@ export function buildLibrary(c) {
 
   /* ================= CALENDAR ================= */
   const evLine = e => `  ${e.allDay ? "all day" : hhmm(e.s)}  ${e.done ? "✓ " : ""}${e.title}`;
-  const evRow = e => { const p = e.pri || 0; if (!p) return evLine(e); return { html: `<span style="color:${["", "#9db6ff", "#ffcf8a", "#ff9d92"][p]}${p === 3 ? ";font-weight:500;text-shadow:0 0 10px rgba(255,100,88,.45)" : ""}">${esc(evLine(e))}</span>` }; };   // our palette by priority: ! blue, !! amber, !!! coral red with the only glow
+  const evRow = e => { const p = e.pri || 0; if (!p) return evLine(e); return { html: `<span style="color:${["", "#9db6ff", "#ffcf8a", "#ff9d92"][p]}${p === 3 ? ";font-weight:500;text-shadow:0 0 8px rgba(255,110,96,.35)" : ""}">${esc(evLine(e))}</span>` }; };   // our palette by priority: ! blue, !! amber, !!! coral red with the only glow
   const inRange = (cal, a, b) => cal.events().filter(e => e.s < b && e.e > a).sort((x, y) => (y.allDay - x.allDay) || x.s - y.s);
   def("cal", "agenda", "agenda [days]", "your events for the next N days (default 3), grouped by day", async a => {
     const cal = calApi(), n = parseN(a.split(/\s+/), 3), t0 = midnight(new Date()), out = []; for (let i = 0; i < n; i++) { const d0 = addDaysD(t0, i), ev = inRange(cal, d0, addDaysD(d0, 1)); out.push(`${i === 0 ? "TODAY" : i === 1 ? "TOMORROW" : fmtDay(d0).toUpperCase()}`); out.push(...(ev.length ? ev.map(evRow) : ["  nothing"])); } await print(out, "tm-dim");
