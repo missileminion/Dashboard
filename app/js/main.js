@@ -413,7 +413,7 @@ const last2 = k => { for (let i = 0; i < 4; i++) { const v = byDate[addDays(toda
 
 // tabs: Health (everything above) and Productivity (focus timer). The timer keeps running while Health is shown.
 {
-  const TABS = ["home", "health", "prod", "gym", "cal", "notes"], setTab = k => { document.body.dataset.tab = k; dispatchEvent(new CustomEvent("tab", { detail: k })); document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.t === k)); try { localStorage.setItem("tab", k); } catch {} };
+  const TABS = ["home", "health", "prod", "gym", "cal", "notes"], setTab = k => { document.body.dataset.tab = k; document.title = ({ home: "Home", health: "Health", prod: "Productivity", gym: "Gym log", cal: "Calendar", notes: "Notes" })[k] || "Dashboard"; dispatchEvent(new CustomEvent("tab", { detail: k })); document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.t === k)); try { localStorage.setItem("tab", k); } catch {} };
   $("tabs").addEventListener("click", e => { const b = e.target.closest("button"); if (b) setTab(b.dataset.t); });
   let k = "health"; try { k = localStorage.getItem("tab") || k; } catch {}
   if (k === "console") k = "home";

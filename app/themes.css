@@ -902,17 +902,6 @@ body.lm .ag-card{background:rgba(255,255,255,.66)!important;border-color:rgba(20
 .nt .milkdown .label-wrapper .label.bullet{color:var(--tx2)!important}
 .nt .milkdown .label-wrapper .label.bullet svg,.nt .milkdown .label-wrapper .label.bullet svg *{fill:var(--tx2)!important}
 
-/* ---- HAL's eye ---- */
-#halEye{position:absolute;top:16px;right:20px;width:78px;height:78px;z-index:3;pointer-events:none;filter:drop-shadow(0 0 14px rgba(255,50,40,.28));transition:opacity 1.2s ease}
-#halEye svg{width:100%;height:100%;display:block;overflow:visible}
-#halEye .he-core{transform-origin:50px 50px;transform-box:view-box}
-#halEye .he-glow{transform-origin:50px 50px;animation:heBreath 4.6s ease-in-out infinite}
-#halEye.busy .he-glow{animation-duration:1.1s}
-#halEye.flare .he-glow{animation:none;opacity:1;transform:scale(1.18)} #halEye.flare{filter:drop-shadow(0 0 26px rgba(255,40,30,.7))}
-#halEye.dim{opacity:.55}
-@keyframes heBreath{0%,100%{opacity:.45;transform:scale(.94)}50%{opacity:.95;transform:scale(1.06)}}
-@media (max-width:900px){#halEye{width:54px;height:54px;top:12px;right:14px}}
-@media (prefers-reduced-motion:reduce){#halEye .he-glow{animation:none;opacity:.7}}
 
 /* ---- Home: a soft light under the pointer inside a link group ---- */
 .hm-group{position:relative;isolation:isolate}
@@ -931,3 +920,5 @@ body.lm .ag-card{background:rgba(255,255,255,.66)!important;border-color:rgba(20
 #imgSize .is-grip::before{content:"";position:absolute;right:6px;bottom:6px;width:10px;height:10px;border-right:2px solid #f2f2f4;border-bottom:2px solid #f2f2f4;border-radius:0 0 3px 0}
 @media (hover:none){#imgSize .is-grip{width:34px;height:34px} #imgSize .is-sz button{padding:8px 12px}}
 @media print{#imgSize{display:none!important}}
+
+.milkdown-image-block .caption-input{max-width:max(var(--iw,100%),14em);margin-inline:auto;box-sizing:border-box}
