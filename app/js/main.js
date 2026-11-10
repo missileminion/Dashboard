@@ -458,3 +458,5 @@ window.__dashContext = () => {
     calendarNext7Days: (window.__calEvents ? window.__calEvents() : []).slice(0, 60)
   };
 };
+
+if (window.bootDone) window.bootDone();   // everything is wired: lift the load screen
