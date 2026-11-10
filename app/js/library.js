@@ -1,5 +1,6 @@
 // The command library: about 130 small commands for the console, in 14 groups. Every one reads your own data or does plain arithmetic; nothing leaves the page. Charts are dot-matrix (dots.js); a chart line is {node, text} and a link to a page is {buttons:[{label, go}]}.
 // buildLibrary(ctx) returns { cmds, meta }. meta drives help, Tab completion, "did you mean" and the blue highlighting of recognised commands.
+import { undoLast, CALPASTE_SPEC } from "./calpaste.js";
 import { esc, addDays, ymd, n3 } from "./util.js";
 import { PROGRAM, e1rm } from "./gymlog.js";
 import { sunPos } from "./sky.js";
@@ -351,11 +352,13 @@ export function buildLibrary(c) {
 
   /* ================= CALENDAR ================= */
   const evLine = e => `  ${e.allDay ? "all day" : hhmm(e.s)}  ${e.done ? "✓ " : ""}${e.title}`;
-  const evRow = e => /^#[0-9a-f]{6}$/i.test(e.color || "") ? { html: `<span style="color:color-mix(in srgb, ${e.color} 42%, #7f8aa3)">${esc(evLine(e))}</span>` } : evLine(e);   // each line takes a faint tint of its own calendar colour
+  const evRow = e => { const c = /^#[0-9a-f]{6}$/i.test(e.color || "") ? e.color : "#7f8aa3", p = e.pri || 0, mix = [42, 58, 76, 100][p]; return { html: `<span style="color:color-mix(in srgb, ${c} ${mix}%, #7f8aa3)${p === 3 ? `;font-weight:600;text-shadow:0 0 10px color-mix(in srgb, ${c} 38%, transparent)` : p === 2 ? ";font-weight:500" : ""}">${esc(evLine(e))}</span>` }; };   // a faint tint of the event's own colour; the more !, the stronger it gets, and the top level glows faintly
   const inRange = (cal, a, b) => cal.events().filter(e => e.s < b && e.e > a).sort((x, y) => (y.allDay - x.allDay) || x.s - y.s);
   def("cal", "agenda", "agenda [days]", "your events for the next N days (default 3), grouped by day", async a => {
     const cal = calApi(), n = parseN(a.split(/\s+/), 3), t0 = midnight(new Date()), out = []; for (let i = 0; i < n; i++) { const d0 = addDaysD(t0, i), ev = inRange(cal, d0, addDaysD(d0, 1)); out.push(`${i === 0 ? "TODAY" : i === 1 ? "TOMORROW" : fmtDay(d0).toUpperCase()}`); out.push(...(ev.length ? ev.map(evRow) : ["  nothing"])); } await print(out, "tm-dim");
   });
+  def("cal", "unpaste", "unpaste", "remove the events the last pasted block added", async () => { const n = await undoLast(calApi()); await print(n ? `✓ removed ${n} event${n > 1 ? "s" : ""} from the last paste.` : "nothing from a paste to undo.", n ? "" : "tm-dim"); });
+  def("cal", "pasteformat", "pasteformat", "the strict format for pasting many events at once", async () => print(["paste lines like this, then confirm:", `  ${CALPASTE_SPEC}`, "  E timed · A all day · B auto-placed block (END as +HH:MM)", "  PRI - | ! | !! | !!!    REPEAT - | DAILY | WEEKLY:MON,WED | MONTHLY [;UNTIL=YYYY-MM-DD]", "  example:  E|2026-11-12|09:00|-|!!|personal|Thermodynamics|Eng B|-|-"], "tm-dim"));
   def("cal", "tomorrow tmr", "tomorrow", "tomorrow's events", async () => { const cal = calApi(), d0 = addDaysD(midnight(new Date()), 1), ev = inRange(cal, d0, addDaysD(d0, 1)); await print([fmtDay(d0), ...(ev.length ? ev.map(evLine) : ["  nothing scheduled"])], "tm-dim"); });
   const freeSlots = (cal, day, fromMin = 7 * 60, toMin = 22 * 60) => {
     const d0 = midnight(day), now = new Date(), startMin = Math.max(fromMin, midnight(now) - d0 === 0 ? Math.ceil((now - d0) / 6e4 / 15) * 15 : 0), busy = cal.events().filter(e => !e.allDay && e.s < addDaysD(d0, 1) && e.e > d0).map(e => [Math.max(0, (e.s - d0) / 6e4), Math.min(1440, (e.e - d0) / 6e4)]).sort((x, y) => x[0] - y[0]);

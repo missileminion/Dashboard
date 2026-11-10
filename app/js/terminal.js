@@ -4,6 +4,7 @@
 // There is no AI behind it: commands are read by a small parser, answers come straight from your own data, and everything it changes can be undone.
 // Plain-English phrasing ("how did I sleep", "I weigh 70.4") is read by intent.js; math typed on its own line (2+2, plot sin(x)) is evaluated.
 // The core commands live here; about 130 more (gym stats, health numbers, calendar, tasks, conversions, fitness and math tools) are in library.js.
+import { looksLikeCalPaste, parseCalPaste, previewLines, errorLines, commitItems } from "./calpaste.js";
 import { esc, addDays, ymd } from "./util.js";
 import { loadWeights, setWeight, delWeight } from "./weight.js";
 import { makeCalc } from "./calc.js";
@@ -412,6 +413,19 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
     await print(""); sugRender();
   }
 
+  async function runPaste(text) {   // a pasted block in the strict calendar format (see calpaste.js): checked whole, shown, and added only after "yes"
+    if (busy) return; busy = true; live.hidden = true; sug.hidden = true;
+    try {
+      const cal = A().cal; if (!cal) { await err("the calendar is not ready yet."); return; }
+      const { items, errors } = parseCalPaste(text, cal);
+      if (errors.length) { await print([`${errors.length} line${errors.length > 1 ? "s" : ""} could not be read. Nothing was added.`, ...errorLines(errors)], "tm-err"); devLog("calendar paste: " + errors.map(x => `line ${x.n}: ${x.why}`).join("; ")); return; }
+      if (!items.length) { await dim("nothing to add: no lines found."); return; }
+      await print([`${items.length} event${items.length > 1 ? "s" : ""} ready:`, ...previewLines(items)], "tm-dim");
+      await ask(`add ${items.length === 1 ? "it" : "all " + items.length} to your Google Calendar? yes / no`, async () => { const n = await commitItems(cal, items); await print(`✓ added ${n} event${n > 1 ? "s" : ""}. unpaste removes them again.`); });
+    } catch (e) { await err(e.message || String(e)); }
+    busy = false; live.hidden = false; inp.focus(); bottom();
+  }
+  inp.addEventListener("paste", e => { const tx = (e.clipboardData || window.clipboardData).getData("text"); if (looksLikeCalPaste(tx)) { e.preventDefault(); runPaste(tx); } });
   inp.addEventListener("input", () => { if (/\n/.test(inp.value)) inp.value = inp.value.replace(/\n/g, " "); echo.innerHTML = hl(inp.value); bottom(); sugRender(); });
   inp.addEventListener("keydown", e => {
     if (e.key === "Enter") e.preventDefault();

@@ -923,3 +923,14 @@ body.lm .ag-card{background:rgba(255,255,255,.66)!important;border-color:rgba(20
 
 .milkdown-image-block .caption-input{max-width:max(var(--iw,100%),14em);margin-inline:auto;box-sizing:border-box}
 
+
+/* priority: regular (none) looks as before; ! slightly stronger, !! stronger, !!! strongest with a faint glow */
+.cal-ev.p1,.cal-row.p1{background:color-mix(in srgb,var(--c) 30%,transparent)} .cal-row.p1{background:color-mix(in srgb,var(--c) 10%,transparent)}
+.cal-ev.p2,.cal-row.p2{background:color-mix(in srgb,var(--c) 38%,transparent)} .cal-row.p2{background:color-mix(in srgb,var(--c) 16%,transparent)} .cal-ev.p2 b,.cal-row.p2 b{font-weight:700}
+.cal-ev.p3,.cal-row.p3{background:color-mix(in srgb,var(--c) 48%,transparent);box-shadow:0 0 14px color-mix(in srgb,var(--c) 34%,transparent)} .cal-row.p3{background:color-mix(in srgb,var(--c) 22%,transparent)} .cal-ev.p3 b,.cal-row.p3 b{font-weight:700;text-shadow:0 0 10px color-mix(in srgb,var(--c) 45%,transparent)}
+.cal-ev.p1.done,.cal-ev.p2.done,.cal-ev.p3.done{box-shadow:none}
+.ag-row.p1 .ag-title{color:#f4f5fa} .ag-row.p2 .ag-title{font-weight:600;color:#fff} .ag-row.p2 .ag-dot{background:#c9ccdb}
+.ag-row.p3 .ag-title{font-weight:700;color:#fff;text-shadow:0 0 12px rgba(255,255,255,.4)} .ag-row.p3 .ag-dot{background:#fff;box-shadow:0 0 10px 2px rgba(255,255,255,.35)}
+.cal-pri{display:flex;align-items:center;gap:6px;flex-wrap:wrap} .cal-pri span{font:11px var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--tx2);margin-right:4px}
+.cal-pri .btn{min-width:42px;padding:5px 10px} .cal-pri .btn[aria-pressed=true]{border-color:var(--tx);color:var(--tx);font-weight:700}
+.cal-paste{width:100%;min-height:210px;font:12.5px/1.5 var(--mono);box-sizing:border-box} .cal-pv{max-height:230px;overflow:auto;font:12px/1.6 var(--mono);color:var(--tx2);white-space:pre-wrap} .cal-pv .bad{color:var(--t-over,#d44)}

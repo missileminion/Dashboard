@@ -110,7 +110,7 @@ export function agendaHTML(ctx) {
   const nextEv = list.filter(e => !e.allDay && !e.done && e.e > now).sort((a, b) => a.s - b.s).find(e => e.s > now);
   const day = focus, evs = list.filter(e => onDay(e, day)).sort((a, b) => a.s - b.s), d = new Date(day + "T12:00:00"), h = hoursOn(list, day);
   const allDay = evs.filter(e => e.allDay), timed = evs.filter(e => !e.allDay);
-  const state = e => { const past = !e.allDay && e.e <= now, cur = !e.allDay && e.s <= now && e.e > now, nx = nextEv && e === nextEv; return `${e.done ? " done" : ""}${past ? " past" : ""}${cur ? " now" : ""}${nx ? " next" : ""}${e.recurring ? " routine" : ""}${heavyEv(e) ? " heavy" : ""}`; };
+  const state = e => { const past = !e.allDay && e.e <= now, cur = !e.allDay && e.s <= now && e.e > now, nx = nextEv && e === nextEv; return `${e.done ? " done" : ""}${past ? " past" : ""}${cur ? " now" : ""}${nx ? " next" : ""}${e.recurring ? " routine" : ""}${heavyEv(e) ? " heavy" : ""}${e.pri ? " p" + e.pri : ""}`; };
   const chk = e => `<button type="button" class="ag-check" data-done="${esc(e.id)}" aria-pressed="${!!e.done}" aria-label="${e.done ? "Mark not complete" : "Mark complete"}"><svg viewBox="0 0 14 14" aria-hidden="true"><path d="M3 7.4 5.8 10 11 4.4"/></svg></button>`;
   const mini = e => `<div class="ag-mini${state(e)}">${chk(e)}<span class="ag-time">${e.allDay ? "ALL DAY" : hhmm(e.s)}</span><span class="ag-title">${esc(e.title)}</span></div>`;
   // the expanded view, kept quiet: a check, the time and the title. Everything else (place, notes, which calendar) waits inside the editor, which opens in place when you click a task.

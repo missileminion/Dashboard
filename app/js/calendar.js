@@ -3,6 +3,7 @@
 // The bridge URL and secret are kept in this browser only. Events are fetched into the page and never stored anywhere else.
 import { esc, ymd, addDays, pad } from "./util.js";
 import { plannedFor } from "./analytics.js";
+import { parseCalPaste, previewLines, errorLines, commitItems, undoLast, CALPASTE_SPEC } from "./calpaste.js";
 import { setTminusSource } from "./tminus.js";
 import { agendaHTML as mergedAgenda, wireAgenda, toggleCard, ui as agUi } from "./agenda.js";
 
@@ -65,9 +66,11 @@ export function initCalendar(root, { demo = false } = {}) {
   const range = () => ({ timeMin: new Date(week + "T00:00:00").toISOString(), timeMax: new Date(addDays(week, 7) + "T00:00:00").toISOString() });
   // A finished event wears a check mark at the front of its title ("✓ Title") in Google Calendar itself, so it shows on every device and in every calendar app.
   const DONE = /^✓\s*/;
-  const norm = (e, c) => { const allDay = e.allDay, done = DONE.test(e.title || ""); return { id: e.id, cal: c.id, color: EVC[e.colorId] || c.color, writable: c.writable, title: done ? e.title.replace(DONE, "") : e.title, allDay, s: allDay ? new Date(e.start + "T00:00:00") : new Date(e.start), e: allDay ? new Date(e.end + "T00:00:00") : new Date(e.end), location: e.location, desc: e.description, recurring: e.recurring, done }; };
+  // Priority is a run of "!" after the check mark ("!!! Title"): none = regular, ! low, !! medium, !!! high. Like the check mark it lives in the title, so it syncs to Google with no extra setup.
+  const PRI = /^(!{1,3})\s+/, wrapT = (done, pri, t) => (done ? "✓ " : "") + (pri ? "!".repeat(pri) + " " : "") + t, PRI_NAME = ["None", "!", "!!", "!!!"];
+  const norm = (e, c) => { const allDay = e.allDay, done = DONE.test(e.title || ""), t0 = done ? e.title.replace(DONE, "") : e.title, pm = PRI.exec(t0 || ""), pri = pm ? pm[1].length : 0; return { id: e.id, cal: c.id, color: EVC[e.colorId] || c.color, writable: c.writable, title: pm ? t0.slice(pm[0].length) : t0, pri, allDay, s: allDay ? new Date(e.start + "T00:00:00") : new Date(e.start), e: allDay ? new Date(e.end + "T00:00:00") : new Date(e.end), location: e.location, desc: e.description, recurring: e.recurring, done }; };
   let lastSig = "";   // what was last drawn; identical data is never redrawn
-  const sigOf = () => JSON.stringify([week, view, status, calsOpen, [...hidden], cals.map(c => [c.id, c.name, c.color]), events.map(e => [e.id, +e.s, +e.e, e.title, e.done, e.color, e.allDay, e.location, e.recurring])]);
+  const sigOf = () => JSON.stringify([week, view, status, calsOpen, [...hidden], cals.map(c => [c.id, c.name, c.color]), events.map(e => [e.id, +e.s, +e.e, e.title, e.pri, e.done, e.color, e.allDay, e.location, e.recurring])]);
   async function load() {
     const my = ++token, key = "w" + week; busy = true; if (sigOf() !== lastSig) draw();   // a background refresh redraws nothing until the answer differs, so the page never rebuilds under your finger
     try {
@@ -106,15 +109,15 @@ export function initCalendar(root, { demo = false } = {}) {
     const a = fmtDay(week, { month: "short", day: "numeric" }), b = fmtDay(addDays(week, 6), { month: "short", day: "numeric" });
     return `<div class="cal-top"><div class="cal-nav"><button type="button" data-a="prev" aria-label="Previous week">‹</button><button type="button" data-a="today">Today</button><button type="button" data-a="next" aria-label="Next week">›</button></div>
       <div class="cal-range">${a} – ${b}</div><div class="cal-popwrap"><button type="button" class="btn cal-calbtn" data-a="cals" aria-expanded="${calsOpen}">Calendars <span>${cals.filter(c => !hidden.has(c.id)).length}/${cals.length}</span> ▾</button>${calsOpen ? `<div class="cal-pop" role="menu">${cals.map(c => `<button type="button" class="cal-popit${hidden.has(c.id) ? " off" : ""}" data-c="${esc(c.id)}" role="menuitemcheckbox" aria-checked="${!hidden.has(c.id)}"><i style="background:${esc(c.color)}"></i><span>${esc(c.name)}</span><b>${hidden.has(c.id) ? "" : "✓"}</b></button>`).join("")}</div>` : ""}</div><div style="flex:1"></div>
-      <button type="button" class="btn" data-a="new">+ New</button></div>
+      <button type="button" class="btn" data-a="paste">Paste</button><button type="button" class="btn" data-a="new">+ New</button></div>
       ${status ? `<div class="basis cal-status">${esc(status)} <button type="button" class="btn" data-a="refresh">Retry</button></div>` : ""}`;
   }
   function gridHTML() {
     const ds = days(), t = today(), now = new Date();
     const header = `<div class="cal-gh"><span></span>${ds.map(d => `<div class="cal-dh${d === t ? " today" : ""}"><b>${fmtDay(d, { weekday: "short" })} ${atNoon(d).getDate()}</b><em>${plannedFor(d)}</em></div>`).join("")}</div>`;
-    const ad = `<div class="cal-ad"><span>all day</span>${ds.map(d => `<div>${allDayOn(d).map(e => `<button type="button" class="cal-ev ad${e.recurring ? " routine" : ""}${e.done ? " done" : ""}" data-id="${esc(e.id)}" style="--c:${esc(e.color)}">${e.done ? "✓ " : ""}${esc(e.title)}</button>`).join("")}</div>`).join("")}</div>`;
+    const ad = `<div class="cal-ad"><span>all day</span>${ds.map(d => `<div>${allDayOn(d).map(e => `<button type="button" class="cal-ev ad${e.recurring ? " routine" : ""}${e.done ? " done" : ""}${e.pri ? " p" + e.pri : ""}" data-id="${esc(e.id)}" style="--c:${esc(e.color)}">${e.done ? "✓ " : ""}${esc(e.title)}</button>`).join("")}</div>`).join("")}</div>`;
     const hours = [...Array(24)].map((_, h) => `<div style="top:${h * HR}px">${h ? pad(h) + ":00" : ""}</div>`).join("");
-    const cols = ds.map(d => `<div class="cal-col${d === t ? " today" : ""}" data-d="${d}" style="height:${24 * HR}px">${segs(d).map(g => { const top = (g.s - new Date(d + "T00:00:00")) / 36e5 * HR, h = Math.max(18, (g.t - g.s) / 36e5 * HR - 2), w = 100 / g.cols; return `<button type="button" class="cal-ev${g.e.recurring ? " routine" : ""}${g.e.done ? " done" : ""}" data-id="${esc(g.e.id)}" style="--c:${esc(g.e.color)};top:${top}px;height:${h}px;left:calc(${g.col * w}% + 1px);width:calc(${w}% - 3px)"><b>${g.e.done ? "✓ " : ""}${esc(g.e.title)}</b>${h > 34 ? `<span>${timeLabel(g.e)}</span>` : ""}${h > 50 && g.e.location ? `<span>${esc(g.e.location)}</span>` : ""}${g.e.writable !== false && g.t >= +g.e.e ? `<i class="cal-rz" data-rz></i>` : ""}</button>`; }).join("")}${d === t ? `<i class="cal-now" style="top:${(now.getHours() + now.getMinutes() / 60) * HR}px"></i>` : ""}</div>`).join("");
+    const cols = ds.map(d => `<div class="cal-col${d === t ? " today" : ""}" data-d="${d}" style="height:${24 * HR}px">${segs(d).map(g => { const top = (g.s - new Date(d + "T00:00:00")) / 36e5 * HR, h = Math.max(18, (g.t - g.s) / 36e5 * HR - 2), w = 100 / g.cols; return `<button type="button" class="cal-ev${g.e.recurring ? " routine" : ""}${g.e.done ? " done" : ""}${g.e.pri ? " p" + g.e.pri : ""}" data-id="${esc(g.e.id)}" style="--c:${esc(g.e.color)};top:${top}px;height:${h}px;left:calc(${g.col * w}% + 1px);width:calc(${w}% - 3px)"><b>${g.e.done ? "✓ " : ""}${esc(g.e.title)}</b>${h > 34 ? `<span>${timeLabel(g.e)}</span>` : ""}${h > 50 && g.e.location ? `<span>${esc(g.e.location)}</span>` : ""}${g.e.writable !== false && g.t >= +g.e.e ? `<i class="cal-rz" data-rz></i>` : ""}</button>`; }).join("")}${d === t ? `<i class="cal-now" style="top:${(now.getHours() + now.getMinutes() / 60) * HR}px"></i>` : ""}</div>`).join("");
     return `<div class="cal-grid">${header}${ad}<div class="cal-scroll" id="calScroll"><div class="cal-body"><div class="cal-hours" style="height:${24 * HR}px">${hours}</div>${cols}</div></div></div>`;
   }
   function agendaHTML() {
@@ -122,7 +125,7 @@ export function initCalendar(root, { demo = false } = {}) {
     return `<div class="cal-agenda">${days().map(d => {
       const list = visible().filter(e => (e.allDay ? e.s <= atNoon(d) && e.e > atNoon(d) : e.s < new Date(addDays(d, 1) + "T00:00:00") && e.e > new Date(d + "T00:00:00")));
       return `<div class="cal-day${d === t ? " today" : ""}"><div class="cal-dayh"><b>${fmtDay(d, { weekday: "long", month: "short", day: "numeric" })}</b><em>${plannedFor(d)}</em></div>
-        ${list.length ? list.map(e => `<button type="button" class="cal-row${e.recurring ? " routine" : ""}" data-id="${esc(e.id)}" style="--c:${esc(e.color)}"><span class="num">${timeLabel(e)}</span><span><b>${esc(e.title)}</b>${e.location ? `<small>${esc(e.location)}</small>` : ""}</span></button>`).join("") : `<div class="basis cal-none">Nothing scheduled</div>`}</div>`;
+        ${list.length ? list.map(e => `<button type="button" class="cal-row${e.recurring ? " routine" : ""}${e.pri ? " p" + e.pri : ""}" data-id="${esc(e.id)}" style="--c:${esc(e.color)}"><span class="num">${timeLabel(e)}</span><span><b>${esc(e.title)}</b>${e.location ? `<small>${esc(e.location)}</small>` : ""}</span></button>`).join("") : `<div class="basis cal-none">Nothing scheduled</div>`}</div>`;
     }).join("")}</div>`;
   }
   function setupHTML() {
@@ -172,7 +175,7 @@ export function initCalendar(root, { demo = false } = {}) {
   function openEditor(ev, when, host) {   // host: an element inside the tasks card to open the editor in place; without it, a pop-up sheet
     const writable = cals.filter(c => c.writable); editing = ev; const inline = !!host;
     const s = ev ? ev.s : when, e = ev ? (ev.allDay ? new Date(+ev.e - 864e5) : ev.e) : new Date(+when + 36e5);
-    const f = d => ymd(d), allDay = ev ? ev.allDay : false;
+    const f = d => ymd(d), allDay = ev ? ev.allDay : false; let pri = ev ? ev.pri || 0 : 0, priChanged = false;
     const m = inline ? host : document.createElement("div"); if (!inline) m.className = "cal-modal";
     m.innerHTML = `<div class="cal-sheet${inline ? " inline" : ""}" ${inline ? "" : `role="dialog" aria-label="${ev ? "Edit event" : "New event"}"`}>${inline ? "" : `<div class="lbl">${ev ? "Edit event" : "New event"}</div>`}
       <input id="ceTitle" type="text" placeholder="Title" value="${esc(ev ? ev.title : "")}" aria-label="Title">
@@ -181,12 +184,13 @@ export function initCalendar(root, { demo = false } = {}) {
       <input id="ceLoc" type="text" placeholder="Location" value="${esc(ev ? ev.location : "")}" aria-label="Location">
       <textarea id="ceDesc" rows="3" placeholder="Notes" aria-label="Notes">${esc(ev ? ev.desc : "")}</textarea>
       ${ev ? `<div class="basis">${ev.recurring ? "Repeating event: changes apply to this occurrence only. " : ""}${ev.writable === false ? "This calendar is read-only." : ""}</div>` : `<select id="ceCal" aria-label="Calendar">${writable.map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("")}</select>`}
+      ${!ev || ev.writable !== false ? `<div class="cal-pri"><span>Priority</span>${PRI_NAME.map((n, i) => `<button type="button" class="btn" data-pr="${i}" aria-pressed="${i === pri}">${n}</button>`).join("")}</div>` : ""}
       ${ev && ev.writable !== false ? `<div class="cal-pp"><span>Postpone</span>${Object.entries(POSTPONE).map(([k, v]) => `<button type="button" class="btn" data-pp="${k}">${v[0]}</button>`).join("")}</div>` : ""}
       <div class="cal-err" id="ceErr"></div>
       <div class="cal-btns">${ev && ev.writable !== false ? `<button type="button" class="btn cal-del" id="ceDel">Delete</button>` : ""}<span style="flex:1"></span><button type="button" class="btn" id="ceCancel">Cancel</button>${ev && ev.writable === false ? "" : `<button type="button" class="btn cal-save" id="ceSave">Save</button>`}</div></div>`;
     if (!inline) root.appendChild(m);
     const art = inline ? host.closest(".ag-det") : null; art && art.classList.add("editing");
-    const q = id => m.querySelector("#" + id), close = () => { if (inline) { art.classList.remove("editing"); setTimeout(() => { if (!art.classList.contains("editing")) m.innerHTML = ""; }, 480); } else m.remove(); editing = null; closeEd = null; };
+    const q = id => m.querySelector("#" + id), close = () => { if (inline) { art.classList.remove("editing"); setTimeout(() => { if (!art.classList.contains("editing")) m.innerHTML = ""; }, 480); } else m.remove(); editing = null; closeEd = null; if (priChanged) load(); };
     closeEd = close;
     const sync = () => m.querySelectorAll("#ceSt,#ceEt").forEach(i => (i.hidden = q("ceAll").checked)); sync(); q("ceAll").onchange = sync;
     q("ceCancel").onclick = close; if (!inline) m.onclick = x => { if (x.target === m) close(); }; setTimeout(() => q("ceTitle").focus(), inline ? 300 : 0);
@@ -194,11 +198,17 @@ export function initCalendar(root, { demo = false } = {}) {
       const all = q("ceAll").checked, sd = q("ceSd").value, ed = q("ceEd").value || sd, st = q("ceSt").value || "00:00", et = q("ceEt").value || "00:00";
       const A = new Date(`${sd}T${st}:00`), B = new Date(`${ed}T${et}:00`);
       if (!sd || (!all && !(B > A))) { q("ceErr").textContent = "The end has to be after the start."; return; }
-      const body = { summary: (ev && ev.done ? "✓ " : "") + (q("ceTitle").value.trim() || "(no title)"), location: q("ceLoc").value, description: q("ceDesc").value, ...(all ? { start: { date: sd }, end: { date: addDays(ed < sd ? sd : ed, 1) } } : { start: { dateTime: A.toISOString(), timeZone: TZ }, end: { dateTime: B.toISOString(), timeZone: TZ } }) };
+      const body = { summary: wrapT(ev && ev.done, pri, q("ceTitle").value.trim() || "(no title)"), location: q("ceLoc").value, description: q("ceDesc").value, ...(all ? { start: { date: sd }, end: { date: addDays(ed < sd ? sd : ed, 1) } } : { start: { dateTime: A.toISOString(), timeZone: TZ }, end: { dateTime: B.toISOString(), timeZone: TZ } }) };
       let scope = "this"; if (ev && ev.recurring) { scope = await askScope(ev.title); if (!scope) return; }
       q("ceSave").disabled = true; q("ceErr").textContent = "Saving…";
       try { ev ? await bridge(scope === "following" ? "updateFollowing" : "update", { calendarId: ev.cal, id: ev.id, patch: body }) : await bridge("create", { calendarId: q("ceCal").value, event: { ...body, reminders: { useDefault: false, overrides: [] } } }); close(); load(); } catch (err) { q("ceErr").textContent = "Could not save: " + err.message; q("ceSave").disabled = false; }
     });
+    m.querySelectorAll("[data-pr]").forEach(b => (b.onclick = async () => {   // change the priority: an existing event is updated at once, a new one takes it when saved
+      const was = pri; pri = +b.dataset.pr; m.querySelectorAll("[data-pr]").forEach(x => x.setAttribute("aria-pressed", String(+x.dataset.pr === pri)));
+      if (!ev || pri === was) return; q("ceErr").textContent = "Saving priority…";
+      try { await bridge("update", { calendarId: ev.cal, id: ev.id, patch: { summary: wrapT(ev.done, pri, ev.title) } }); ev.pri = pri; priChanged = true; q("ceErr").textContent = ""; }
+      catch (err) { pri = was; m.querySelectorAll("[data-pr]").forEach(x => x.setAttribute("aria-pressed", String(+x.dataset.pr === pri))); q("ceErr").textContent = "Could not change priority: " + err.message; }
+    }));
     m.querySelectorAll("[data-pp]").forEach(b => (b.onclick = async () => {
       m.querySelectorAll("[data-pp]").forEach(x => (x.disabled = true)); q("ceErr").textContent = "Postponing…";
       try { await postponeEv(ev, b.dataset.pp); close(); } catch (err) { q("ceErr").textContent = "Could not postpone: " + err.message; m.querySelectorAll("[data-pp]").forEach(x => (x.disabled = false)); }
@@ -208,6 +218,25 @@ export function initCalendar(root, { demo = false } = {}) {
       q("ceErr").textContent = "Deleting…";
       try { await bridge("delete", { calendarId: ev.cal, id: ev.id }); close(); load(); } catch (err) { q("ceErr").textContent = "Could not delete: " + err.message; }
     });
+  }
+
+  /* ---------- paste many events (strict format, see calpaste.js) ---------- */
+  function openPaste() {
+    const m = document.createElement("div"); m.className = "cal-modal";
+    m.innerHTML = `<div class="cal-sheet" role="dialog" aria-label="Paste events"><div class="lbl">Paste events</div>
+      <textarea class="cal-paste" id="cpText" spellcheck="false" placeholder="${esc(CALPASTE_SPEC)}\nE|2026-11-12|09:00|-|!!|personal|Thermodynamics|Eng B|-|-"></textarea>
+      <div class="cal-pv" id="cpPv">One event per line, ten fields. Nothing is added until it all checks out and you press Add.</div>
+      <div class="cal-btns"><span style="flex:1"></span><button type="button" class="btn" id="cpCancel">Close</button><button type="button" class="btn" id="cpCheck">Check</button><button type="button" class="btn cal-save" id="cpAdd" disabled>Add</button></div></div>`;
+    root.appendChild(m); const q = id => m.querySelector("#" + id); let ok = null;
+    q("cpCancel").onclick = () => m.remove(); m.onclick = x => { if (x.target === m) m.remove(); }; setTimeout(() => q("cpText").focus(), 0);
+    q("cpText").oninput = () => { ok = null; q("cpAdd").disabled = true; };
+    q("cpCheck").onclick = () => {
+      const r = parseCalPaste(q("cpText").value, apiObj), pv = q("cpPv");
+      if (r.errors.length) { pv.innerHTML = `<span class="bad">${esc(r.errors.length + " line" + (r.errors.length > 1 ? "s" : "") + " could not be read. Nothing will be added.")}</span>\n` + esc(errorLines(r.errors).join("\n")); ok = null; q("cpAdd").disabled = true; }
+      else if (!r.items.length) { pv.textContent = "No lines found."; ok = null; q("cpAdd").disabled = true; }
+      else { pv.textContent = r.items.length + " event" + (r.items.length > 1 ? "s" : "") + " ready:\n" + previewLines(r.items).join("\n"); ok = r.items; q("cpAdd").disabled = false; }
+    };
+    q("cpAdd").onclick = async () => { if (!ok) return; q("cpAdd").disabled = true; q("cpPv").textContent = "Adding…"; try { const n = await commitItems(apiObj, ok); q("cpPv").textContent = `Added ${n} event${n > 1 ? "s" : ""}. The console command unpaste removes them again.`; q("cpText").value = ""; ok = null; } catch (err) { q("cpPv").innerHTML = `<span class="bad">${esc("Could not add: " + err.message)}</span>`; q("cpAdd").disabled = false; } };
   }
 
   /* ---------- events ---------- */
@@ -228,6 +257,7 @@ export function initCalendar(root, { demo = false } = {}) {
       else if (a === "today") { week = addDays(today(), -1); load(); }
       else if (a === "refresh") load();
       else if (a === "cals") { calsOpen = !calsOpen; draw(); }
+      else if (a === "paste") openPaste();
       else if (a === "new") { const n = new Date(); n.setMinutes(0, 0, 0); n.setHours(n.getHours() + 1); openEditor(null, n); }
       else if (a === "disconnect" && confirm("Disconnect this browser from your calendar? Your calendar itself is untouched.")) { cfg = null; cals = []; events = []; try { ["cal.cfg", CALS, CACHE].forEach(k => localStorage.removeItem(k)); } catch {} draw(); }
     } else if (b && b.dataset.fd) { focus = b.dataset.fd; draw(); root.querySelector(`.ag-day[data-day="${focus}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
@@ -240,7 +270,7 @@ export function initCalendar(root, { demo = false } = {}) {
   async function setDone(id) {
     const ev = events.find(x => x.id === id); if (!ev) return; ev.done = !ev.done; draw();
     if (ev.writable === false) { ev.done = !ev.done; status = "That calendar is read-only, so it cannot be marked complete."; draw(); return; }
-    try { await bridge("update", { calendarId: ev.cal, id, patch: { summary: (ev.done ? "✓ " : "") + ev.title } }); }
+    try { await bridge("update", { calendarId: ev.cal, id, patch: { summary: wrapT(ev.done, ev.pri, ev.title) } }); }
     catch (err) { ev.done = !ev.done; status = `Could not mark "${ev.title}": ${err.message}`; draw(); }
   }
   /* ---------- drag to move, drag the bottom edge to resize (mouse and pen; on a phone tap an event to edit it) ---------- */
@@ -355,7 +385,7 @@ export function initCalendar(root, { demo = false } = {}) {
   draw(); if (demo || (cfg && cfg.url)) load();
   // used by the command line
   const norm_ = s => String(s).toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
-  return {
+  const apiObj = {
     reload: () => load(),
     events: () => events.filter(e => !hidden.has(e.cal)),
     // events whose title matches the words you typed, best first: today's unfinished ones, then upcoming, then recent
@@ -371,11 +401,17 @@ export function initCalendar(root, { demo = false } = {}) {
     },
     async update(id, p) {   // move, resize or rename one event: { start, end } as Dates, and/or { title }
       const ev = events.find(x => x.id === id); if (!ev) throw new Error("That event is not loaded."); if (ev.writable === false) throw new Error("That calendar is read-only.");
-      if (p.title != null) { await bridge("update", { calendarId: ev.cal, id, patch: { summary: (ev.done ? "✓ " : "") + p.title } }); await load(); return ev; }
+      if (p.title != null || p.pri != null) { await bridge("update", { calendarId: ev.cal, id, patch: { summary: wrapT(ev.done, p.pri != null ? p.pri : ev.pri, p.title != null ? p.title : ev.title) } }); await load(); return ev; }
       await applyChange(ev, { start: { dateTime: p.start.toISOString(), timeZone: TZ }, end: { dateTime: p.end.toISOString(), timeZone: TZ } }, "this"); return ev;
+    },
+    calendars: () => cals.filter(c => c.writable).map(c => ({ id: c.id, name: c.name, primary: !!c.primary })),
+    async createMany(items) {   // items: [{ cal, summary, start, end, location, description, recurrence }]: one by one, then a single reload; returns the created ids
+      const made = []; for (const it of items) { const r = await bridge("create", { calendarId: it.cal, event: { summary: it.summary, start: it.start, end: it.end, ...(it.location ? { location: it.location } : {}), ...(it.description ? { description: it.description } : {}), ...(it.recurrence ? { recurrence: it.recurrence } : {}), reminders: { useDefault: false, overrides: [] } } }); made.push({ cal: it.cal, id: r.event && r.event.id }); }
+      await load(); return made;
     },
     async postpone(id, key) { const ev = events.find(x => x.id === id); if (!ev) throw new Error("That event is not loaded."); return postponeEv(ev, key); },
     async remove(id, calId) { await bridge("delete", { calendarId: calId, id }); await load(); },
     async setDone(id, want) { const ev = events.find(x => x.id === id); if (!ev) throw new Error("That event is not loaded."); if (want !== undefined && ev.done === want) return ev; await setDone(id); return ev; }
   };
+  return apiObj;
 }
