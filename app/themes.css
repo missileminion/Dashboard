@@ -950,3 +950,6 @@ body.lm .ag-card{background:rgba(255,255,255,.66)!important;border-color:rgba(20
 .nt[data-mono] .milkdown .ProseMirror{font-family:var(--nt-mono)!important;font-size:.84em}
 .nt[data-mono] .milkdown .ProseMirror h1,.nt[data-mono] .milkdown .ProseMirror h2,.nt[data-mono] .milkdown .ProseMirror h3,.nt[data-mono] .milkdown .ProseMirror h4{font-family:var(--nt-mono)!important}
 .nt-pi.on{font-weight:600}
+/* notes: inline code is scaled down so the monospace letters match the height of the serif text around them (in a monospace page font it stays 1em) */
+.nt .milkdown .ProseMirror :not(pre)>code{font-size:.82em!important;line-height:inherit}
+.nt[data-mono] .milkdown .ProseMirror :not(pre)>code{font-size:1em!important}
