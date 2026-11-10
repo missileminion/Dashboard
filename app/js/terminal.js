@@ -10,6 +10,7 @@ import { makeCalc } from "./calc.js";
 import { buildLibrary, rankExercises, dist, GROUPS } from "./library.js";
 import { interpret, findCommands, words2math } from "./intent.js";
 import { dotPlot, dotDigits, C } from "./dots.js";
+import { initHalEye } from "./haleye.js";
 
 const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const pad = n => String(n).padStart(2, "0"), hhmm = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
@@ -73,6 +74,7 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
   try { localStorage.removeItem("console.aikey"); localStorage.removeItem("console.aimodel"); } catch {}   // the Gemini fallback was removed; forget the old key
   const ALS = "console.aliases", userAl = () => { try { return JSON.parse(localStorage.getItem(ALS)) || {}; } catch { return {}; } };
   const setAlias = (k, v) => { const a = userAl(); if (v == null) delete a[k]; else a[k] = v; try { localStorage.setItem(ALS, JSON.stringify(a)); } catch {} };
+  const eye = initHalEye(root, inp);   // HAL's eye in the corner of the console
   const bottom = () => { scr.scrollTop = scr.scrollHeight; }, sleep = ms => new Promise(r => setTimeout(r, ms));
 
   // output: commands answer at once; several lines appear one after another, quickly, so it still reads like a terminal
@@ -97,7 +99,7 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
     for (let i = 0; i < text.length && !halt; i += chunk) { node.nodeValue = text.slice(0, i + chunk); bottom(); await sleep(Math.max(ms, 6)); }
     node.nodeValue = text; cur.remove(); bottom();
   }
-  const err = t => { devLog(t); return print(t, "tm-err"); }, dim = t => print(t, "tm-dim");
+  const err = t => { devLog(t); eye.flare(); return print(t, "tm-err"); }, dim = t => print(t, "tm-dim");
   async function type(text, cls = "") {   // the boot text only
     const line = document.createElement("div"); line.className = "tm-line " + cls; log.appendChild(line);
     if (reduce) { line.textContent = text; return; }
@@ -393,7 +395,7 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
       await err(`I did not catch "${line.length > 40 ? line.slice(0, 40) + "…" : line}".`);
       return hits.length ? print(["closest:", ...hits.map(h => `  ${h.use.padEnd(34)} ${h.d}`)], "tm-dim") : dim("help lists everything; help <word> searches. Plain phrases work too: how did I sleep, what's next.");
     }
-    busy = true; live.hidden = true; sug.hidden = true;
+    busy = true; live.hidden = true; sug.hidden = true; eye.blink(); eye.think(true);
     const args = name === "start" ? (/^start\b/i.test(line) ? line.replace(/^start\s*/i, "") : rest) : rest;
     halt = false;
     try { await cmds[name](args); }
@@ -403,7 +405,7 @@ export function initTerminal(root, { demo = false, api = {} } = {}) {
       else await err(msg);
     }
     if (halt) { halt = false; await dim("ended."); }
-    busy = false; live.hidden = false; inp.focus(); bottom(); sugRender();
+    busy = false; eye.think(false); live.hidden = false; inp.focus(); bottom(); sugRender();
   }
 
   async function boot() {
