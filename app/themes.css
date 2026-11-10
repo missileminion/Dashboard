@@ -922,3 +922,5 @@ body.lm .ag-card{background:rgba(255,255,255,.66)!important;border-color:rgba(20
 @media print{#imgSize{display:none!important}}
 
 .milkdown-image-block .caption-input{max-width:max(var(--iw,100%),14em);margin-inline:auto;box-sizing:border-box}
+
+.tm-hi{color:#e9c9c0;text-shadow:none}
