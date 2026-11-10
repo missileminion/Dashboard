@@ -941,3 +941,12 @@ body.lm .ag-card{background:rgba(255,255,255,.66)!important;border-color:rgba(20
 .ag-row.p1,.ag-row.p2,.ag-row.p3{background:var(--cf)} .ag-row.p1 .ag-title,.ag-row.p2 .ag-title,.ag-row.p3 .ag-title{color:var(--cn)!important;text-shadow:none;font-weight:500} .ag-row.p1 .ag-time,.ag-row.p2 .ag-time,.ag-row.p3 .ag-time{color:var(--ct)} .ag-row.p3{box-shadow:inset 0 0 0 1px var(--cb),inset 0 0 22px var(--cg)} .ag-row.p1 .ag-dot,.ag-row.p2 .ag-dot,.ag-row.p3 .ag-dot{background:var(--ct);box-shadow:none}
 @media (prefers-color-scheme:light){.cal-ev,.cal-row,.ag-row.p1,.ag-row.p2,.ag-row.p3{--cf:rgba(120,90,40,.1);--cn:#5e5341;--ct:#85795f} .p1{--cf:rgba(47,109,242,.14);--cn:#1f3f9a;--ct:#4a64b0} .p2{--cf:rgba(199,122,0,.16);--cn:#7a4a00;--ct:#a06a14} .p3{--cf:rgba(214,35,43,.17);--cn:#8f1119;--ct:#b8434a;--cg:rgba(214,35,43,.28);--cb:rgba(214,35,43,.4)}}
 .cal-top{position:static;padding:0;backdrop-filter:none;-webkit-backdrop-filter:none}
+
+/* notes: code blocks run the full width of the page text, in the same size, with tight padding; the editor font option can set the whole page in a monospace font */
+.nt .milkdown .milkdown-code-block{box-sizing:border-box;width:100%;max-width:none;margin:.7em 0;padding:8px 14px 14px}
+.nt .milkdown .milkdown-code-block .cm-editor{width:100%}
+.nt .milkdown .milkdown-code-block .cm-content,.nt .milkdown .milkdown-code-block .cm-line,.nt .milkdown .milkdown-code-block .cm-gutters{font-size:1em!important}
+.nt[data-mono] .milkdown .milkdown-code-block .cm-editor,.nt[data-mono] .milkdown .milkdown-code-block .cm-content,.nt[data-mono] .milkdown .milkdown-code-block .cm-line,.nt[data-mono] .milkdown .milkdown-code-block .cm-gutters,.nt[data-mono] .milkdown .ProseMirror code{font-family:var(--nt-mono)!important}
+.nt[data-mono] .milkdown .ProseMirror{font-family:var(--nt-mono)!important;font-size:.84em}
+.nt[data-mono] .milkdown .ProseMirror h1,.nt[data-mono] .milkdown .ProseMirror h2,.nt[data-mono] .milkdown .ProseMirror h3,.nt[data-mono] .milkdown .ProseMirror h4{font-family:var(--nt-mono)!important}
+.nt-pi.on{font-weight:600}
