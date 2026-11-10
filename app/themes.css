@@ -954,9 +954,20 @@ body.lm .ag-card{background:rgba(255,255,255,.66)!important;border-color:rgba(20
 .nt .milkdown .ProseMirror :not(pre)>code{font-size:.82em!important;line-height:inherit}
 .nt[data-mono] .milkdown .ProseMirror :not(pre)>code{font-size:1em!important}
 
-/* notes: the formatting toolbar sits at the top, docked under the header, not floating at the bottom */
-.nt-foot{position:static!important;bottom:auto!important;padding:7px 12px 6px!important;pointer-events:auto;border-bottom:1px solid var(--line)}
-.nt-foot .nt-tools{box-shadow:none;background:none;border:0;-webkit-backdrop-filter:none;backdrop-filter:none;padding:0 2px}
+/* notes: five chosen tools live in the header; a chevron slides the full toolbar down over the header */
+.nt-tabs{position:relative} .nt-bt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nt-quick{display:flex;align-items:center;gap:1px;flex:none} .nt-quick.off{opacity:.35;pointer-events:none}
+.nt-more svg{transition:transform .28s cubic-bezier(.2,.8,.2,1);transform:rotate(90deg)} .nt.tools-open .nt-more svg{transform:rotate(-90deg)}
+.nt-foot{position:absolute!important;display:block!important;left:0;right:0;top:0;bottom:auto!important;z-index:26;padding:8px 12px 10px;background:var(--main);border-radius:inherit;border-bottom-left-radius:14px;border-bottom-right-radius:14px;border-bottom:1px solid var(--line);box-shadow:0 18px 40px rgba(0,0,0,.28);pointer-events:none;opacity:0;transform:translateY(-8px);visibility:hidden;transition:opacity .22s ease,transform .28s cubic-bezier(.2,.8,.2,1),visibility 0s .28s}
+.nt.tools-open .nt-foot{pointer-events:auto;opacity:1;transform:none;visibility:visible;transition:opacity .22s ease,transform .28s cubic-bezier(.2,.8,.2,1),visibility 0s}
+.nt-foot .nt-tools{flex-wrap:wrap;overflow:visible;justify-content:flex-start;box-shadow:none;background:none;border:0;-webkit-backdrop-filter:none;backdrop-filter:none;padding:2px 0;gap:2px}
+.nt-fhint{display:flex;align-items:center;gap:10px;margin-top:6px;padding-top:6px;border-top:1px solid var(--line);font-size:12px;color:var(--tx3)} .nt-fhint .nt-btn{padding:4px 10px;font-size:12px;white-space:nowrap;flex:none}
+.nt-foot.cust .nt-t{opacity:.5} .nt-foot.cust .nt-t.pin{opacity:1;background:var(--on)}
+.nt-foot:not(.cust) .nt-t.pin::after{display:none}
 .nt-pop{bottom:auto!important}
 .nt-scroll{-webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - 28px),transparent 100%)!important;mask-image:linear-gradient(to bottom,#000 calc(100% - 28px),transparent 100%)!important}
 .nt-page{padding-top:40px!important;padding-bottom:140px!important}
+/* notes: tables always span the page width with evenly sized columns and compact rows, however small the table is */
+.nt .milkdown .ProseMirror .milkdown-table-block table{width:100%!important;table-layout:auto}
+.nt .milkdown .ProseMirror table th,.nt .milkdown .ProseMirror table td{min-width:72px;vertical-align:top;padding:8px 12px}
+.nt .milkdown .ProseMirror table th p,.nt .milkdown .ProseMirror table td p{margin:0!important;padding:0!important;line-height:1.5}

@@ -99,8 +99,8 @@ export function initNotes(root) {
       <div class="nt-vault"><span class="nt-repo"></span><button type="button" class="nt-ib" data-a="theme" aria-label="Light or dark"></button><button type="button" class="nt-ib" data-a="gear" title="GitHub connection" aria-label="GitHub connection">${ic("gear")}</button></div>
     </aside>
     <div class="nt-main">
-      <div class="nt-tabs"><button type="button" class="nt-ib nt-back" data-a="list" aria-label="All notes">${ic("chev")}</button><span class="nt-bt"></span><button type="button" class="nt-ib nt-exp" data-a="export" title="Export this note" aria-label="Export this note" disabled>${ic("down")}</button><span class="nt-rt"></span><span class="nt-status" role="status"><i class="nt-sd"></i><span class="nt-msg"></span></span></div>
-      <div class="nt-foot"><div class="nt-tools"></div></div>
+      <div class="nt-tabs"><button type="button" class="nt-ib nt-back" data-a="list" aria-label="All notes">${ic("chev")}</button><span class="nt-bt"></span><span class="nt-quick off"></span><button type="button" class="nt-ib nt-more" aria-label="All formatting tools" aria-expanded="false" title="All tools">${ic("chev")}</button><button type="button" class="nt-ib nt-exp" data-a="export" title="Export this note" aria-label="Export this note" disabled>${ic("down")}</button><span class="nt-rt"></span><span class="nt-status" role="status"><i class="nt-sd"></i><span class="nt-msg"></span></span></div>
+      <div class="nt-foot" aria-hidden="true"><div class="nt-tools"></div><div class="nt-fhint"><button type="button" class="nt-btn nt-cust">Choose quick tools</button><span></span></div></div>
       <div class="nt-xmenu" hidden><button type="button" class="nt-pi" data-x="md">Markdown</button><button type="button" class="nt-pi" data-x="pdf">PDF</button><button type="button" class="nt-pi" data-x="txt">Copy text</button></div><div class="nt-banner" hidden></div>
       <div class="nt-scroll"><div class="nt-page"><textarea class="nt-title" rows="1" placeholder="Untitled" spellcheck="false" disabled></textarea><div class="nt-ed"></div><div class="nt-hello">No note open</div></div></div>
       <div class="nt-pop" hidden></div><div class="nt-cpop" hidden></div>
@@ -113,12 +113,25 @@ export function initNotes(root) {
     const k = /^saved/.test(t) ? "saved" : /^(unsaved|saving)/.test(t) ? "dirty" : ""; sdEl.dataset.s = k; statusEl.title = t; statusEl.setAttribute("aria-label", t || "no note open"); msgEl.textContent = k ? "" : t; statusEl.classList.toggle("bad", !!bad);
   };
   const showBanner = html => { banner.hidden = !html; banner.innerHTML = html || ""; };
-  const enable = on => { $(".nt-exp").disabled = !on; toolsEl.classList.toggle("off", !on || !crepe); }, sizeTitle = () => { titleEl.style.height = "auto"; titleEl.style.height = titleEl.scrollHeight + "px"; }, btEl = $(".nt-bt"), mirror = () => { btEl.textContent = titleEl.value; }, setTitle = (v, on) => { titleEl.value = v; titleEl.disabled = !on; mirror(); sizeTitle(); requestAnimationFrame(sizeTitle); root.classList.toggle("blank", !on); };
+  const enable = on => { $(".nt-exp").disabled = !on; toolsEl.classList.toggle("off", !on || !crepe); quickEl.classList.toggle("off", !on || !crepe); }, sizeTitle = () => { titleEl.style.height = "auto"; titleEl.style.height = titleEl.scrollHeight + "px"; }, btEl = $(".nt-bt"), mirror = () => { btEl.textContent = titleEl.value; }, setTitle = (v, on) => { titleEl.value = v; titleEl.disabled = !on; mirror(); sizeTitle(); requestAnimationFrame(sizeTitle); root.classList.toggle("blank", !on); };
   const mode = () => { modeEl.textContent = ""; modeEl.title = cfg.remote ? cfg.repo : "not saved to GitHub yet"; $(".nt-repo").textContent = cfg.remote ? cfg.repo.split("/")[1] : "Local notes"; };
   const applyTheme = (quick) => { const dark = theme === "dark" || (theme === "auto" && matchMedia("(prefers-color-scheme: dark)").matches); nt.dataset.th = dark ? "dark" : "light"; document.body.dataset.ntth = dark ? "dark" : "light"; const b = root.querySelector('[data-a=theme]'); b.innerHTML = ic(dark ? "moon" : "sun"); b.title = dark ? "Switch to light (cream)" : "Switch to dark"; };
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => applyTheme()); applyTheme();
   toolsEl.innerHTML = TOOLS.map(t => t[0] === "|" ? '<i class="nt-sep"></i>' : t[0] === "h" ? `<button type="button" class="nt-t nt-h" data-tool="h" title="Heading"><b>H</b><small>▾</small></button>` : `<button type="button" class="nt-t" data-tool="${t[0]}" title="${t[2]}" aria-label="${t[2]}">${ic(t[1])}</button>`).join("");
   toolsEl.classList.add("off");
+  const quickEl = $(".nt-quick"), moreBtn = $(".nt-more"), footEl = $(".nt-foot"), hintEl = footEl.querySelector(".nt-fhint span"), custBtn = footEl.querySelector(".nt-cust");
+  const TOOL_BY = Object.fromEntries(TOOLS.filter(t => t[0] !== "|").map(t => [t[0], t])), K_QUICK = "notes.quick";
+  let quick = (() => { try { const q = JSON.parse(lsGet(K_QUICK) || "null"); if (Array.isArray(q)) return q.filter(x => TOOL_BY[x]).slice(0, 5); } catch {} return ["h", "bold", "ital", "hl", "link"]; })(), custom = false;
+  const toolBtn = (id, pinned) => { const t = TOOL_BY[id]; return id === "h" ? `<button type="button" class="nt-t nt-h${pinned ? " pin" : ""}" data-tool="h" title="Heading"><b>H</b><small>▾</small></button>` : `<button type="button" class="nt-t${pinned ? " pin" : ""}" data-tool="${id}" title="${t[2]}" aria-label="${t[2]}">${ic(t[1])}</button>`; };
+  const renderQuick = () => { quickEl.innerHTML = quick.map(id => toolBtn(id)).join(""); toolsEl.querySelectorAll("[data-tool]").forEach(b => b.classList.toggle("pin", quick.includes(b.dataset.tool))); hintEl.textContent = custom ? `${quick.length} of 5 chosen. Tap a tool to add or remove it.` : ""; custBtn.textContent = custom ? "Done" : "Choose quick tools"; footEl.classList.toggle("cust", custom); };
+  const setMore = on => { nt.classList.toggle("tools-open", on); moreBtn.setAttribute("aria-expanded", String(on)); footEl.setAttribute("aria-hidden", String(!on)); if (!on && custom) { custom = false; renderQuick(); } };
+  moreBtn.addEventListener("click", () => setMore(!nt.classList.contains("tools-open")));
+  custBtn.addEventListener("click", () => { custom = !custom; renderQuick(); });
+  document.addEventListener("pointerdown", e => { if (nt.classList.contains("tools-open") && !e.target.closest(".nt-foot,.nt-more,.nt-pop")) setMore(false); }, true);
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && nt.classList.contains("tools-open")) setMore(false); });
+  quickEl.addEventListener("mousedown", e => { if (e.target.closest(".nt-t")) e.preventDefault(); });
+  quickEl.addEventListener("click", e => { const b = e.target.closest("[data-tool]"); if (b && !quickEl.classList.contains("off")) tool(b.dataset.tool, b); });
+  renderQuick();
 
   /* ----- file list: folders and notes, like a vault ----- */
   const isDoc = p => /\.(md|html)$/i.test(p) && !p.startsWith(FILES + "/") && !p.startsWith("."), isTrash = p => isDoc(p) && p.startsWith(TRASH + "/"), isNote = p => isDoc(p) && !p.startsWith(TRASH + "/");
@@ -510,7 +523,11 @@ export function initNotes(root) {
   scrollEl.addEventListener("scroll", () => { if (!selBar.hidden) placeSel(); }, { passive: true });
   selBar.addEventListener("mousedown", e => e.preventDefault());
   selBar.addEventListener("click", e => { const b = e.target.closest("[data-st]"); if (!b) return; tool(b.dataset.st, null); selBar.hidden = true; });
-  toolsEl.addEventListener("click", e => { const b = e.target.closest("[data-tool]"); if (b && !toolsEl.classList.contains("off")) tool(b.dataset.tool, b); });
+  toolsEl.addEventListener("click", e => {
+    const b = e.target.closest("[data-tool]"); if (!b) return;
+    if (custom) { const id = b.dataset.tool, i = quick.indexOf(id); if (i >= 0) quick.splice(i, 1); else if (quick.length < 5) quick.push(id); else { hintEl.textContent = "Five is the most. Remove one first."; return; } lsSet(K_QUICK, JSON.stringify(quick)); renderQuick(); return; }
+    if (!toolsEl.classList.contains("off")) { tool(b.dataset.tool, b); setMore(false); }
+  });
   pop.addEventListener("mousedown", e => { if (!e.target.closest("input")) e.preventDefault(); });
   pop.addEventListener("click", e => {
     const im = e.target.closest("[data-img]"); if (im) { closePop(); im.dataset.img === "paste" ? pasteImage() : picIn.click(); return; }
