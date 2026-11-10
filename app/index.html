@@ -25,6 +25,7 @@
   --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
   --sans:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;
 }
+#upd{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:9000;padding:9px 16px;border:1px solid rgba(255,255,255,.2);border-radius:999px;background:rgba(14,16,26,.88);backdrop-filter:blur(12px);color:#e8e8ea;font:12px var(--sans);letter-spacing:.02em;cursor:pointer;animation:updIn .4s ease} @keyframes updIn{from{opacity:0;transform:translate(-50%,8px)}}
 /* ---------- the load screen: covers the half-built page until the app is ready ---------- */
 #boot{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;background:radial-gradient(120% 90% at 50% 38%,#10131f 0%,#07080f 55%,#05060a 100%);transition:opacity .55s ease,visibility .55s}
 #boot[data-go]{opacity:0;visibility:hidden;pointer-events:none}
@@ -244,6 +245,9 @@ window.bootDone=function(){var b=document.getElementById("boot");if(!b||b.datase
 <script src="config.js"></script>
 <script>window.CONFIG=window.CONFIG||{SCOPES:"https://www.googleapis.com/auth/googlehealth.sleep.readonly https://www.googleapis.com/auth/googlehealth.health_metrics_and_measurements.readonly https://www.googleapis.com/auth/googlehealth.activity_and_fitness.readonly",CLIENT_ID:(function(){try{return localStorage.getItem("clientId")||""}catch(e){return ""}})()};</script>
 <script type="module" src="js/main.js"></script>
-<script>if ("serviceWorker" in navigator && location.protocol === "https:") addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); });</script>
+<script>if ("serviceWorker" in navigator && location.protocol === "https:") { addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); });
+  // the cached copy opens instantly and is re-checked in the background; when the check finds a newer version, offer a reload
+  navigator.serviceWorker.addEventListener("message", function (e) { if (!e.data || e.data.type !== "updated" || document.getElementById("upd")) return;
+    var b = document.createElement("button"); b.id = "upd"; b.type = "button"; b.textContent = "Updated. Tap to reload"; b.onclick = function () { location.reload(); }; document.body.appendChild(b); }); }</script>
 <script>setTimeout(function(){var e=document.getElementById("hero");if(e&&!e.children.length){var b=document.getElementById("banner");b.hidden=false;b.className="banner err";b.innerHTML="<span>●</span><span>The page scripts did not load, most likely an old cached copy. Hard refresh with Cmd+Shift+R.</span>";}},4000)</script>
 </body></html>

@@ -1,25 +1,40 @@
-// Service worker: makes the dashboard installable and lets it open with no signal.
-// Same-site files are fetched from the network first (always revalidated, so a new version shows up straight away) and kept in a cache,
-// which is used only when the network fails. Google, GitHub and the weather service are never touched here, so no health data passes through the cache.
-const CACHE = "dashboard-v1";
+// Service worker: makes the dashboard installable, opens it instantly, and lets it open with no signal.
+// Same-site files are answered straight from the cache (so a new tab paints at once) and are re-checked with the server in the background.
+// When a check finds a newer file, the page is told (after things settle) so it can offer a reload; the new version then shows on that reload.
+// Google, GitHub and the weather service are never touched here, so no health data passes through the cache.
+const CACHE = "dashboard-v2";
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", e => e.waitUntil((async () => {
   for (const k of await caches.keys()) if (k !== CACHE) await caches.delete(k);
   await self.clients.claim();
 })()));
+
+let note = 0;
+const tellPages = () => { clearTimeout(note); note = setTimeout(async () => { for (const c of await self.clients.matchAll()) c.postMessage({ type: "updated" }); }, 2500); };   // one message once the downloads stop, so a reload never mixes old and new files
+const sig = r => r.headers.get("etag") || r.headers.get("last-modified") || "";
+
+async function refresh(req, key) {
+  try {
+    const cache = await caches.open(CACHE), old = await cache.match(key), res = await fetch(req, { cache: "no-cache" });
+    if (!res.ok) return res;
+    let changed = false;
+    if (old) { const a = sig(old), b = sig(res); changed = a && b ? a !== b : (await old.clone().text()) !== (await res.clone().text()); }
+    await cache.put(key, res.clone());
+    if (changed) tellPages();
+    return res;
+  } catch (err) { return null; }
+}
+
 self.addEventListener("fetch", e => {
   const r = e.request, u = new URL(r.url);
   if (r.method !== "GET" || u.origin !== location.origin) return;
+  const key = r.mode === "navigate" ? new Request(u.origin + u.pathname) : r;   // ?tab=cal and friends share one cached page
   e.respondWith((async () => {
-    try {
-      const res = await fetch(r, { cache: "no-cache" });
-      if (res.ok) { const c = await caches.open(CACHE); c.put(r, res.clone()); }
-      return res;
-    } catch (err) {
-      const hit = await caches.match(r, { ignoreSearch: true });
-      if (hit) return hit;
-      if (r.mode === "navigate") { const home = await caches.match("index.html", { ignoreSearch: true }) || await caches.match("./", { ignoreSearch: true }); if (home) return home; }
-      throw err;
-    }
+    const hit = await caches.match(key, { ignoreSearch: r.mode !== "navigate" ? false : true });
+    if (hit) { e.waitUntil(refresh(r, key)); return hit; }
+    const res = await refresh(r, key);
+    if (res) return res;
+    if (r.mode === "navigate") { const home = await caches.match("index.html", { ignoreSearch: true }) || await caches.match("./", { ignoreSearch: true }); if (home) return home; }
+    return Response.error();
   })());
 });
