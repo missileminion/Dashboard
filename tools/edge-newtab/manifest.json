@@ -1,0 +1,8 @@
+{
+  "manifest_version": 3,
+  "name": "Dashboard New Tab",
+  "version": "1.0",
+  "description": "Opens my dashboard whenever I open a new tab.",
+  "chrome_url_overrides": { "newtab": "newtab.html" },
+  "icons": { "128": "icon-192.png" }
+}
