@@ -351,8 +351,7 @@ export function buildLibrary(c) {
 
   /* ================= CALENDAR ================= */
   const evLine = e => `  ${e.allDay ? "all day" : hhmm(e.s)}  ${e.done ? "✓ " : ""}${e.title}`;
-  const HI = ["#ff887c", "#dc2127", "#ffb878"];   // Google event colours Tomato, Tomato (dark), Tangerine count as higher priority
-  const evRow = e => HI.includes((e.color || "").toLowerCase()) ? { html: `<span class="tm-hi">${esc(evLine(e))}</span>` } : evLine(e);
+  const evRow = e => /^#[0-9a-f]{6}$/i.test(e.color || "") ? { html: `<span style="color:color-mix(in srgb, ${e.color} 42%, #7f8aa3)">${esc(evLine(e))}</span>` } : evLine(e);   // each line takes a faint tint of its own calendar colour
   const inRange = (cal, a, b) => cal.events().filter(e => e.s < b && e.e > a).sort((x, y) => (y.allDay - x.allDay) || x.s - y.s);
   def("cal", "agenda", "agenda [days]", "your events for the next N days (default 3), grouped by day", async a => {
     const cal = calApi(), n = parseN(a.split(/\s+/), 3), t0 = midnight(new Date()), out = []; for (let i = 0; i < n; i++) { const d0 = addDaysD(t0, i), ev = inRange(cal, d0, addDaysD(d0, 1)); out.push(`${i === 0 ? "TODAY" : i === 1 ? "TOMORROW" : fmtDay(d0).toUpperCase()}`); out.push(...(ev.length ? ev.map(evRow) : ["  nothing"])); } await print(out, "tm-dim");
