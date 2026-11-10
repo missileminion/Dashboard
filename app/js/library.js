@@ -352,7 +352,7 @@ export function buildLibrary(c) {
 
   /* ================= CALENDAR ================= */
   const evLine = e => `  ${e.allDay ? "all day" : hhmm(e.s)}  ${e.done ? "✓ " : ""}${e.title}`;
-  const evRow = e => { const p = e.pri || 0; if (!p) return evLine(e); const c = ["", "var(--t-work,#9DB8FF)", "var(--t-extra,#FFC46B)", "var(--t-over,#FF5C5C)"][p]; return { html: `<span style="color:color-mix(in srgb, ${c} ${[0, 62, 78, 92][p]}%, #7f8aa3)${p === 3 ? `;font-weight:600;text-shadow:0 0 10px color-mix(in srgb, ${c} 38%, transparent)` : p === 2 ? ";font-weight:500" : ""}">${esc(evLine(e))}</span>` }; };   // our palette by priority: none plain, ! blue, !! amber, !!! red with a faint glow
+  const evRow = e => { const p = e.pri || 0; if (!p) return evLine(e); return { html: `<span style="color:${["", "#aeb6c8", "#d3d8e6", "#fff"][p]}${p === 3 ? ";font-weight:600;text-shadow:0 0 10px rgba(255,255,255,.4)" : p === 2 ? ";font-weight:500" : ""}">${esc(evLine(e))}</span>` }; };   // uniform look: the more !, the brighter the line, and the top level glows faintly
   const inRange = (cal, a, b) => cal.events().filter(e => e.s < b && e.e > a).sort((x, y) => (y.allDay - x.allDay) || x.s - y.s);
   def("cal", "agenda", "agenda [days]", "your events for the next N days (default 3), grouped by day", async a => {
     const cal = calApi(), n = parseN(a.split(/\s+/), 3), t0 = midnight(new Date()), out = []; for (let i = 0; i < n; i++) { const d0 = addDaysD(t0, i), ev = inRange(cal, d0, addDaysD(d0, 1)); out.push(`${i === 0 ? "TODAY" : i === 1 ? "TOMORROW" : fmtDay(d0).toUpperCase()}`); out.push(...(ev.length ? ev.map(evRow) : ["  nothing"])); } await print(out, "tm-dim");
