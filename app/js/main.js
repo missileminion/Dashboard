@@ -1,4 +1,5 @@
 import { getToken, hasToken } from "./auth.js";
+import { healthPull, healthPush } from "./cloud.js";
 import { sync, allDays, getMeta, loadSleepHr, loadRunHr, SCHEMA } from "./sync.js";
 import { formulas } from "./formulas.js";
 import { $, mean, sum, sd, ymd, addDays, f, hm, mmss, pad, dayLabel, delta, tile, slot, esc, n3 } from "./util.js";
@@ -296,6 +297,7 @@ async function status(errors = []) {
 
 async function load() {
   let rows = [];
+  if (!DEMO) { try { await healthPull(); } catch (e) { console.warn("health sync", e); } }   // another device may have synced more recently
   if (DEMO) rows = demoDays();
   else if ((await getMeta("schema")) === SCHEMA) rows = (await allDays()).sort((a, b) => a.date.localeCompare(b.date));   // an older cache is ignored and reloaded on the next sync
   // drop anything an older version stored in a shape this one can't read
@@ -309,7 +311,7 @@ async function refresh(interactive) {
   // while the saved token is still valid; once it has expired, one tap on Sign in is needed.
   try { if (!interactive && !hasToken()) throw new Error("sign-in needed"); await getToken({ interactive }); signedOut = false; }
   catch (e) { signedOut = true; }
-  if (!signedOut) { try { $("synced").textContent = "Syncing…"; const r = await sync(t => ($("synced").textContent = "Fetching " + t + "…")); errors = r.errors; } catch (e) { if (e.auth) signedOut = true; else { errors = ["sync: " + e.message]; console.error(e); } } }
+  if (!signedOut) { try { $("synced").textContent = "Syncing…"; const r = await sync(t => ($("synced").textContent = "Fetching " + t + "…")); errors = r.errors; healthPush().catch(e => console.warn("health sync", e)); } catch (e) { if (e.auth) signedOut = true; else { errors = ["sync: " + e.message]; console.error(e); } } }
   busy = false;
   try { await load(); } catch (e) { errors.push("page: " + e.message); console.error(e); }
   await status(errors);

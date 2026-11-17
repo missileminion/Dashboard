@@ -1,22 +1,24 @@
 // The right half of the Home tab: your links as plain text in groups (HAL is the left half), beside HAL. It is only links; nothing is fetched from anywhere.
 // The links below are public (this file is on GitHub). Anything private goes in through the pencil button: those links are kept in this browser only.
+import { homePull, homePush, homeTouch } from "./cloud.js";
 const GROUPS = [
   ["School", [["Canvas", "https://coastdistrict.instructure.com/"], ["MATLAB", "https://grader.mathworks.com/courses/176768-engr-a220-23180-programming-and-problem-solving-in-matlab-fall-2026"], ["Drive", "https://drive.google.com/drive/u/3/"]]],
   ["Read", [["NYT", "https://www.nytimes.com/"], ["WSJ", "https://www.wsj.com/"], ["Cooking", "https://cooking.nytimes.com/"], ["Anna's", "https://annas-archive.pk/"]]],
   ["Watch and chat", [["Nebula", "https://nebula.tv/library"], ["Discord", "https://discord.com/channels/@me"]]],
   ["Tools", [["Claude", "https://claude.ai/new"], ["Boox", "https://push.boox.com/#/note/recentNote"], ["Rocket", "https://auth.rocketaccount.com/"]]],
 ];
-const EXTRA = "home.extra", HIDE = "home.hide";   // links you added (group, name, address) and built-in ones you removed (addresses)
-const rd = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) || d; } catch { return d; } }, wr = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+const EXTRA = "home.extra", HIDE = "home.hide", CATS = "home.cats";   // links you added (group, name, address) and built-in ones you removed (addresses)
+const rd = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) || d; } catch { return d; } }, wr = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} homeTouch(); homePush(() => ({ extra: rd(EXTRA, []), hide: rd(HIDE, []), cats: rd(CATS, []) })); };   // every change is stamped and sent to the other devices
 
 export function initHome(root) {
   root.innerHTML = `<div class="hm">
     <button type="button" class="hm-edit" aria-label="Edit links" title="Edit links"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg></button>
     <div class="hm-groups"></div>
+    <form class="hm-cat" hidden><input name="cat" placeholder="New category" maxlength="24" aria-label="New category" data-1p-ignore><button type="submit">Add category</button></form>
     <form class="hm-add" hidden><input name="name" placeholder="Name" maxlength="14" aria-label="Name" data-1p-ignore><input name="url" placeholder="https://…" inputmode="url" autocapitalize="off" aria-label="Address" data-1p-ignore><input name="group" list="hmGroups" placeholder="Group" maxlength="24" aria-label="Group" data-1p-ignore><datalist id="hmGroups"></datalist><button type="submit" class="hm-go">Add</button><button type="button" class="hm-cancel" hidden>Cancel</button></form>
-    <div class="hm-note" hidden>Editing: tap a link to change it, × to remove it, or add a new one below. Changes stay in this browser only. Press the pencil again when done.</div>
+    <div class="hm-note" hidden>Editing: tap a link to change it, × to remove it, or add a new one below. Changes sync to your other devices. Press the pencil again when done.</div>
   </div>`;
-  const wrap = root.querySelector(".hm"), box = root.querySelector(".hm-groups"), add = root.querySelector(".hm-add"), note = root.querySelector(".hm-note"), edit = root.querySelector(".hm-edit");
+  const catForm = root.querySelector(".hm-cat"), wrap = root.querySelector(".hm"), box = root.querySelector(".hm-groups"), add = root.querySelector(".hm-add"), note = root.querySelector(".hm-note"), edit = root.querySelector(".hm-edit");
   const short = n => (n.length > 14 ? n.slice(0, 13) + "…" : n);   // titles stay short so the list stays tidy
   const tile = (name, url, onRemove, onEdit) => {
     const a = document.createElement("a"); a.className = "hm-lk"; a.href = url; a.title = name; a.textContent = short(name);
@@ -27,15 +29,27 @@ export function initHome(root) {
   function render() {
     const hide = new Set(rd(HIDE, [])), extra = rd(EXTRA, []), groups = GROUPS.map(([g, l]) => [g, l.filter(([, u]) => !hide.has(u)).map(([n, u]) => ({ n, u, own: false }))]);
     extra.forEach(([g, n, u], i) => { let r = groups.find(x => x[0].toLowerCase() === g.toLowerCase()); if (!r) groups.push(r = [g, []]); r[1].push({ n, u, own: true, i }); });
+    rd(CATS, []).forEach(c => { if (!groups.some(x => x[0].toLowerCase() === c.toLowerCase())) groups.push([c, []]); });
     box.textContent = ""; root.querySelector("#hmGroups").innerHTML = groups.map(([g]) => `<option value="${g.replace(/"/g, "&quot;")}">`).join("");
     groups.forEach(([g, l]) => {
-      if (!l.length) return; const sec = document.createElement("section"), cap = document.createElement("h3"), grid = document.createElement("div"); sec.className = "hm-group"; cap.textContent = g; grid.className = "hm-grid";
+      if (!l.length && !wrap.classList.contains("editing")) return; const sec = document.createElement("section"), cap = document.createElement("h3"), grid = document.createElement("div"); sec.className = "hm-group"; cap.textContent = g; if (wrap.classList.contains("editing")) { const d = document.createElement("button"); d.type = "button"; d.className = "hm-cx"; d.textContent = "×"; d.setAttribute("aria-label", "Remove category " + g); d.onclick = () => removeCat(g); cap.appendChild(d); } grid.className = "hm-grid";
       l.forEach(k => grid.appendChild(tile(k.n, k.u, () => { if (k.own) { const e = rd(EXTRA, []); e.splice(k.i, 1); wr(EXTRA, e); } else wr(HIDE, [...rd(HIDE, []), k.u]); render(); }, () => startEdit(k, g))));
       sec.append(cap, grid); box.appendChild(sec);
     });
   }
+  function removeCat(g) {
+    const k = g.toLowerCase(), own = rd(EXTRA, []).filter(([x]) => x.toLowerCase() === k).length, built = GROUPS.find(([x]) => x.toLowerCase() === k);
+    if ((own || built) && !confirm(`Remove "${g}" and its links?`)) return;
+    wr(CATS, rd(CATS, []).filter(c => c.toLowerCase() !== k)); wr(EXTRA, rd(EXTRA, []).filter(([x]) => x.toLowerCase() !== k));
+    if (built) wr(HIDE, [...new Set([...rd(HIDE, []), ...built[1].map(([, u]) => u)])]); render();
+  }
+  catForm.addEventListener("submit", e => { e.preventDefault(); const n = catForm.elements.cat.value.trim(); if (!n) return; const c = rd(CATS, []); if (!c.some(x => x.toLowerCase() === n.toLowerCase())) { wr(CATS, [...c, n]); render(); } catForm.reset(); });
   render();
-  edit.addEventListener("click", () => { const on = wrap.classList.toggle("editing"); add.hidden = note.hidden = !on; if (!on) stopEdit(); });
+  // pull what another device changed: at start, and whenever this tab comes back into view
+  const pull = () => homePull(d => { wrSilent(EXTRA, d.extra || []); wrSilent(HIDE, d.hide || []); wrSilent(CATS, d.cats || []); render(); }).catch(() => {});
+  const wrSilent = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+  pull(); document.addEventListener("visibilitychange", () => { if (!document.hidden) pull(); }); addEventListener("tab", e => { if (e.detail === "home") pull(); });
+  edit.addEventListener("click", () => { const on = wrap.classList.toggle("editing"); add.hidden = note.hidden = catForm.hidden = !on; render(); if (!on) stopEdit(); });
   let editing = null;   // the link being changed: { own, i, u } (a built-in link is replaced by an edited copy of your own)
   const form = add, go = add.querySelector(".hm-go"), cancel = add.querySelector(".hm-cancel");
   const stopEdit = () => { editing = null; form.reset(); go.textContent = "Add"; cancel.hidden = true; };
