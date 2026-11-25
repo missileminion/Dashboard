@@ -30,7 +30,7 @@ export function initLiteGym(root, { demo = false, toast = () => {}, onChange = (
   const behind = rem => entries.some(e => !rem.entries.some(r => r.id === e.id)) || [...deleted].some(id => !rem.deleted.includes(id));
   const setStatus = (t, b = false) => { status = t; statusBad = b; const el = root.querySelector("#gSt"); if (el) { el.textContent = t; el.classList.toggle("bad", b); } };
   async function push() {
-    if (demo || !gh.on) return setStatus(demo ? "Demo: nothing is saved" : "Saved on this phone · connect GitHub in the full dashboard to sync");
+    if (demo || !gh.on) return setStatus(demo ? "Demo: nothing is saved" : "Saved on this phone");
     if (saving) { again = true; return; } saving = true;
     try {
       for (let i = 0; i < 2; i++) {
@@ -60,14 +60,15 @@ export function initLiteGym(root, { demo = false, toast = () => {}, onChange = (
       <div class="seg sm" id="gUnit">${["lb", "kg"].map(u => `<button type="button" data-u="${u}" class="${u === unit ? "on" : ""}">${u}</button>`).join("")}</div></div>
     <div class="steps">${[["reps", "Reps", reps], ["sets", "Sets", sets]].map(([k, lb, v]) => `<div class="step"><div class="lb">${lb}</div><div class="ctl"><button type="button" data-k="${k}" data-d="-1" aria-label="Fewer ${k}">−</button><span class="n">${v}</span><button type="button" data-k="${k}" data-d="1" aria-label="More ${k}">+</button></div></div>`).join("")}</div>
     <button class="log" type="button" id="gLog">Log set</button>
-    <div class="gst ${statusBad ? "bad" : ""}" id="gSt">${esc(status)}</div>
+    <div class="sub ${statusBad ? "bad" : ""}" id="gSt" style="text-align:center;margin-top:10px">${esc(status)}</div>
+    ${!demo && !gh.on ? `<button class="row card tap" type="button" data-connect="github" style="margin-top:12px"><span class="k"><b>Sync the gym log with the web</b></span><span class="chev">›</span></button>` : ""}
     <div class="kick sec">Today ${todays.length ? `· ${todays.reduce((s, e) => s + (e.sets || 1), 0)} sets` : ""}</div>
-    <div class="card sets">${todays.length ? todays.map(e => `<div class="row"><span class="ex">${esc(e.exercise)}</span><span class="num">${fmt(toDisp(e.weight))}<span class="u">${unit}</span> × ${e.reps} × ${e.sets || 1}</span><button type="button" class="x ${armed === e.id ? "arm" : ""}" data-x="${e.id}" aria-label="${armed === e.id ? "Tap again to delete" : "Delete"}">✕</button></div>`).join("") : `<div class="empty">Nothing logged today.</div>`}</div>
+    <div class="list sets">${todays.length ? todays.map(e => `<div class="row"><span class="ex">${esc(e.exercise)}</span><span class="num">${fmt(toDisp(e.weight))}<span class="u">${unit}</span> × ${e.reps} × ${e.sets || 1}</span><button type="button" class="x ${armed === e.id ? "arm" : ""}" data-x="${e.id}" aria-label="${armed === e.id ? "Tap again to delete" : "Delete"}">✕</button></div>`).join("") : `<div class="row"><span class="k">Nothing logged today.</span></div>`}</div>
     ${history()}`;
   }
   function history() {   // the last few sessions, one line each
     const ds = [...new Set(entries.map(e => e.date))].filter(d => d < today()).sort().reverse().slice(0, 6); if (!ds.length) return "";
-    return `<div class="kick sec">Recent</div><div class="card">${ds.map(d => { const es = entries.filter(e => e.date === d), n = es.reduce((s, e) => s + (e.sets || 1), 0); return `<div class="row"><div class="k">${short(d)} · ${esc(es[0].day || "")}</div><div class="r"><span class="num">${n}</span><span class="u">sets</span></div></div>`; }).join("")}</div>`;
+    return `<div class="kick sec">Recent</div><div class="list">${ds.map(d => { const es = entries.filter(e => e.date === d), n = es.reduce((s, e) => s + (e.sets || 1), 0); return `<div class="row"><div class="k">${short(d)} · ${esc(es[0].day || "")}</div><div class="v"><span class="num">${n}</span><span class="u">sets</span></div></div>`; }).join("")}</div>`;
   }
 
   // ---- input: one listener for the whole pane; + and − repeat while held ----
@@ -93,7 +94,7 @@ export function initLiteGym(root, { demo = false, toast = () => {}, onChange = (
   else { try { const m = JSON.parse(localStorage.getItem(KEY) || "null"); if (Array.isArray(m)) entries = m; else if (m) { entries = m.entries || []; (m.deleted || []).forEach(id => deleted.add(id)); } } catch {} entries = entries.filter(e => !deleted.has(e.id)); }
   pickEx(); onChange(entries); draw(); pull();
   document.addEventListener("visibilitychange", () => { if (!document.hidden) pull(); });
-  return { get entries() { return entries; } };
+  return { get entries() { return entries; }, pull };
 }
 
 // demo only: five weeks of the split, with weights creeping up

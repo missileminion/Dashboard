@@ -1,8 +1,10 @@
-// Lite: the phone layout (lite.html). It reads the same cache, runs the same formulas (analytics.js) and the same "bad" rules
-// (standards.js) as the full dashboard, and shares its storage, so both can be used on the same phone. Four panes: Today, Sleep, Body, Gym.
+// The phone layout (lite.html): Today · Health · Plan · Gym · Notes, plus Connections behind the gear.
+// Same cache, formulas (analytics.js), "bad" rules (standards.js) and storage keys as the full dashboard. Each number lives in one place:
+// Today holds what you act on today (the call, readiness, bedtime, what's next); Health holds the detail; nothing repeats.
+// Sync: everything goes through the same GitHub repos and calendar bridge as the web version, so both see the same data.
 import { getToken, hasToken } from "./auth.js";
 import { healthPull, healthPush } from "./cloud.js";
-import { sync, allDays, getMeta, SCHEMA } from "./sync.js";
+import { sync, allDays, getMeta, SCHEMA, loadSleepHr } from "./sync.js";
 import { mean, sum, sd, ymd, addDays, hm, pad, dayLabel, esc, n3 } from "./util.js";
 import * as A from "./analytics.js";
 import { bad, red } from "./standards.js";
@@ -12,14 +14,17 @@ import { dm } from "./dotfont.js";
 import { sleepMonth, earlyOrb, nightFlow, drawLanes } from "./widgets.js";
 import { drawNight } from "./sleepchart.js";
 import { line, vital } from "./charts.js";
-import { loadSleepHr } from "./sync.js";
+import { gh } from "./ghstore.js";
 import { initLiteGym } from "./litegym.js";
+import { initNotes } from "./litenotes.js";
+import { initPlan, sticky, agenda, evRow, taskRows } from "./liteplan.js";
+import { initSettings } from "./litesettings.js";
 import { isNative, hcStatus, hcConnect, hcInstall, hcSync, hcNightHr, hcOrigins, origins } from "./hc.js";
 
 const DEMO = location.port === "8082" || new URLSearchParams(location.search).has("demo");
 if (DEMO) A.gymTracking.start = "2000-01-01";
 const $ = id => document.getElementById(id);
-let days = [], byDate = {}, today = ymd(new Date()), nightIdx = -1, busy = false, signedOut = !DEMO, syncText = "";
+let days = [], byDate = {}, today = ymd(new Date()), nightIdx = -1, busy = false, signedOut = !DEMO, busyText = "", hsub = "sleep", hc = null, M = null;
 
 // ---- data access (same conventions as main.js) ----
 const get = (d, k) => { const r = byDate[d]; if (!r) return null; if (k === "azm") return r.azm ?? (r.restingHr != null || r.hrv != null || r.sleepMin != null ? 0 : null); return r[k] ?? null; };
@@ -29,10 +34,10 @@ const clock = m => { const r = Math.round(((m % 1440) + 1440) % 1440) % 1440; re
 const monday = d => { const x = new Date(d + "T12:00:00"); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return ymd(x); };
 const try_ = (fn, dflt = null) => { try { return fn(); } catch (e) { console.error(e); return dflt; } };
 const ib = k => (k && INFO[k] ? `<button class="i" type="button" data-i="${k}" aria-label="More information">i</button>` : "");
-const cell = (label, v, unit, key, isBad = false) => `<div class="card cell"><div class="lb"><span>${label}</span>${ib(key)}</div><div class="v ${v == null ? "none" : isBad ? "bad" : ""}">${dm(v ?? "—")}${v == null || !unit ? "" : `<small>${unit}</small>`}</div></div>`;
-const row = (k, v, unit, { key = "", isBad = false, rng = "" } = {}) => `<div class="row"><div class="k">${k}${ib(key)}</div><div class="r"><span class="num ${v == null ? "gap" : isBad ? "bad" : ""}">${v ?? "—"}</span>${v == null ? "" : `<span class="u">${unit}</span>`}${rng ? `<span class="rng">${rng}</span>` : ""}</div></div>`;
+const hhmm = at => new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+const sigma = z => (z >= 0 ? "+" : "−") + n3(Math.abs(z));
+const row = (k, v, unit, { key = "", isBad = false, note = "" } = {}) => `<div class="row"><span class="k">${k}${ib(key)}</span><span class="v"><span class="num ${v == null ? "gap" : isBad ? "bad" : ""}">${v ?? "—"}</span>${v == null || !unit ? "" : `<span class="u">${unit}</span>`}${note ? `<span class="note">${note}</span>` : ""}</span></div>`;
 
-// ---- everything the panes need, worked out once per render ----
 function model() {
   const m = {};
   m.nights = days.filter(d => d.sleepStages?.length);
@@ -49,59 +54,62 @@ function model() {
   return m;
 }
 
-// ---- Today ----
-function renderToday(m) {
-  const c = m.call, rz = m.rd?.z;
-  const debtV = m.sf.nights < 3 ? null : m.sf.hours < 0.1 ? "None" : hm(m.sf.hours * 60);
-  const mon = monday(today), wk = [...Array(7)].map((_, i) => addDays(mon, i)), done = wk.filter(d => A.gymLog.days.has(d)).length;
-  const sickBad = bad("illnessScore", m.signs.composite);
-  $("today").innerHTML = `
+// =============================== Today: only what you act on today ===============================
+function renderToday() {
+  const m = M, el = pane("today"), now = new Date(); if (!m) return;
+  const c = m.call, rz = m.rd?.z, mon = monday(today), wk = [...Array(7)].map((_, i) => addDays(mon, i)), done = wk.filter(d => A.gymLog.days.has(d)).length;
+  const sick = m.signs.composite != null && bad("illnessScore", m.signs.composite);
+  // next up: what is left today, or tomorrow's first events once today is over
+  let next = [], nextLbl = "Next up";
+  if (agenda.events) { const td = agenda.on(today); next = td.filter(e => !e.allDay && e.e > now).concat(td.filter(e => e.allDay)).slice(0, 3); if (!next.length) { next = agenda.on(addDays(today, 1)).slice(0, 2); nextLbl = "Tomorrow"; } }
+  const open = sticky.tasks().filter(t => !t.done);
+  el.innerHTML = `
   <div class="card hero">
     <div class="kick">Today's call ${ib("today")}</div>
-    <div class="plan">Planned<b>${dm(A.plannedFor(today).toUpperCase())}</b></div>
     <div class="call ${c ? red("trainingCall", c.call) : "gap"}">${dm(c ? c.call.toUpperCase() : "—")}</div>
     <div class="why">${c ? c.reasons.map(esc).join(" · ") : "Not enough data yet"}</div>
+    <div class="meta"><span class="tag">Planned: ${esc(A.plannedFor(today))}</span>${m.last && m.last.date < addDays(today, -1) ? `<span class="tag">Data from ${dayLabel(m.last.date)}</span>` : ""}</div>
   </div>
-  <div class="grid2">
-    ${cell("Readiness", rz == null ? null : (rz >= 0 ? "+" : "−") + n3(Math.abs(rz)), "σ", "readiness", bad("readinessZ", rz))}
-    ${cell("Slept", m.st ? hm(m.st.tst) : null, "", "sleepQuality", m.st ? bad("sleepTime", m.st.tst) : false)}
-    ${cell("Sleep debt", debtV, "", "debt", bad("sleepDebtHours", m.sf.hours))}
-    ${cell("Load", m.lb ? "×" + m.lb.ratio.toFixed(2) : null, "", "load", m.lb ? bad("loadRatio", m.lb.ratio) : false)}
+  ${sick ? `<button class="card tap alert" type="button" data-to="health:body"><span class="kick">Body check</span><b>${esc(m.signs.status)}</b></button>` : ""}
+  <div class="duo">
+    <div class="card stat"><div class="lb"><span>Readiness</span>${ib("readiness")}</div><div class="big ${rz == null ? "gap" : bad("readinessZ", rz) ? "bad" : ""}">${dm(rz == null ? "—" : sigma(rz))}${rz == null ? "" : "<small>σ</small>"}</div></div>
+    <div class="card stat"><div class="lb"><span>Bed by</span>${ib("bedtime")}</div><div class="big">${dm(m.bed ? clock(m.bed.minutes) : "—")}</div>${m.bed && (m.bed.extra || m.bed.loadExtra) ? `<div class="sub">+${m.bed.extra + m.bed.loadExtra} min catch-up</div>` : ""}</div>
   </div>
-  <div class="card bed"><div class="kick">Bedtime tonight ${ib("bedtime")}</div><div class="big">${dm(m.bed ? clock(m.bed.minutes) : "—")}</div>
-    ${m.bed && (m.bed.extra || m.bed.loadExtra) ? `<div class="sub">+${m.bed.extra + m.bed.loadExtra} min catch-up</div>` : ""}</div>
-  <div class="card"><div class="row" style="padding:0"><div class="k">Body check ${ib("early")}</div><div class="r"><span class="num ${m.signs.composite == null ? "gap" : sickBad ? "bad" : ""}" style="font-family:var(--sans)">${esc(m.signs.status)}</span></div></div></div>
-  <div class="card"><div class="row" style="padding:0"><div class="k">Gym this week ${ib("gymDays")}</div><div class="r"><span class="num">${done}</span><span class="u">of 6</span></div></div>
-    <div class="week">${wk.map(d => `<div class="${A.gymLog.days.has(d) ? "on" : ""} ${d > today ? "fut" : ""} ${d === today ? "now" : ""}"><i></i><span>${"MTWTFSS"[wk.indexOf(d)]}</span></div>`).join("")}</div></div>
-  <div class="card" id="wx"><div class="empty">Weather…</div></div>
-  <a class="card more" href="index.html?full${DEMO ? "&demo" : ""}"><span>Full dashboard</span><span class="sub">Calendar · Notes · Home · Console</span><b>→</b></a>`;
+  ${agenda.events && next.length ? `<button class="card tap" type="button" data-to="plan"><div class="kick">${nextLbl}<span class="go">Plan ›</span></div><div style="margin-top:6px">${next.map(e => evRow(e, now)).join("")}</div></button>` : ""}
+  ${open.length ? `<div class="card" style="padding:16px 0 4px"><div class="kick" style="padding:0 16px">Tasks<button class="go" type="button" data-to="plan">${open.length} open ›</button></div><div data-tasks style="margin-top:6px">${taskRows(open, { limit: 3 })}</div></div>` : ""}
+  <div class="card" id="wx"></div>
+  <button class="card tap" type="button" data-to="gym"><div class="kick">Gym this week<span class="go"><span class="num" style="color:var(--tx);font-size:13px">${done}</span> of 6 ›</span></div>
+    <div class="week">${wk.map((d, i) => `<div class="${A.gymLog.days.has(d) ? "on" : ""} ${d > today ? "fut" : ""} ${d === today ? "now" : ""}"><i></i><span>${"MTWTFSS"[i]}</span></div>`).join("")}</div></button>`;
   drawWeather();
 }
 
-// ---- Weather: Open-Meteo, no key; the city is the one chosen in the full dashboard ----
 const WMO = c => c === 0 ? "Clear" : c <= 2 ? "Partly cloudy" : c === 3 ? "Overcast" : c === 45 || c === 48 ? "Fog" : c <= 57 ? "Drizzle" : c <= 67 ? "Rain" : c <= 77 ? "Snow" : c <= 82 ? "Showers" : c <= 86 ? "Snow showers" : "Thunderstorm";
 const jget = k => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
 async function drawWeather() {
   const el = $("wx"); if (!el) return;
   const city = DEMO ? { name: "Demo city", lat: 0, lon: 0 } : jget("weather.city"), F = (jget("weather.unit") || "C") === "F";
-  if (!city || city.lat == null) { el.innerHTML = `<div class="empty">Pick a weather city in the full dashboard.</div>`; return; }
+  if (!city || city.lat == null) { el.outerHTML = `<button class="row card tap" type="button" data-connect="weather" id="wx"><span class="k"><b>Add a weather city</b></span><span class="chev">›</span></button>`; return; }
   let w = jget("lite.wx");
-  if (DEMO) w = { at: Date.now(), name: city.name, d: { now: 9.4, hi: 12.8, lo: 4.1, feel: 11.2, rain: 60, uv: 2.1, wind: 18, code: 61 } };
-  else if (!w || w.name !== city.name || Date.now() - w.at > 30 * 60e3) {
-    try {
-      const u = `https://api.open-meteo.com/v1/forecast?latitude=${city.lat}&longitude=${city.lon}&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,apparent_temperature_max,precipitation_probability_max,uv_index_max,wind_speed_10m_max&timezone=auto&forecast_days=1`;
-      const j = await (await fetch(u)).json(), D = k => j.daily[k][0];
-      w = { at: Date.now(), name: city.name, d: { now: j.current.temperature_2m, code: j.current.weather_code, hi: D("temperature_2m_max"), lo: D("temperature_2m_min"), feel: D("apparent_temperature_max"), rain: D("precipitation_probability_max"), uv: D("uv_index_max"), wind: D("wind_speed_10m_max") } };
-      localStorage.setItem("lite.wx", JSON.stringify(w));
-    } catch { if (!w) { el.innerHTML = `<div class="empty">Weather unavailable offline.</div>`; return; } }
-  }
-  const d = w.d, T = c => (c == null ? "—" : Math.round(F ? c * 9 / 5 + 32 : c) + "°"), W = k => (F ? Math.round(k * .621) + " mph" : Math.round(k) + " km/h");
-  el.innerHTML = `<div class="wx"><div class="t num">${T(d.now)}</div><div class="d"><b>${esc(city.name)}</b>${WMO(d.code)} · <span class="num">${T(d.hi)} / ${T(d.lo)}</span></div>
-    <div class="m"><span>Rain</span><span class="num">${d.rain ?? "—"}%</span><span>UV</span><span class="num ${red("uv", d.uv)}">${d.uv == null ? "—" : Math.round(d.uv)}</span><span>Wind</span><span class="num ${red("wind", d.wind)}">${d.wind == null ? "—" : W(d.wind)}</span>
-    ${bad("heat", d.feel) ? `<span>Feels</span><span class="num bad">${T(d.feel)}</span>` : ""}</div></div>`;
+  const paintW = () => { const d = w.d, T = c => (c == null ? "—" : Math.round(F ? c * 9 / 5 + 32 : c) + "°"), W = k => (F ? Math.round(k * .621) + " mph" : Math.round(k) + " km/h");
+    if (!$("wx")) return; $("wx").innerHTML = `<div class="wx"><div class="t">${dm(T(d.now))}</div><div class="d"><b>${esc(city.name)}</b>${WMO(d.code)} · <span class="num">${T(d.hi)} / ${T(d.lo)}</span></div>
+      <div class="m"><span>Rain</span><span class="num">${d.rain ?? "—"}%</span><span>UV</span><span class="num ${red("uv", d.uv)}">${d.uv == null ? "—" : Math.round(d.uv)}</span><span>Wind</span><span class="num ${red("wind", d.wind)}">${d.wind == null ? "—" : W(d.wind)}</span>${bad("heat", d.feel) ? `<span>Feels</span><span class="num bad">${T(d.feel)}</span>` : ""}</div></div>`; };
+  if (DEMO) w = { d: { now: 9.4, hi: 12.8, lo: 4.1, feel: 11.2, rain: 60, uv: 2.1, wind: 18, code: 61 } };
+  if (w && (DEMO || w.name === city.name)) paintW(); else el.innerHTML = `<div class="empty">Weather…</div>`;
+  if (DEMO || (w && w.name === city.name && Date.now() - w.at < 30 * 60e3)) return;
+  try {
+    const u = `https://api.open-meteo.com/v1/forecast?latitude=${city.lat}&longitude=${city.lon}&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,apparent_temperature_max,precipitation_probability_max,uv_index_max,wind_speed_10m_max&timezone=auto&forecast_days=1`;
+    const j = await (await fetch(u)).json(), D = k => j.daily[k][0];
+    w = { at: Date.now(), name: city.name, d: { now: j.current.temperature_2m, code: j.current.weather_code, hi: D("temperature_2m_max"), lo: D("temperature_2m_min"), feel: D("apparent_temperature_max"), rain: D("precipitation_probability_max"), uv: D("uv_index_max"), wind: D("wind_speed_10m_max") } };
+    localStorage.setItem("lite.wx", JSON.stringify(w)); paintW();
+  } catch { if (!w && $("wx")) $("wx").innerHTML = `<div class="empty">Weather unavailable offline.</div>`; }
 }
 
-// ---- Sleep: the original charts (Night Flow lanes when heart rate is at hand, the stage chart otherwise, and Sleep Month) ----
+// =============================== Health: Sleep | Body ===============================
+function renderHealth() {
+  const el = pane("health"); if (!M) return;
+  el.innerHTML = `<div class="seg stick" id="hSeg"><button type="button" data-h="sleep" class="${hsub === "sleep" ? "on" : ""}">Sleep</button><button type="button" data-h="body" class="${hsub === "body" ? "on" : ""}">Body</button></div><div id="hBody"></div>`;
+  (hsub === "body" ? renderBody : renderSleep)($("hBody"));
+}
 let hrToken = 0;
 async function nightHr(n) {
   if (DEMO) return demoSleepHr(n);
@@ -111,164 +119,195 @@ async function nightHr(n) {
   return null;
 }
 async function drawSleepChart(n) {
-  const my = ++hrToken, el = $("hyp"); $("tip").style.display = "none";
-  let hr = null; try { hr = await nightHr(n); } catch (e) { console.warn("night heart rate", e); }
-  if (my !== hrToken || !el.isConnected) return;
+  const my = ++hrToken; let hr = null; try { hr = await nightHr(n); } catch (e) { console.warn("night heart rate", e); }
+  const el = $("hyp"); if (my !== hrToken || !el) return;
   if (hr?.length) { $("sleepStats").innerHTML = ""; drawLanes(el, $("tip"), nightFlow(n, hr), { W: 520 }); $("sleepInfo").dataset.i = "nightFlow"; }
   else { drawNight(n, { restKnown: false, W: 520 }); $("sleepInfo").dataset.i = "stages"; }
 }
-function renderSleep(m) {
-  const N = m.nights; if (nightIdx < 0 || nightIdx >= N.length) nightIdx = N.length - 1;
-  const n = N[nightIdx], s = n ? try_(() => A.nightStats(n)) : null, q = n ? try_(() => A.sleepQuality(n, days)) : null, avg = mean(win("sleepMin", 14));
+function renderSleep(el) {
+  const m = M, N = m.nights; if (nightIdx < 0 || nightIdx >= N.length) nightIdx = N.length - 1;
+  const n = N[nightIdx]; if (!n) { el.innerHTML = `<div class="card"><div class="empty">No sleep data yet.</div></div>`; return; }
+  const s = try_(() => A.nightStats(n)), q = try_(() => A.sleepQuality(n, days)), avg = mean(win("sleepMin", 14)), last = nightIdx === N.length - 1;
   const debtV = m.sf.nights < 3 ? null : m.sf.hours < 0.1 ? "None" : hm(m.sf.hours * 60);
-  $("sleep").innerHTML = !n ? `<div class="card"><div class="empty">No sleep data yet.</div></div>` : `
+  el.innerHTML = `
   <div class="card night">
-    <div class="nnav"><button type="button" id="nPrev" ${nightIdx <= 0 ? "disabled" : ""} aria-label="Earlier night">‹</button><span class="lbl">${nightIdx === N.length - 1 ? "Last night" : dayLabel(n.date)}</span><button type="button" id="nNext" ${nightIdx >= N.length - 1 ? "disabled" : ""} aria-label="Later night">›</button></div>
+    <div class="nnav"><button type="button" id="nPrev" ${nightIdx <= 0 ? "disabled" : ""} aria-label="Earlier night">‹</button><span class="lbl">${last ? "Last night" : dayLabel(n.date)}<small>${s ? `${clock(s.onsetMin)} → ${clock(s.wakeMin)}` : ""}</small></span><button type="button" id="nNext" ${last ? "disabled" : ""} aria-label="Later night">›</button></div>
     <div class="big ${s && bad("sleepTime", s.tst) ? "bad" : ""}">${dm(s ? hm(s.tst) : "—")}</div>
-    <div class="win">${s ? `${clock(s.onsetMin)} → ${clock(s.wakeMin)}` : ""} <button class="i" type="button" id="sleepInfo" data-i="nightFlow" aria-label="More information">i</button></div>
     <div class="chartbox"><div id="hyp"></div><div id="tip"></div></div><div id="sleepStats"></div>
+    <div style="text-align:right;margin-top:4px"><button class="i" type="button" id="sleepInfo" data-i="nightFlow" aria-label="About this chart">i</button></div>
   </div>
-  <div class="card">
+  <div class="list">
     ${row("Quality", q ? Math.round(q.score) : null, "/ 100", { key: "sleepQuality", isBad: q ? bad("sleepQuality", q.score) : false })}
-    ${row("14-night average", avg == null ? null : hm(avg), "", { isBad: bad("sleepTime", avg) })}
+    ${row("Efficiency", s ? Math.round(s.se) : null, "%")}
     ${row("Sleep debt", debtV, debtV === "None" ? "" : "behind", { key: "debt", isBad: bad("sleepDebtHours", m.sf.hours) })}
-    ${row("Bedtime tonight", m.bed ? clock(m.bed.minutes) : null, "", { key: "bedtime" })}
+    ${row("14-night average", avg == null ? null : hm(avg), "", { isBad: bad("sleepTime", avg) })}
   </div>
   <div class="kick sec">Sleep Month ${ib("sleepMonth")}</div>
   <div class="card"><div id="sleepMonth"></div></div>`;
-  if (!n) return;
   drawSleepChart(n);
   try { sleepMonth($("sleepMonth"), byDate, days, today); } catch (e) { console.error(e); }
-  $("nPrev").onclick = () => { nightIdx--; renderSleep(m); };
-  $("nNext").onclick = () => { nightIdx++; renderSleep(m); };
+  $("nPrev").onclick = () => { nightIdx--; renderSleep(el); };
+  $("nNext").onclick = () => { nightIdx++; renderSleep(el); };
 }
-
-// ---- Body ----
 function vitalRow(k, name, unit, dec) {   // the original vital row: latest value against its own usual range (30 days before it, mean ± 1 sd)
   const l = [...series(k, 14)].reverse().find(x => x.v != null); if (!l) return vital(name, null, unit, null, dec);
   const base = series(k, 31, addDays(l.d, -1)).map(x => x.v), mu = mean(base), s = sd(base);
   return vital(name, l.v, unit, s == null ? null : [mu - s, mu + s], dec, l.d === today ? "" : ` · from ${dayLabel(l.d)}`);
 }
-function renderBody(m) {
-  const a7 = sum(win("azm", 7)), gymLast = try_(() => A.gymDaysInWeek(byDate, monday(addDays(today, -7)), addDays));
-  const hrv7 = mean(win("hrv", 7)), hrv30 = win("hrv", 30, 7), hs = sd(hrv30), hm_ = mean(hrv30), hrvOut = hs != null && hrv7 != null && Math.abs(hrv7 - hm_) > hs;
+function renderBody(el) {
+  const m = M, a7 = sum(win("azm", 7)), gymLast = try_(() => A.gymDaysInWeek(byDate, monday(addDays(today, -7)), addDays));
+  const hrv7 = mean(win("hrv", 7)), hrv30 = win("hrv", 30, 7), hs = sd(hrv30), hmu = mean(hrv30), hrvOut = hs != null && hrv7 != null && Math.abs(hrv7 - hmu) > hs;
   const vo2 = [...series("vo2max", 30)].reverse().find(x => x.v != null), vo2Old = get(addDays(vo2?.d || today, -30), "vo2max"), vo2Chg = vo2 && vo2Old ? 100 * (vo2.v / vo2Old - 1) : null;
-  const sickBad = bad("illnessScore", m.signs.composite);
-  $("body").innerHTML = `
+  el.innerHTML = `
   <div class="card"><div class="kick">Body check ${ib("early")}</div><div id="orb"></div></div>
   <div class="kick sec">Vitals ${ib("vitals")}</div>
-  <div class="card vitals">${vitalRow("restingHr", "Resting HR", "bpm", 0)}${vitalRow("hrv", "HRV", "ms", 0)}${vitalRow("breathing", "Breathing", "br/min", 1)}${vitalRow("spo2", "SpO2", "%", 1)}${vitalRow("skinTempDelta", "Skin temp Δ", "°C", 2)}</div>
-  <div class="card"><div class="kick">Resting heart rate · 90 days</div><div class="lchart" id="lrhr"></div></div>
-  <div class="kick sec">Recovery and load</div>
-  <div class="grid2">
-    ${cell("Readiness", m.rd?.z == null ? null : (m.rd.z >= 0 ? "+" : "−") + n3(Math.abs(m.rd.z)), "σ", "readiness", bad("readinessZ", m.rd?.z))}
-    ${cell("HRV 7 days", hrv7 == null ? null : Math.round(hrv7), "ms", "hrvStatus", hrvOut)}
-    ${cell("Active zone", a7 == null ? null : Math.round(a7), "min / 7d", "", bad("azmWeek", a7))}
-    ${cell("Gym last week", gymLast ?? null, "of 6", "gymDays", bad("workouts", gymLast))}
-  </div>
-  <div class="card">
-    ${row("Load balance", m.lb ? "×" + m.lb.ratio.toFixed(2) : null, "", { key: "load", isBad: m.lb ? bad("loadRatio", m.lb.ratio) : false, rng: m.lb ? `fatigue ${Math.round(m.lb.fatigue)} · fitness ${Math.round(m.lb.fitness)}` : "" })}
-    ${row("Cardio fitness", vo2 ? vo2.v.toFixed(1) : null, "VO2 max", { key: "vo2", rng: vo2Chg == null ? "" : `${vo2Chg >= 0 ? "▲" : "▼"} ${n3(Math.abs(vo2Chg))}% in 30 days` })}
+  <div class="list vitals">${vitalRow("restingHr", "Resting HR", "bpm", 0)}${vitalRow("hrv", "HRV", "ms", 0)}${vitalRow("breathing", "Breathing", "br/min", 1)}${vitalRow("spo2", "SpO2", "%", 1)}${vitalRow("skinTempDelta", "Skin temp Δ", "°C", 2)}</div>
+  <div class="card"><div class="kick">Resting heart rate · 90 days</div><div class="lchart" id="lrhr" style="margin-top:8px"></div></div>
+  <div class="kick sec">Training load</div>
+  <div class="list">
+    ${row("Load balance", m.lb ? "×" + m.lb.ratio.toFixed(2) : null, "", { key: "load", isBad: m.lb ? bad("loadRatio", m.lb.ratio) : false, note: m.lb ? `fatigue ${Math.round(m.lb.fatigue)} · fitness ${Math.round(m.lb.fitness)}` : "needs 28 days" })}
+    ${row("Active zone minutes", a7 == null ? null : Math.round(a7), "7 days", { isBad: bad("azmWeek", a7) })}
+    ${row("Gym last week", gymLast ?? null, "of 6", { key: "gymDays", isBad: bad("workouts", gymLast) })}
+    ${row("HRV, 7-day average", hrv7 == null ? null : Math.round(hrv7), "ms", { key: "hrvStatus", isBad: hrvOut })}
+    ${row("Cardio fitness", vo2 ? vo2.v.toFixed(1) : null, "VO2 max", { key: "vo2", note: vo2Chg == null ? "" : `<span class="${red("vo2Change", vo2Chg)}">${vo2Chg >= 0 ? "▲" : "▼"} ${n3(Math.abs(vo2Chg))}% in 30 days</span>` })}
   </div>`;
-  if (vo2Chg != null && bad("vo2Change", vo2Chg)) $("body").querySelector(".card:last-child .row:last-child .rng").classList.add("bad");
-  if (isNative) { $("body").insertAdjacentHTML("beforeend", `<button class="card more" type="button" id="hcSrc"><span>Health Connect sources</span><span class="sub">Using: ${esc(origins().join(", "))}</span><b>→</b></button>`);
-    $("hcSrc").onclick = async () => { pop.innerHTML = "<b>Apps writing to Health Connect (30 days)</b><p>Reading…</p>"; pop.hidden = false;
-      try { const o = await hcOrigins(), use = origins(); pop.innerHTML = "<b>Apps writing to Health Connect (30 days)</b>" + (Object.keys(o).length ? Object.entries(o).map(([p, n]) => `<p>${use.includes(p) ? "● " : "○ "}${esc(p)} · ${n} records</p>`).join("") : "<p>None found.</p>") + "<p>● = used. Only the band's app should be used.</p>"; } catch (e) { pop.innerHTML = "<b>Could not read sources</b><p>" + esc(e.message || e) + "</p>"; } }; }
   try { earlyOrb($("orb"), m.signs, try_(() => A.earlySigns(byDate, addDays(today, -1), addDays))); } catch (e) { console.error(e); }
   try { line($("lrhr"), series("restingHr", 90), { h: 78 }); } catch (e) { console.error(e); }
 }
 
-function render() {
-  today = ymd(new Date());
-  const m = model();
-  for (const [name, fn] of [["Today", renderToday], ["Sleep", renderSleep], ["Body", renderBody]]) try { fn(m); } catch (e) { console.error(name, e); }
+// =============================== frame: tabs, sync pill, connections ===============================
+const TABS = ["today", "health", "plan", "gym", "notes"], NAMES = { today: "TODAY", health: "HEALTH", plan: "PLAN", gym: "GYM", notes: "NOTES" };
+let cur = "today";
+const trail = [];
+const pane = k => document.querySelector(`.pane[data-p="${k}"]`);
+function show(k, { push = true } = {}) {
+  if (!TABS.includes(k)) return; if (push && k !== cur) trail.push(cur);
+  cur = k; TABS.forEach(t => (pane(t).hidden = t !== k)); [...$("tabs").children].forEach(b => b.classList.toggle("on", b.dataset.p === k));
+  $("title").innerHTML = dm(NAMES[k]); pop.hidden = true; try { localStorage.setItem("lite.tab", k); } catch {}
+  paint(k); scrollTo(0, 0);
 }
+function paint(k = cur) {
+  try { if (k === "today") renderToday(); else if (k === "health") renderHealth(); else if (k === "plan") plan.render(); }
+  catch (e) { console.error(k, e); }
+}
+$("tabs").onclick = e => { const b = e.target.closest("button"); if (!b) return; if (b.dataset.p === cur) { scrollTo({ top: 0, behavior: "smooth" }); if (cur === "notes") notes.back(); } else show(b.dataset.p); };
+const pop = $("pop");
+document.addEventListener("click", e => {
+  const b = e.target.closest(".i");   // "i" popovers first, so they never also trigger the card they sit on
+  if (b) { e.stopPropagation(); e.preventDefault(); if (!pop.hidden && pop.dataset.k === b.dataset.i) { pop.hidden = true; return; } pop.innerHTML = INFO[b.dataset.i] || ""; pop.dataset.k = b.dataset.i; pop.hidden = false; pop.scrollTop = 0; return; }
+  if (!e.target.closest(".pop")) pop.hidden = true;
+  const tog = e.target.closest("[data-tasks] [data-tog]");
+  if (tog) { e.stopPropagation(); sticky.toggle(+tog.dataset.tog); try { navigator.vibrate?.(8); } catch {} return; }
+}, true);
+document.addEventListener("click", e => {
+  const to = e.target.closest("[data-to]"), cn = e.target.closest("[data-connect]"), h = e.target.closest("[data-h]");
+  if (to) { const [t, sub] = to.dataset.to.split(":"); if (sub) hsub = sub; if (t === cur) paint(); else show(t); }
+  else if (cn) settings.open(cn.dataset.connect);
+  else if (h) { hsub = h.dataset.h; renderHealth(); }
+});
+addEventListener("connections", e => settings.open(e.detail || "main"));
+addEventListener("goto", e => settings.open(e.detail === "notes" ? "notes" : "github"));   // the red sync bar's "Fix it"
+$("gear").onclick = () => settings.open("main");
+$("sheet").addEventListener("click", e => { if (e.target.closest("[data-close]")) settings.close(); });
+let tt = 0; const toast = msg => { const t = $("toast"); t.textContent = msg; t.hidden = false; clearTimeout(tt); tt = setTimeout(() => (t.hidden = true), 2200); };
 
-// ---- loading and syncing (as in main.js) ----
+// ---- health source: Health Connect in the app, the Google Health API on the web ----
+const health = {
+  state() {
+    if (DEMO) return { text: "Demo data", ok: true };
+    if (isNative) return !hc ? { text: "Checking…", ok: null } : !hc.available ? { text: "Not installed", ok: false } : !hc.all ? { text: "Needs permission", ok: false } : { text: "Reading automatically", ok: true };
+    return !window.CONFIG?.CLIENT_ID ? { text: "Set up in full dashboard", ok: null } : signedOut ? { text: "Signed out", ok: false } : { text: "Signed in", ok: true };
+  },
+  html() {
+    if (isNative) return `<p class="lead">The band's data is read from Health Connect whenever the app opens, then shared with the web through GitHub. Only data written by ${esc(origins().join(", "))} is used.</p>
+      ${!hc?.available ? `<button class="btn" type="button" data-hc="install">Get Health Connect</button>` : !hc.all ? `<button class="btn" type="button" data-hc="connect">Allow access</button>` :
+        `<div class="btns"><button class="btn ghost" type="button" data-hc="sources">Check sources</button><button class="btn" type="button" data-hc="read">Read now</button></div>`}<div class="msg" id="hcMsg"></div>`;
+    return `<p class="lead">On the web, health data comes from the Google Health API, or from the phone app through GitHub.</p><button class="btn" type="button" data-hc="signin">${signedOut ? "Sign in with Google" : "Sync now"}</button>`;
+  },
+  async act(a) {
+    if (a === "install") return hcInstall();
+    if (a === "connect") { try { await hcConnect(); } catch (e) { console.error(e); } return hcRefresh(true); }
+    if (a === "read") { settings.close(); return hcRefresh(true); }
+    if (a === "signin") { settings.close(); return refreshWeb(true); }
+    if (a === "sources") { const m = document.getElementById("hcMsg"); m.textContent = "Reading…"; try { const o = await hcOrigins(), use = origins(); m.innerHTML = Object.keys(o).length ? Object.entries(o).map(([p, n]) => `${use.includes(p) ? "● " : "○ "}${esc(p)} · ${n}`).join("<br>") + "<br>● = used" : "No apps have written data in the last 30 days."; } catch (e) { m.textContent = e.message || String(e); } }
+  },
+};
+
+// ---- the sync pill: one honest status for everything ----
+async function pill() {
+  const b = $("sync"), t = $("syncTxt"); b.className = "sync";
+  if (DEMO) { t.textContent = "Demo"; return; }
+  if (busy) { b.classList.add("busy"); t.textContent = busyText || "Syncing"; return; }
+  const needHealth = isNative && hc && (!hc.available || !hc.all);
+  if (needHealth || !gh.on) { b.classList.add("go"); t.textContent = "Connect"; return; }
+  const at = await getMeta("lastSyncedAt"); t.textContent = at ? hhmm(at) : "Sync";
+  if (settings.status.gh === false || sticky.status) b.classList.add("err"); else if (at && Date.now() - at < 36 * 36e5) b.classList.add("ok");
+}
+$("sync").onclick = () => {
+  if (DEMO || busy) return;
+  if ($("sync").classList.contains("go")) return settings.open(isNative && hc && (!hc.available || !hc.all) ? "health" : "github");
+  fullSync(true);
+};
+
+// ---- loading and syncing ----
 async function load() {
   let rows = [];
-  if (!DEMO) { try { await healthPull(); } catch (e) { console.warn("health sync", e); } }
+  if (!DEMO) { try { await healthPull(); } catch (e) { console.warn("health pull", e); } }   // the other device may have newer health data
   if (DEMO) rows = demoDays();
   else if ((await getMeta("schema")) === SCHEMA) rows = (await allDays()).sort((a, b) => a.date.localeCompare(b.date));
   days = rows.map(r => ({ ...r, workouts: (r.workouts || []).filter(w => Number.isFinite(w.start) && Number.isFinite(w.offset)), sleepStages: Array.isArray(r.sleepStages) ? r.sleepStages.filter(x => Array.isArray(x) && x.length >= 3) : r.sleepStages }));
-  byDate = Object.fromEntries(days.map(d => [d.date, d])); render();
+  byDate = Object.fromEntries(days.map(d => [d.date, d])); today = ymd(new Date()); M = model();
+  if (cur === "today" || cur === "health") paint();
 }
-const needsId = () => !DEMO && !window.CONFIG?.CLIENT_ID;
-async function chip() {
-  const c = $("chip"); c.classList.remove("go");
-  if (DEMO) return (c.textContent = "Demo");
-  if (isNative) {
-    if (busy) return (c.textContent = syncText || "Reading…");
-    if (hc && !hc.available) { c.classList.add("go"); return (c.textContent = "Get Health Connect"); }
-    if (hc && !hc.all) { c.classList.add("go"); return (c.textContent = "Connect"); }
-    const at = await getMeta("lastSyncedAt"); return (c.textContent = at ? "Read " + hhmm(at) : "Read now");
-  }
-  if (needsId()) return (c.textContent = "Set up in full app");
-  if (busy) return (c.textContent = syncText || "Syncing…");
-  if (signedOut) { c.classList.add("go"); return (c.textContent = "Sign in"); }
-  const at = await getMeta("lastSyncedAt"), dev = await getMeta("device"); c.textContent = at ? (dev === "Health Connect" ? "Phone " : "Synced ") + hhmm(at) : "Refresh";   // "Phone" = the Android app read Health Connect and shared it
-}
-const hhmm = at => new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
-// ---- Android: Health Connect replaces the Google sign-in; reads run by themselves on open and on return ----
-let hc = null;
 async function hcRefresh(force = false) {
   if (busy) return;
   try { hc = await hcStatus(); } catch (e) { console.error(e); hc = { available: false }; }
-  if (!hc.available || !hc.all) return chip();
-  const at = await getMeta("lastSyncedAt"); if (!force && at && Date.now() - at < 5 * 60e3 && (await getMeta("device")) === "Health Connect") return chip();
-  busy = true; syncText = ""; chip(); let r = null;
-  try { r = await hcSync(t => { syncText = "Reading " + t + "…"; chip(); }); } catch (e) { console.error(e); toast("Health Connect read failed"); }
-  busy = false; try { await load(); } catch (e) { console.error(e); } await chip();
-  if (r?.errors.length) toast(r.errors.length + " type" + (r.errors.length > 1 ? "s" : "") + " could not be read");
+  if (!hc.available || !hc.all) return pill();
+  const at = await getMeta("lastSyncedAt"); if (!force && at && Date.now() - at < 5 * 60e3 && (await getMeta("device")) === "Health Connect") return pill();
+  busy = true; busyText = "Reading"; pill(); let r = null;
+  try { r = await hcSync(t => { busyText = t.split(" ")[0]; pill(); }); } catch (e) { console.error(e); toast("Health Connect read failed"); }
+  busy = false; try { await load(); } catch (e) { console.error(e); } pill();
+  if (r?.errors.length) console.warn("Health Connect", r.errors);
 }
-async function hcTap() {
-  if (busy) return;
-  if (hc && !hc.available) return hcInstall();
-  if (hc && !hc.all) { try { await hcConnect(); } catch (e) { console.error(e); } return hcRefresh(true); }
-  hcRefresh(true);
-}
-async function refresh(interactive) {
-  if (DEMO || busy || needsId()) return; busy = true; syncText = ""; chip();
+async function refreshWeb(interactive) {
+  if (DEMO || busy || !window.CONFIG?.CLIENT_ID) return load();
+  busy = true; busyText = "Syncing"; pill();
   try { if (!interactive && !hasToken()) throw new Error("sign-in needed"); await getToken({ interactive }); signedOut = false; } catch { signedOut = true; }
-  let failed = false;
-  if (!signedOut) { try { const r = await sync(t => { syncText = "Fetching " + t.replace(/^daily-/, "").split("-")[0] + "…"; chip(); }); failed = r.errors.length > 0; healthPush().catch(e => console.warn("health sync", e)); } catch (e) { if (e.auth) signedOut = true; else { failed = true; console.error(e); } } }
-  busy = false;
-  try { await load(); } catch (e) { console.error(e); }
-  await chip(); if (failed) toast("Some data did not sync");
+  if (!signedOut) { try { await sync(t => { busyText = t.replace(/^daily-/, "").split("-")[0]; pill(); }); healthPush().catch(e => console.warn("health push", e)); } catch (e) { if (e.auth) signedOut = true; } }
+  busy = false; try { await load(); } catch (e) { console.error(e); } pill();
 }
-$("chip").onclick = () => { if (isNative) hcTap(); else if (needsId()) location.href = "./"; else refresh(true); };
+async function fullSync(force = false) {   // everything the phone shares with the web: health, gym, tasks, calendar, notes
+  const healthP = isNative ? hcRefresh(force) : hasToken() ? refreshWeb(false) : load();
+  await Promise.allSettled([healthP, gym.pull(), sticky.pull(), agenda.load(force), notes.refresh(), settings.check()]);
+  if (cur === "today" || cur === "plan") paint(); pill();
+}
 
-// ---- panes, tabs, popovers ----
-$("title").innerHTML = dm("TODAY");
-const panes = $("panes"), tabs = [...$("tabs").children], NAMES = ["Today", "Sleep", "Body", "Gym"];
-let cur = 0;
-const setTab = i => { if (i === cur) return; cur = i; tabs.forEach((b, j) => b.classList.toggle("on", j === i)); $("title").innerHTML = dm(NAMES[i].toUpperCase()); pop.hidden = true; try { localStorage.setItem("lite.tab", i); } catch {} };
-tabs.forEach((b, i) => (b.onclick = () => { if (i === cur) panes.children[i].scrollTo({ top: 0, behavior: "smooth" }); panes.scrollTo({ left: i * panes.clientWidth }); setTab(i); }));
-panes.addEventListener("scroll", () => setTab(Math.round(panes.scrollLeft / panes.clientWidth)), { passive: true });
-addEventListener("resize", () => panes.scrollTo({ left: cur * panes.clientWidth, behavior: "instant" }));
-const pop = $("pop");
-document.addEventListener("click", e => {
-  const b = e.target.closest(".i"); if (!b) { if (!e.target.closest(".pop")) pop.hidden = true; return; }
-  if (!pop.hidden && pop.dataset.k === b.dataset.i) { pop.hidden = true; return; }
-  pop.innerHTML = INFO[b.dataset.i] || ""; pop.dataset.k = b.dataset.i; pop.hidden = false; pop.scrollTop = 0;
-});
-let tt = 0; const toast = msg => { const t = $("toast"); t.textContent = msg; t.hidden = false; clearTimeout(tt); tt = setTimeout(() => (t.hidden = true), 2200); };
-
-// ---- gym: logged sets are what make a day a gym day ----
-initLiteGym($("gym"), { demo: DEMO, toast, onChange: entries => {
+// ---- modules ----
+sticky.init(DEMO);
+const settings = initSettings({ sheet: $("sheet"), body: $("sheetBody"), demo: DEMO, native: isNative, health, toast, onChange: what => { if (what === "weather") { if (cur === "today") drawWeather(); } else fullSync(true); pill(); } });
+const plan = initPlan(pane("plan"), { toast });
+const gym = initLiteGym(pane("gym"), { demo: DEMO, toast, onChange: entries => {
   A.gymLog.days = new Set(entries.map(e => e.date)); A.gymLog.sets = {}; entries.forEach(e => (A.gymLog.sets[e.date] = (A.gymLog.sets[e.date] || 0) + (e.sets || 1)));
-  if (days.length || DEMO) render();
+  if (days.length || DEMO) { M = model(); if (cur === "today" || cur === "health") paint(); }
 } });
+const notes = initNotes(pane("notes"), { demo: DEMO, toast });
+sticky.on(() => { if (cur === "today") renderToday(); pill(); });
 
-{ const q = new URLSearchParams(location.search), t = q.has("tab") ? +q.get("tab") : +(localStorage.getItem("lite.tab") || 0); if (t > 0 && t < 4) { cur = -1; setTab(t); requestAnimationFrame(() => panes.scrollTo({ left: t * panes.clientWidth, behavior: "instant" })); } }
+// Android Back: popover → sheet → note editor / folder → previous tab → leave the app (MainActivity asks this)
+window.__back = () => {
+  if (!pop.hidden) { pop.hidden = true; return true; }
+  if (settings.back()) return true;
+  if (cur === "notes" && notes.back()) return true;
+  if (trail.length) { show(trail.pop(), { push: false }); return true; }
+  if (cur !== "today") { show("today", { push: false }); return true; }
+  return false;
+};
+
+// ---- start: paint from the cache at once, then sync in the background ----
+{ const q = new URLSearchParams(location.search), saved = localStorage.getItem("lite.tab"); if (q.get("h")) hsub = q.get("h"); show(TABS.includes(q.get("tab")) ? q.get("tab") : TABS.includes(saved) ? saved : "today", { push: false }); }
 try { await load(); } catch (e) { console.error(e); }
-await chip();
-if (isNative && !DEMO) hcRefresh();
-else if (!DEMO && hasToken()) { const at = await getMeta("lastSyncedAt"); if (!at || Date.now() - at > 5 * 60e3) refresh(false); }
-document.addEventListener("visibilitychange", async () => {
-  if (document.hidden) return;
-  if (isNative && !DEMO) return hcRefresh();
-  const at = await getMeta("lastSyncedAt"); if (hasToken() && (!at || Date.now() - at > 5 * 60e3)) refresh(false); else { try { await load(); } catch {} chip(); }   // load() also takes a newer copy the phone shared
-});
-// Android Back: close the popover, then go back to Today, then leave the app (MainActivity asks this before closing)
-window.__back = () => { if (!pop.hidden) { pop.hidden = true; return true; } if (cur !== 0) { tabs[0].click(); return true; } return false; };
+agenda.load().then(() => { if (cur === "today" || cur === "plan") paint(); });
+if (isNative && !DEMO) hcStatus().then(s => { hc = s; pill(); }, () => {});
+pill();
+if (!DEMO) fullSync();
+document.addEventListener("visibilitychange", () => { if (!document.hidden && !DEMO) fullSync(); });
