@@ -1,6 +1,7 @@
 // Lite gym log: a thumb-sized set logger for the phone layout. Same data as gymlog.js: entries {id, date, day, exercise, weight (lb, always), reps, sets},
 // the same browser copy (gymlog.mirror) and the same GitHub file (gym-log.json, {version, entries, deleted}). Two copies merge as a union minus deletions,
 // so the full dashboard and this page can both be used. Demo mode keeps everything in memory and never writes.
+import { haptic, detent } from "./haptic.js";
 import { PROGRAM } from "./gymlog.js";
 import { gh, ghRead, ghWrite, ghMessage } from "./ghstore.js";
 import { syncwarn } from "./syncwarn.js";
@@ -8,7 +9,7 @@ import { esc, ymd, addDays } from "./util.js";
 import { dm } from "./dotfont.js";
 
 const KEY = "gymlog.mirror", GHPATH = "gym-log.json", KG = 0.45359237, WEEK = ["Pull", "Legs", "Push", null, "Pull", "Legs", "Push"];   // Sun..Sat; Wed is rest
-const fmt = n => String(+n.toFixed(2)), buzz = ms => { try { navigator.vibrate && navigator.vibrate(ms); } catch {} };
+const fmt = n => String(+n.toFixed(2));
 const short = d => new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
 export function initLiteGym(root, { demo = false, toast = () => {}, onChange = () => {} } = {}) {
@@ -85,7 +86,7 @@ export function initLiteGym(root, { demo = false, toast = () => {}, onChange = (
     r.addEventListener("scroll", () => {
       if (rulerSet) return;
       const v = Math.max(0, Math.min(MAX(), Math.round(r.scrollLeft / PX() / step) * step));
-      if (v !== lastBuzz) { lastBuzz = v; weight = toLb(v); paintW(); buzz(4); }
+      if (v !== lastBuzz) { lastBuzz = v; weight = toLb(v); paintW(); haptic(detent(v)); }   // a tick per marker: whole numbers major, quarters minor
       clearTimeout(rulerT); rulerT = setTimeout(() => rulerTo(true), 140);   // settle exactly on the step
     }, { passive: true });
   }
@@ -97,7 +98,7 @@ export function initLiteGym(root, { demo = false, toast = () => {}, onChange = (
 
   // ---- input: one listener for the whole pane; + and − repeat while held ----
   let hold = 0, holdT = 0;
-  const bump = (d) => { weight = Math.max(0, Math.min(600, toLb(Math.round((toDisp(weight) + d * step) / step) * step))); paintW(); rulerTo(); buzz(6); };
+  const bump = (d) => { weight = Math.max(0, Math.min(600, toLb(Math.round((toDisp(weight) + d * step) / step) * step))); paintW(); rulerTo(); haptic(detent(toDisp(weight))); };
   const stop = () => { clearTimeout(holdT); clearInterval(hold); hold = holdT = 0; };
   root.addEventListener("pointerdown", e => { const b = e.target.closest("[data-w]"); if (!b) return; const d = +b.dataset.w; bump(d); holdT = setTimeout(() => (hold = setInterval(() => bump(d), 70)), 380); });
   ["pointerup", "pointercancel", "pointerleave"].forEach(t => root.addEventListener(t, stop));
@@ -107,8 +108,8 @@ export function initLiteGym(root, { demo = false, toast = () => {}, onChange = (
     if (t.dataset.d && !t.dataset.k) { day = t.dataset.d; try { localStorage.setItem("gymlog.day", day); } catch {} ex = null; pickEx(); armed = null; draw(); }
     else if (t.dataset.s) { step = +t.dataset.s; try { localStorage.setItem("lite.step", step); } catch {} draw(); }
     else if (t.dataset.u) { unit = t.dataset.u; try { localStorage.setItem("gymlog.unit", unit); } catch {} draw(); }
-    else if (t.dataset.k) { const d = +t.dataset.d; if (t.dataset.k === "reps") reps = Math.max(0, reps + d); else sets = Math.max(1, sets + d); t.parentNode.querySelector(".n").textContent = t.dataset.k === "reps" ? reps : sets; buzz(5); }
-    else if (t.id === "gLog") { entries.push({ id: Date.now() + Math.floor(Math.random() * 1000), date: today(), day, exercise: ex, weight, reps, sets }); armed = null; buzz(18); toast(`Logged ${ex.split(" (")[0]}`); changed(); }
+    else if (t.dataset.k) { const d = +t.dataset.d; if (t.dataset.k === "reps") reps = Math.max(0, reps + d); else sets = Math.max(1, sets + d); t.parentNode.querySelector(".n").textContent = t.dataset.k === "reps" ? reps : sets; haptic("major"); }
+    else if (t.id === "gLog") { entries.push({ id: Date.now() + Math.floor(Math.random() * 1000), date: today(), day, exercise: ex, weight, reps, sets }); armed = null; haptic("confirm"); toast(`Logged ${ex.split(" (")[0]}`); changed(); }
     else if (t.dataset.x) { const id = +t.dataset.x; if (armed === id) { entries = entries.filter(x => x.id !== id); deleted.add(id); armed = null; changed(); } else { armed = id; draw(); setTimeout(() => { if (armed === id) { armed = null; draw(); } }, 3000); } }
   });
   root.addEventListener("change", e => { if (e.target.id === "gEx") { ex = e.target.value; const l = lastOf(ex); if (l) { weight = l.weight; reps = l.reps || reps; sets = l.sets || sets; } draw(); } });
@@ -118,7 +119,7 @@ export function initLiteGym(root, { demo = false, toast = () => {}, onChange = (
   else { try { const m = JSON.parse(localStorage.getItem(KEY) || "null"); if (Array.isArray(m)) entries = m; else if (m) { entries = m.entries || []; (m.deleted || []).forEach(id => deleted.add(id)); } } catch {} entries = entries.filter(e => !deleted.has(e.id)); }
   pickEx(); onChange(entries); draw(); pull();
   document.addEventListener("visibilitychange", () => { if (document.hidden) return; if (ymd(new Date()) !== shownOn) { shownOn = ymd(new Date()); day = scheduled(); ex = null; pickEx(); draw(); } pull(); });   // a new day: back to that day's workout
-  return { get entries() { return entries; }, pull, shown: () => rulerTo(), setReps(n) { reps = n; draw(); } };
+  return { get entries() { return entries; }, pull, shown: () => rulerTo() };
 }
 
 // demo only: five weeks of the split, with weights creeping up

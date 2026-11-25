@@ -11,6 +11,8 @@ package io.github.missileminion.dashboard
 
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
+import android.view.HapticFeedbackConstants as H
 import android.view.WindowManager
 import androidx.activity.result.ActivityResultLauncher
 import androidx.health.connect.client.HealthConnectClient
@@ -79,6 +81,23 @@ class HealthConnectPlugin : Plugin() {
             if (on) activity.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) else activity.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             call.resolve()
         }
+    }
+
+    // UI haptics through the system's own patterns (they follow the phone's touch-feedback setting; no vibrate permission needed).
+    // minor/major: detents on a scale (Android 14's segment ticks, made for sliders); tap: a button; toggle; confirm; reject.
+    @PluginMethod
+    fun haptic(call: PluginCall) {
+        val k = call.getString("kind") ?: "tap"
+        val u = Build.VERSION.SDK_INT >= 34; val r = Build.VERSION.SDK_INT >= 30
+        val c = when (k) {
+            "minor" -> if (u) H.SEGMENT_FREQUENT_TICK else H.CLOCK_TICK
+            "major" -> if (u) H.SEGMENT_TICK else H.CONTEXT_CLICK
+            "toggle" -> if (u) H.TOGGLE_ON else H.CONTEXT_CLICK
+            "confirm" -> if (r) H.CONFIRM else H.LONG_PRESS
+            "reject" -> if (r) H.REJECT else H.LONG_PRESS
+            else -> H.KEYBOARD_TAP
+        }
+        activity.runOnUiThread { bridge.webView.performHapticFeedback(c); call.resolve() }
     }
 
     @PluginMethod

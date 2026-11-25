@@ -1,11 +1,12 @@
 // Rep tempo metronome (above the gym log), from the owner's rep_metronome.html: the same Web Audio scheduler, sounds and voice clips,
-// with a compact phone layout. Phases: lower (eccentric), bottom pause, lift (concentric), top pause. A cue marks the start of lowering
+// in a fixed-size card (it never grows or collapses: settings are always in view, and Start only changes the readout). Phases: lower (eccentric), bottom pause, lift (concentric), top pause. A cue marks the start of lowering
 // and lifting, optional ticks count the seconds, optional voice says "down" / "up". Sounds are scheduled ~120 ms ahead on the audio clock,
 // so timing stays exact even when the screen redraws late.
 //
 // Music: everything plays through Web Audio, which does not ask Android for audio focus, so Spotify or YouTube Music keep playing
 // underneath (no pause, no ducking). A screen wake lock keeps it running; Android mutes web audio once the app is in the background.
 import { dm } from "./dotfont.js";
+import { haptic, detent } from "./haptic.js";
 import { bad } from "./standards.js";
 
 const KEY = "repmetro";   // same storage key as the stand-alone page, so settings carry over
@@ -19,8 +20,8 @@ const f1 = v => (Number.isInteger(v) ? String(v) : v.toFixed(1));
 const keepOn = on => { const C = window.Capacitor; if (!C?.isNativePlatform?.()) return; try { const P = C.Plugins?.HealthConnect; (P?.keepScreenOn ? P.keepScreenOn({ on }) : C.nativePromise("HealthConnect", "keepScreenOn", { on })).catch(() => {}); } catch {} };   // same call path as hc.js
 const total = () => S.ecc + S.bot + S.con + S.top;
 
-export function initTempo(root, { onReps = () => {} } = {}) {
-  let ctx = null, master = null, noise = null, timer = 0, raf = 0, queue = [], cur = null, cycle = [], ci = 0, reps = 0, running = false, open = false, lock = null, clips = null;
+export function initTempo(root) {
+  let ctx = null, master = null, noise = null, timer = 0, raf = 0, queue = [], cur = null, cycle = [], ci = 0, running = false, lock = null, clips = null;
   const buffers = {};
 
   // ---------- audio (as in the original) ----------
@@ -54,7 +55,9 @@ export function initTempo(root, { onReps = () => {} } = {}) {
   }
   function say(w, t) { if (S.mode === "sound" || !buffers[w]) return; const s = ctx.createBufferSource(); s.buffer = buffers[w]; s.connect(master); s.start(Math.max(t || 0, ctx.currentTime)); }
   const newCycle = () => [["ecc", S.ecc], ["bot", S.bot], ["con", S.con], ["top", S.top]].filter(p => p[1] > 0);
-  function nextPhase(start) { if (ci >= cycle.length) { cycle = newCycle(); ci = 0; } const [name, dur] = cycle[ci++]; if (name === "ecc") reps++; const p = { name, dur, start, rep: reps, head: false, k: 1 }; queue.push(p); return p; }
+  function nextPhase(start) {   // off/len: where this phase sits in its rep, for the playhead on the scale
+    if (ci >= cycle.length) { cycle = newCycle(); ci = 0; } const off = cycle.slice(0, ci).reduce((a, q) => a + q[1], 0), len = cycle.reduce((a, q) => a + q[1], 0);
+    const [name, dur] = cycle[ci++]; const p = { name, dur, start, off, len, head: false, k: 1 }; queue.push(p); return p; }
   function headCue(p) { if (p.name === "ecc" || p.name === "con") { if (S.mode !== "voice") click(p.name, p.start); say(p.name === "ecc" ? "down" : "up", p.start); } }
   function pump() {
     if (!running) return; const horizon = ctx.currentTime + .12;
@@ -67,57 +70,62 @@ export function initTempo(root, { onReps = () => {} } = {}) {
   }
   // ---------- screen ----------
   const $ = id => root.querySelector("#" + id);
-  function frame() {
+  function frame() {   // only text, a class and two transforms change while running, so the card never moves
     if (!running) return; const now = ctx.currentTime;
     while (queue.length > 2 && queue[1].start <= now) queue.shift();
     const p = queue.find(q => q.start <= now && now < q.start + q.dur);
     if (p) {
-      const el = now - p.start, left = Math.max(0, p.dur - el), stage = $("tpStage");
-      stage.dataset.ph = p.name; $("tpPh").textContent = NAMES[p.name]; $("tpBig").innerHTML = dm(left.toFixed(1));
-      $("tpFill").style.transform = `scaleX(${Math.min(1, el / p.dur)})`; $("tpRep").textContent = p.rep;
+      const el = now - p.start, left = Math.max(0, p.dur - el), card = root.firstElementChild;
+      if (card.dataset.ph !== p.name) { card.dataset.ph = p.name; $("tpPh").textContent = NAMES[p.name]; }
+      $("tpBig").innerHTML = dm(left.toFixed(1));
+      $("tpHead").style.left = (Math.min(1, (p.off + el) / p.len) * 100).toFixed(2) + "%";
     }
     raf = requestAnimationFrame(frame);
   }
   async function start() {
     initAudio(); if (S.mode !== "sound") await loadClips(); stop(true);
-    running = true; reps = 0; cycle = newCycle(); ci = 0; queue = []; cur = nextPhase(ctx.currentTime + .35);
-    pump(); timer = setInterval(pump, 25); raf = requestAnimationFrame(frame); draw();
+    running = true; cycle = newCycle(); ci = 0; queue = []; cur = nextPhase(ctx.currentTime + .35);
+    draw(); pump(); timer = setInterval(pump, 25); raf = requestAnimationFrame(frame);
     keepOn(true);   // the Android app: keep the screen on natively
     try { lock = await navigator.wakeLock?.request("screen"); } catch {}
   }
-  function stop(silent) {   // only reps whose lift has finished count: stopping halfway down does not add one
-    const now = ctx ? ctx.currentTime : 0, p = queue.find(q => q.start <= now && now < q.start + q.dur), n = p ? (p.name === "ecc" || p.name === "bot" || p.name === "con" ? p.rep - 1 : p.rep) : 0, was = running; running = false; clearInterval(timer); cancelAnimationFrame(raf); queue = [];
+  function stop(silent) {
+    running = false; clearInterval(timer); cancelAnimationFrame(raf); queue = [];
     try { lock?.release(); } catch {} lock = null; keepOn(false);
-    if (!silent) { draw(); if (was && n > 0) onReps(n); }
+    if (!silent) draw();
   }
   const tempoStr = () => STEPS.map(([k]) => f1(S[k])).join("·");
+  // the scale: one rep from 0 to its total length, each phase a band, major markers on whole seconds, minor on half seconds
+  function scale(t) {
+    let x = 0, bands = "", ticks = "";
+    for (const [k] of STEPS) { if (S[k] > 0) bands += `<i class="b-${k}" style="left:${(x / t * 100).toFixed(2)}%;width:${(S[k] / t * 100).toFixed(2)}%"></i>`; x += S[k]; }
+    const lab = t > 12 ? 2 : 1;
+    for (let v = 0; v <= t + 1e-6; v += .5) { const maj = Number.isInteger(v), pos = (v / t * 100).toFixed(2);
+      ticks += `<i class="${maj ? "mj" : "mn"}" style="left:${pos}%"></i>` + (maj && v % lab === 0 ? `<span style="left:${pos}%">${v}</span>` : ""); }
+    return `<div class="tp-scale"><div class="tp-bands">${bands}</div><div class="tp-ticks">${ticks}</div><b id="tpHead"></b></div>`;
+  }
+  const seg = (attr, cur, opts) => `<div class="seg sm">${opts.map(([v, l]) => `<button type="button" data-${attr}="${v}" class="${String(cur) === String(v) ? "on" : ""}">${l}</button>`).join("")}</div>`;
+  const ctl = (k, val, name) => `<div class="ctl"><button type="button" data-k="${k}" data-d="-1" aria-label="${name} down">−</button><span class="n num">${val}</span><button type="button" data-k="${k}" data-d="1" aria-label="${name} up">+</button></div>`;
   function draw() {
     const t = total();
-    root.innerHTML = `<div class="card tp${running ? " on" : ""}">
+    root.innerHTML = `<div class="card tp${running ? " on" : ""}" data-ph="">
       <div class="tp-head"><span class="kick">Tempo <button class="i" type="button" data-i="tempo" aria-label="About the tempo">i</button></span>
-        <button type="button" class="tp-cfg" data-tp="cfg" aria-expanded="${open}"><span class="num">${tempoStr()}</span><span class="num tp-len ${bad("repLength", t) ? "bad" : ""}">${f1(t)} s</span><i>${open ? "⌃" : "⌄"}</i></button></div>
-      ${running ? `<div class="tp-stage" id="tpStage" data-ph="ecc"><div class="tp-top"><span id="tpPh">Get ready</span><span class="num">rep <b id="tpRep">0</b></span></div>
-        <div class="tp-big" id="tpBig">${dm("0.0")}</div><div class="tp-bar"><i id="tpFill"></i></div></div>` : ""}
-      <div class="tp-btns"><button type="button" class="btn${running ? " ghost" : ""}" data-tp="go">${running ? "Stop" : "Start"}</button>${running ? "" : `<button type="button" class="btn ghost tp-test" data-tp="test" aria-label="Test the sound">Test</button>`}</div>
-      ${open ? `<div class="tp-set">
-        <div class="tp-steps">${STEPS.map(([k, name]) => `<div class="step"><div class="lb">${name}</div><div class="ctl"><button type="button" data-k="${k}" data-d="-1" aria-label="${name} shorter">−</button><span class="n num">${f1(S[k])}</span><button type="button" data-k="${k}" data-d="1" aria-label="${name} longer">+</button></div></div>`).join("")}</div>
-        <div class="tp-opt"><span>Sound</span><div class="seg sm">${[["digital", "Click"], ["wood", "Wood"], ["clave", "Clave"]].map(([v, l]) => `<button type="button" data-kind="${v}" class="${S.kind === v ? "on" : ""}">${l}</button>`).join("")}</div></div>
-        <div class="tp-opt"><span>Cues</span><div class="seg sm">${[["sound", "Sound"], ["both", "+ Voice"], ["voice", "Voice"]].map(([v, l]) => `<button type="button" data-mode="${v}" class="${S.mode === v ? "on" : ""}">${l}</button>`).join("")}</div></div>
-        <div class="tp-opt"><span>Ticks</span><div class="seg sm">${[[true, "On"], [false, "Off"]].map(([v, l]) => `<button type="button" data-ticks="${v}" class="${S.ticks === v ? "on" : ""}">${l}</button>`).join("")}</div></div>
-        <div class="tp-opt"><span>Volume</span><div class="ctl"><button type="button" data-k="vol" data-d="-1" aria-label="Quieter">−</button><span class="n num">${S.vol * 10}%</span><button type="button" data-k="vol" data-d="1" aria-label="Louder">+</button></div></div>
-      </div>` : ""}</div>`;
+        <span class="tp-read${!running && bad("repLength", t) ? " bad" : ""}"><span id="tpPh">${running ? "Get ready" : tempoStr()}</span><span class="tp-big" id="tpBig">${dm(running ? "0.0" : f1(t))}</span><small>s</small></span></div>
+      ${scale(t)}
+      <div class="tp-steps">${STEPS.map(([k, name]) => `<div class="step s-${k}"><div class="lb">${name}</div>${ctl(k, f1(S[k]), name)}</div>`).join("")}</div>
+      <div class="tp-opt">${seg("kind", S.kind, [["digital", "Click"], ["wood", "Wood"], ["clave", "Clave"]])}${ctl("vol", S.vol * 10 + "%", "Volume")}</div>
+      <div class="tp-opt">${seg("mode", S.mode, [["sound", "Sound"], ["both", "+ Voice"], ["voice", "Voice"]])}${seg("ticks", S.ticks, [[true, "Ticks"], [false, "Off"]])}</div>
+      <button type="button" class="btn tp-go" data-tp="go">${running ? "Stop" : "Start"}</button></div>`;
   }
   root.addEventListener("click", e => {
     const b = e.target.closest("button"); if (!b || b.classList.contains("i")) return;
     const tp = b.dataset.tp;
     if (tp === "go") { running ? stop() : start(); return; }
-    if (tp === "test") { initAudio(); const t = ctx.currentTime + .05; if (S.mode !== "voice") { click("ecc", t); click("con", t + .5); } if (S.mode !== "sound") loadClips().then(() => { const t2 = ctx.currentTime + .05; say("down", t2); say("up", t2 + 1); }); return; }
-    if (tp === "cfg") { open = !open; draw(); return; }
     if (b.dataset.k) {
       const k = b.dataset.k, d = +b.dataset.d, st = STEPS.find(x => x[0] === k), [min, max, step] = st ? st.slice(2) : [1, 10, 1];
       S[k] = Math.max(min, Math.min(max, Math.round((S[k] + d * step) * 100) / 100)); save(); if (master) master.gain.value = S.vol / 10;
-      if (running && k !== "vol") { /* the new tempo starts with the next rep */ }
-      draw(); try { navigator.vibrate?.(5); } catch {} return;
+      draw();   // while running, the new tempo starts with the next rep; the readout catches up on the next frame
+      haptic(k === "vol" ? "minor" : detent(S[k])); return;   // phase lengths: whole seconds are major detents, halves minor
     }
     if (b.dataset.kind) { S.kind = b.dataset.kind; save(); draw(); initAudio(); click("ecc", ctx.currentTime + .03); return; }
     if (b.dataset.mode) { S.mode = b.dataset.mode; save(); draw(); return; }

@@ -4,6 +4,7 @@
 // Under it: what is on now or next, and the day budget (free, booked, daylight, load), from the same formulas as the web.
 import { timelineSVG, budget, dayLoad, place, alt, glow, light, onDay, hoursOn, chipHTML, VW, X0, X1, Xm, mins, hhmm, budgetHM as hm } from "./agenda.js";
 import { esc, addDays, ymd } from "./util.js";
+import { haptic } from "./haptic.js";
 
 export function pathHTML(focus, list, today) {
   const days = [...Array(7)].map((_, k) => addDays(today, k));
@@ -39,7 +40,10 @@ export function wirePath(root, focus, list, today) {
   };
   // drag across the path to scrub (vertical swipes still scroll the page); a mouse just hovers
   const minuteAt = x => { const r = svg.getBoundingClientRect(), f = vx() + (x - r.left) / r.width * vw(); return Math.max(0, Math.min(1435, Math.round((f - X0) / (X1 - X0) * 288) * 5)); };
-  const set = x => { const m = minuteAt(x); if (m !== scrub) { scrub = m; paint(); } };
+  const evAt = m => { const w = new Date(focus + "T00:00:00").getTime() + m * 6e4; return list.find(e => !e.allDay && onDay(e, focus) && +e.s <= w && +e.e > w) || null; };
+  const set = x => { const m = minuteAt(x); if (m === scrub) return;   // haptics: a stronger tick crossing into another event, a light one each hour
+    const was = scrub; scrub = m; paint();
+    if (was == null) return; if (evAt(was) !== evAt(m)) haptic("major"); else if (Math.floor(was / 60) !== Math.floor(m / 60)) haptic("minor"); };
   svg.addEventListener("pointerdown", e => { if (e.pointerType === "mouse") return; try { svg.setPointerCapture(e.pointerId); } catch {} set(e.clientX); });
   svg.addEventListener("pointermove", e => { if (e.pointerType === "mouse" || e.buttons) set(e.clientX); });
   const end = () => { if (scrub != null) { scrub = null; paint(); } };

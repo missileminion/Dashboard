@@ -20,6 +20,7 @@ import { initNotes } from "./litenotes.js";
 import { initPlan, agenda, evRow } from "./liteplan.js";
 import { initTempo } from "./litetempo.js";
 import { initSettings } from "./litesettings.js";
+import { haptic, justFired } from "./haptic.js";
 import { isNative, hcStatus, hcConnect, hcInstall, hcSync, hcNightHr, hcOrigins, origins } from "./hc.js";
 
 const DEMO = location.port === "8082" || new URLSearchParams(location.search).has("demo");
@@ -201,7 +202,7 @@ $("tabs").onclick = e => { const b = e.target.closest("button"); if (!b) return;
 const pop = $("pop");
 document.addEventListener("click", e => {
   const b = e.target.closest(".i");   // "i" popovers first, so they never also trigger the card they sit on
-  if (b) { e.stopPropagation(); e.preventDefault(); if (!pop.hidden && pop.dataset.k === b.dataset.i) { pop.hidden = true; return; } pop.innerHTML = INFO[b.dataset.i] || ""; pop.dataset.k = b.dataset.i; pop.hidden = false; pop.scrollTop = 0; return; }
+  if (b) { e.stopPropagation(); e.preventDefault(); haptic("tap"); if (!pop.hidden && pop.dataset.k === b.dataset.i) { pop.hidden = true; return; } pop.innerHTML = INFO[b.dataset.i] || ""; pop.dataset.k = b.dataset.i; pop.hidden = false; pop.scrollTop = 0; return; }
   if (!e.target.closest(".pop")) pop.hidden = true;
 }, true);
 document.addEventListener("click", e => {
@@ -209,6 +210,13 @@ document.addEventListener("click", e => {
   if (to) { const [t, sub] = to.dataset.to.split(":"); if (sub) hsub = sub; if (t === cur) paint(); else show(t); }
   else if (cn) settings.open(cn.dataset.connect);
   else if (h) { hsub = h.dataset.h; renderHealth(); }
+});
+// haptics everywhere: any press on a control gets a light tap (a segmented switch a toggle), unless the screen already gave a
+// more specific one (a detent, a confirm, a reject). Runs last, on the way up, so it can see whether one fired.
+document.addEventListener("click", e => {
+  const c = e.target.closest('button, [role="button"], [role="tab"], a[href], summary, select, label, input[type="checkbox"], input[type="radio"], [data-to], [data-fd], .er');
+  if (!c || c.disabled || justFired(e)) return;
+  haptic(c.closest(".seg, .sw, [role=tablist]") && !c.closest("#tabs") ? "toggle" : "tap");
 });
 addEventListener("connections", e => settings.open(e.detail || "main"));
 addEventListener("goto", e => settings.open(e.detail === "notes" ? "notes" : "github"));   // the red sync bar's "Fix it"
@@ -297,7 +305,7 @@ const gym = initLiteGym($("gymBox"), { demo: DEMO, toast, onChange: entries => {
   A.gymLog.days = new Set(entries.map(e => e.date)); A.gymLog.sets = {}; entries.forEach(e => (A.gymLog.sets[e.date] = (A.gymLog.sets[e.date] || 0) + (e.sets || 1)));
   if (days.length || DEMO) { M = model(); if (cur === "today" || cur === "health") paint(); }
 } });
-const tempo = initTempo($("tempoBox"), { onReps: n => { gym.setReps(n); toast(`${n} reps counted`); } });
+const tempo = initTempo($("tempoBox"));
 const notes = initNotes(pane("notes"), { demo: DEMO, toast });
 
 // Android Back: popover → sheet → note editor / folder → previous tab → leave the app (MainActivity asks this)

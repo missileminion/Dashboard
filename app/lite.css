@@ -348,27 +348,33 @@ details.adv{margin:22px 0 0;border-top:1px solid var(--line2);padding-top:12px} 
 .row .v .note{grid-column:1/-1;justify-self:end}
 
 /* rep tempo (Gym, above the log) */
-.tp{padding:14px 16px 16px;margin-bottom:18px}
-.tp-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+/* rep tempo: a fixed-size card. Head readout (phase + countdown), the rep scale, four phase steppers, two option rows, Start */
+.tp{padding:14px 16px 16px;margin-bottom:18px;--ph:var(--tx);--c-ecc:var(--p1);--c-con:var(--tx);--c-hold:var(--tx3)}
+.tp[data-ph=ecc]{--ph:var(--c-ecc)} .tp[data-ph=con]{--ph:var(--c-con)} .tp[data-ph=bot],.tp[data-ph=top]{--ph:var(--c-hold)}
+.tp-head{display:flex;align-items:center;justify-content:space-between;gap:10px;height:40px}
 .tp-head .kick{margin:0}
-.tp-cfg{display:flex;align-items:baseline;gap:10px;background:none;border:0;padding:6px 0;color:var(--tx)}
-.tp-cfg .num{font-size:15px;font-weight:600;letter-spacing:.04em}
-.tp-cfg .tp-len{font-size:12px;font-weight:500;color:var(--tx3)} .tp-cfg .tp-len.bad{color:var(--bad)}
-.tp-cfg i{font-style:normal;color:var(--tx3);font-size:13px;width:12px}
-.tp-stage{margin:10px 0 4px;--ph:var(--tx)}
-.tp-stage[data-ph=ecc]{--ph:var(--p1)} .tp-stage[data-ph=con]{--ph:var(--tx)} .tp-stage[data-ph=bot],.tp-stage[data-ph=top]{--ph:var(--tx3)}
-.tp-top{display:flex;justify-content:space-between;align-items:baseline;font:600 12px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ph)}
-.tp-top .num{letter-spacing:.02em;color:var(--tx3);font-weight:500} .tp-top b{color:var(--tx);font-size:15px}
-.tp-big{text-align:center;line-height:0;margin:16px 0 14px;color:var(--ph);transition:color .15s} .tp-big .dm{height:54px}
-.tp-bar{height:3px;border-radius:2px;background:var(--line);overflow:hidden} .tp-bar i{display:block;height:100%;background:var(--ph);transform-origin:left;transform:scaleX(0)}
-.tp-btns{display:flex;gap:8px;margin-top:12px} .tp-btns .btn{height:46px} .tp-btns .tp-test{flex:0 0 96px}
-.tp.on .tp-btns .btn{background:var(--panel);color:var(--tx);border:1px solid var(--line2)}
-.tp-set{margin-top:14px;padding-top:14px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:10px;animation:in .18s ease-out}
-.tp-steps{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-.tp-opt{display:grid;grid-template-columns:64px minmax(0,1fr);align-items:center;gap:10px}
-.tp-opt>span{font:500 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--tx3)}
-.tp-opt .ctl,.tp-steps .ctl{display:flex;align-items:center;justify-content:space-between;background:var(--panel);border:1px solid var(--line);border-radius:12px;height:40px}
-.tp-opt .ctl button,.tp-steps .ctl button{width:44px;height:100%;background:none;border:0;color:var(--tx);font-size:20px}
-.tp-opt .ctl .n,.tp-steps .ctl .n{font-size:15px;font-weight:600}
-.tp-steps .step .lb{font:500 10.5px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--tx3);margin:0 0 5px 2px}
-.tp-steps .step{background:none;border:0;padding:0;text-align:left} .tp-steps .step .ctl{display:flex} .tp-steps .step button{height:100%;border-radius:0;font-size:20px} .tp-steps .step .n{font:600 15px var(--mono);color:var(--tx)}
+.tp-read{display:flex;align-items:center;gap:10px;color:var(--ph)}
+.tp-read #tpPh{font:600 12px var(--mono);letter-spacing:.12em;text-transform:uppercase;min-width:84px;text-align:right}
+.tp:not(.on) .tp-read #tpPh{color:var(--tx3);letter-spacing:.06em}
+.tp-big{line-height:0;width:66px;text-align:right;transition:color .15s} .tp-big .dm{height:26px}
+.tp-read small{font:500 11px var(--mono);color:var(--tx3);margin-left:-6px;align-self:flex-end;padding-bottom:2px}
+.tp-read.bad,.tp-read.bad #tpPh{color:var(--bad)}
+.tp-scale{position:relative;height:44px;margin:12px 4px 14px}
+.tp-bands{position:absolute;left:0;right:0;top:0;height:8px;border-radius:4px;overflow:hidden;background:var(--line)}
+.tp-bands i{position:absolute;top:0;bottom:0;opacity:.75} .b-ecc{background:var(--c-ecc)} .b-con{background:var(--c-con)} .b-bot,.b-top{background:var(--c-hold);opacity:.35!important}
+.tp-ticks i{position:absolute;top:12px;width:1px;margin-left:-.5px} .tp-ticks .mj{height:12px;background:var(--tx3)} .tp-ticks .mn{height:6px;background:var(--line2)}
+.tp-ticks span{position:absolute;top:27px;transform:translateX(-50%);font:500 10.5px var(--mono);color:var(--tx3)}
+#tpHead{position:absolute;top:-4px;left:0;width:2px;height:28px;margin-left:-1px;border-radius:1px;background:var(--ph);opacity:0;transition:opacity .2s}
+.tp.on #tpHead{opacity:1}
+.tp-steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px} .tp-steps .step{background:none;border:0;padding:0;border-radius:0}
+.tp-steps .lb{font:500 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--tx3);margin:0 0 5px 2px;display:flex;align-items:center;gap:5px}
+.tp-steps .lb::before{content:"";width:6px;height:6px;border-radius:2px;background:var(--c-hold);opacity:.5}
+.s-ecc .lb::before{background:var(--c-ecc);opacity:1} .s-con .lb::before{background:var(--c-con);opacity:1}
+.tp .ctl{display:flex;align-items:center;justify-content:space-between;background:var(--panel);border:1px solid var(--line);border-radius:12px;height:40px}
+.tp .ctl button{width:26px;height:100%;background:none;border:0;padding:0;color:var(--tx);font-size:18px;flex:0 0 auto}
+.tp .ctl .n{font:600 14px var(--mono);color:var(--tx);text-align:center;flex:1}
+.tp-opt{display:grid;grid-template-columns:minmax(0,1fr) 112px;gap:8px;margin-top:8px;align-items:center}
+.tp-opt .ctl button{width:32px}
+.tp-opt .seg{width:100%} .tp .seg.sm button{height:32px}
+.tp-go{height:46px;margin-top:12px;width:100%}
+.tp.on .tp-go{background:var(--panel);color:var(--tx);border:1px solid var(--line2)}

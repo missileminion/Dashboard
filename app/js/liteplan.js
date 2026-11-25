@@ -1,5 +1,6 @@
 // Plan: the calendar's next 7 days (through the Apps Script bridge) as the day path and the chosen day's events.
 import * as cal from "./calbridge.js";
+import { haptic } from "./haptic.js";
 import { addDays, ymd, esc } from "./util.js";
 import { pathHTML, wirePath } from "./litepath.js";
 
@@ -75,26 +76,26 @@ export function initPlan(root, { toast }) {
   }
   async function act(fn, ok) {   // one write at a time; on failure the editor stays open with the reason
     if (busy) return; busy = true; const err = root.querySelector("#eE"); if (err) err.textContent = "Saving…";
-    try { await fn(); open = null; armDel = null; await agenda.load(true); render(); if (ok) toast(ok); }
-    catch (x) { const e2 = root.querySelector("#eE"); if (e2) e2.textContent = x.message || "Could not save"; else toast(x.message || "Could not save"); }
+    try { await fn(); open = null; armDel = null; await agenda.load(true); render(); haptic("confirm"); if (ok) toast(ok); }
+    catch (x) { haptic("reject"); const e2 = root.querySelector("#eE"); if (e2) e2.textContent = x.message || "Could not save"; else toast(x.message || "Could not save"); }
     busy = false;
   }
   root.addEventListener("click", e => {
     const t = e.target, chip = t.closest("[data-fd]"), r = t.closest(".er"), id = r?.dataset.eid;
-    if (chip) { focus = chip.dataset.fd; open = null; render(); try { navigator.vibrate?.(6); } catch {} return; }
+    if (chip) { focus = chip.dataset.fd; open = null; render(); haptic("tap"); return; }
     if (t.closest("[data-new]")) { open = open === "new" ? null : "new"; render(); return; }
     if (t.closest("[data-done]") && id) {   // done: the title gets (or loses) "✓ " in Google Calendar; shown at once, undone if Google refuses
-      const x = ev(id); if (!x) return; x.done = !x.done; render(); try { navigator.vibrate?.(8); } catch {}
-      cal.save(x, { summary: cal.wrapT(x.done, x.pri, x.title) }).catch(er => { x.done = !x.done; render(); toast("Could not update: " + er.message); });
+      const x = ev(id); if (!x) return; x.done = !x.done; render(); haptic("toggle");
+      cal.save(x, { summary: cal.wrapT(x.done, x.pri, x.title) }).catch(er => { haptic("reject"); x.done = !x.done; render(); toast("Could not update: " + er.message); });
       return;
     }
     if (r && id) { open = open === id ? null : id; armDel = null; render(); return; }
-    const pr = t.closest("[data-pr]"); if (pr) { root.querySelectorAll("#eP button").forEach(b => b.classList.toggle("on", b === pr)); return; }
+    const pr = t.closest("[data-pr]"); if (pr) { haptic("toggle"); root.querySelectorAll("#eP button").forEach(b => b.classList.toggle("on", b === pr)); return; }
     const edEl = t.closest(".ed"); if (!edEl) return; const eid = edEl.dataset.ed, x = eid === "new" ? null : ev(eid);
     if (t.closest("[data-cancel]")) { open = null; render(); return; }
     if (t.closest("[data-save]")) { let b; try { b = body(x); } catch (er) { root.querySelector("#eE").textContent = er.message; return; }
       return act(() => (x ? cal.save(x, b) : cal.create(root.querySelector("#eC")?.value || cal.writableCals()[0]?.id, b)), x ? "Saved" : "Added"); }
-    if (t.closest("[data-del]") && x) { if (armDel !== x.id) { armDel = x.id; render(); setTimeout(() => { if (armDel === x.id) { armDel = null; render(); } }, 3000); return; } return act(() => cal.remove(x), "Deleted"); }
+    if (t.closest("[data-del]") && x) { if (armDel !== x.id) { armDel = x.id; render(); haptic("reject"); setTimeout(() => { if (armDel === x.id) { armDel = null; render(); } }, 3000); return; } return act(() => cal.remove(x), "Deleted"); }
   });
   root.addEventListener("change", e => { if (e.target.id === "eA") root.querySelectorAll("#eSt,#eEt").forEach(i => (i.hidden = e.target.checked)); });
   return { render, paint() { if (!root.querySelector(".ed")) render(); }, back() { if (open) { open = null; render(); return true; } return false; }, async refresh() { await agenda.load(true); if (!root.querySelector(".ed")) render(); } };
