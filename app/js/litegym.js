@@ -118,7 +118,7 @@ export function initLiteGym(root, { demo = false, toast = () => {}, onChange = (
   else { try { const m = JSON.parse(localStorage.getItem(KEY) || "null"); if (Array.isArray(m)) entries = m; else if (m) { entries = m.entries || []; (m.deleted || []).forEach(id => deleted.add(id)); } } catch {} entries = entries.filter(e => !deleted.has(e.id)); }
   pickEx(); onChange(entries); draw(); pull();
   document.addEventListener("visibilitychange", () => { if (document.hidden) return; if (ymd(new Date()) !== shownOn) { shownOn = ymd(new Date()); day = scheduled(); ex = null; pickEx(); draw(); } pull(); });   // a new day: back to that day's workout
-  return { get entries() { return entries; }, pull, shown: () => rulerTo() };
+  return { get entries() { return entries; }, pull, shown: () => rulerTo(), setReps(n) { reps = n; draw(); } };
 }
 
 // demo only: five weeks of the split, with weights creeping up

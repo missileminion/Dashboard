@@ -18,6 +18,7 @@ import { gh } from "./ghstore.js";
 import { initLiteGym } from "./litegym.js";
 import { initNotes } from "./litenotes.js";
 import { initPlan, agenda, evRow } from "./liteplan.js";
+import { initTempo } from "./litetempo.js";
 import { initSettings } from "./litesettings.js";
 import { isNative, hcStatus, hcConnect, hcInstall, hcSync, hcNightHr, hcOrigins, origins } from "./hc.js";
 
@@ -36,7 +37,7 @@ const try_ = (fn, dflt = null) => { try { return fn(); } catch (e) { console.err
 const ib = k => (k && INFO[k] ? `<button class="i" type="button" data-i="${k}" aria-label="More information">i</button>` : "");
 const hhmm = at => new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
 const sigma = z => (z >= 0 ? "+" : "−") + n3(Math.abs(z));
-const row = (k, v, unit, { key = "", isBad = false, note = "", sub = "" } = {}) => `<div class="row"><span class="k">${k}${ib(key)}${sub ? `<small>${sub}</small>` : ""}</span><span class="v"><span class="num ${v == null ? "gap" : isBad ? "bad" : ""}">${v ?? "—"}</span>${v == null || !unit ? "" : `<span class="u">${unit}</span>`}${note ? `<span class="note">${note}</span>` : ""}</span></div>`;
+const row = (k, v, unit, { key = "", isBad = false, note = "", sub = "" } = {}) => `<div class="row"><span class="k">${k}${ib(key)}${sub ? `<small>${sub}</small>` : ""}</span><span class="v"><span class="num ${v == null ? "gap" : isBad ? "bad" : ""}">${v ?? "—"}</span><span class="u">${v == null ? "" : unit}</span>${note ? `<span class="note">${note}</span>` : ""}</span></div>`;
 
 function model() {
   const m = {};
@@ -142,9 +143,9 @@ function renderSleep(el) {
     <div style="text-align:right;margin-top:4px"><button class="i" type="button" id="sleepInfo" data-i="nightFlow" aria-label="About this chart">i</button></div>
   </div>
   <div class="list">
-    ${row("Quality", q ? Math.round(q.score) : null, "/ 100", { key: "sleepQuality", isBad: q ? bad("sleepQuality", q.score) : false })}
+    ${row("Quality", q ? Math.round(q.score) : null, "/100", { key: "sleepQuality", isBad: q ? bad("sleepQuality", q.score) : false })}
     ${row("Efficiency", s ? Math.round(s.se) : null, "%")}
-    ${row("Sleep debt", debtV, debtV === "None" ? "" : "behind", { key: "debt", isBad: bad("sleepDebtHours", m.sf.hours) })}
+    ${row("Sleep debt", debtV, "", { sub: debtV && debtV !== "None" ? "behind your need" : "", key: "debt", isBad: bad("sleepDebtHours", m.sf.hours) })}
     ${row("14-night average", avg == null ? null : hm(avg), "", { isBad: bad("sleepTime", avg) })}
   </div>
   <div class="kick sec">Sleep Month ${ib("sleepMonth")}</div>
@@ -172,9 +173,9 @@ function renderBody(el) {
   <div class="list">
     ${row("Load balance", m.lb ? "×" + m.lb.ratio.toFixed(2) : null, "", { key: "load", isBad: m.lb ? bad("loadRatio", m.lb.ratio) : false, note: m.lb ? `fatigue ${Math.round(m.lb.fatigue)} · fitness ${Math.round(m.lb.fitness)}` : "needs 28 days" })}
     ${row("Active zone minutes", a7 == null ? null : Math.round(a7), "min", { sub: "last 7 days", isBad: bad("azmWeek", a7) })}
-    ${row("Gym", gymLast ?? null, "of 6 days", { sub: "last week", key: "gymDays", isBad: bad("workouts", gymLast) })}
+    ${row("Gym", gymLast ?? null, "/6", { sub: "days last week", key: "gymDays", isBad: bad("workouts", gymLast) })}
     ${row("HRV", hrv7 == null ? null : Math.round(hrv7), "ms", { sub: "7-day average", key: "hrvStatus", isBad: hrvOut })}
-    ${row("Cardio fitness", vo2 ? vo2.v.toFixed(1) : null, "VO2 max", { key: "vo2", note: vo2Chg == null ? "" : `<span class="${red("vo2Change", vo2Chg)}">${vo2Chg >= 0 ? "▲" : "▼"} ${n3(Math.abs(vo2Chg))}% in 30 days</span>` })}
+    ${row("Cardio fitness", vo2 ? vo2.v.toFixed(1) : null, "", { sub: "VO2 max", key: "vo2", note: vo2Chg == null ? "" : `<span class="${red("vo2Change", vo2Chg)}">${vo2Chg >= 0 ? "▲" : "▼"} ${n3(Math.abs(vo2Chg))}% in 30 days</span>` })}
   </div>`;
   try { earlyOrb($("orb"), m.signs, try_(() => A.earlySigns(byDate, addDays(today, -1), addDays))); } catch (e) { console.error(e); }
   try { line($("lrhr"), series("restingHr", 90), { h: 78 }); } catch (e) { console.error(e); }
@@ -289,10 +290,12 @@ async function fullSync(force = false) {   // everything the phone shares with t
 // ---- modules ----
 const settings = initSettings({ sheet: $("sheet"), body: $("sheetBody"), demo: DEMO, native: isNative, health, toast, onChange: what => { if (what === "weather") { if (cur === "today") drawWeather(); } else fullSync(true); pill(); } });
 const plan = initPlan(pane("plan"), { toast });
-const gym = initLiteGym(pane("gym"), { demo: DEMO, toast, onChange: entries => {
+pane("gym").innerHTML = `<div id="tempoBox"></div><div id="gymBox"></div>`;   // the rep metronome sits above the log
+const gym = initLiteGym($("gymBox"), { demo: DEMO, toast, onChange: entries => {
   A.gymLog.days = new Set(entries.map(e => e.date)); A.gymLog.sets = {}; entries.forEach(e => (A.gymLog.sets[e.date] = (A.gymLog.sets[e.date] || 0) + (e.sets || 1)));
   if (days.length || DEMO) { M = model(); if (cur === "today" || cur === "health") paint(); }
 } });
+const tempo = initTempo($("tempoBox"), { onReps: n => { gym.setReps(n); toast(`${n} reps counted`); } });
 const notes = initNotes(pane("notes"), { demo: DEMO, toast });
 
 // Android Back: popover → sheet → note editor / folder → previous tab → leave the app (MainActivity asks this)

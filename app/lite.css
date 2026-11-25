@@ -156,9 +156,11 @@ button.row:active,a.row:active{background:var(--press)}
 .mgrid{display:grid;grid-template-columns:repeat(15,1fr);gap:4px;width:100%}
 .mgrid .blk{border-radius:3px;border-width:0}
 .mgrid .blk.none{border:1px solid var(--none-bd)}
-.mstats{display:grid;grid-template-columns:repeat(4,auto);justify-content:space-between;gap:var(--s3)}
+.mstats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px;margin-top:4px}   /* 2×2 on a phone: nothing wraps */
 .mstats>div:nth-child(5){display:none}
-.mstats .num{font-family:var(--mono)}
+.mstats .num{font-family:var(--mono);font-size:17px;font-weight:600;white-space:nowrap;line-height:1.2!important}
+.mstats .num:first-child,.mstats>div:first-child .num{font-size:17px!important}
+.mstats .basis{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px;margin-bottom:2px}
 .sw{display:inline-block;width:9px;height:9px;border-radius:2px}
 .vitals .row{display:grid!important;grid-template-columns:92px 1fr 54px!important;gap:10px;align-items:center;padding:10px 16px!important;font-size:14px;min-height:0}
 .vitals .row .num{font-size:15px;white-space:nowrap}
@@ -336,3 +338,36 @@ button.row:active,a.row:active{background:var(--press)}
 .fc b{font-size:13.5px;font-weight:600;color:var(--tx)} .fc i{font-style:normal;font-size:12px;color:var(--tx3)} .fc small{font-size:10.5px;color:var(--tx3)}
 
 .row .k:has(small){flex-wrap:wrap;row-gap:0} .row .k small{display:block;flex-basis:100%;font-size:12px;color:var(--tx3);margin-top:1px}
+
+/* one value column everywhere: numbers right-aligned in the same mono face and size, units in a fixed 4-character slot after them,
+   any second line (a note) right-aligned under both, so values in a list line up digit for digit */
+.row .v{display:grid;grid-template-columns:auto 4ch;column-gap:6px;align-items:baseline;justify-items:end;white-space:nowrap}
+.row .v .num{font-size:16px;font-weight:600}
+.row .v .u{justify-self:start;margin-left:0;font-size:12px}
+.row .v .note{grid-column:1/-1;justify-self:end}
+
+/* rep tempo (Gym, above the log) */
+.tp{padding:14px 16px 16px;margin-bottom:18px}
+.tp-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.tp-head .kick{margin:0}
+.tp-cfg{display:flex;align-items:baseline;gap:10px;background:none;border:0;padding:6px 0;color:var(--tx)}
+.tp-cfg .num{font-size:15px;font-weight:600;letter-spacing:.04em}
+.tp-cfg .tp-len{font-size:12px;font-weight:500;color:var(--tx3)} .tp-cfg .tp-len.bad{color:var(--bad)}
+.tp-cfg i{font-style:normal;color:var(--tx3);font-size:13px;width:12px}
+.tp-stage{margin:10px 0 4px;--ph:var(--tx)}
+.tp-stage[data-ph=ecc]{--ph:var(--p1)} .tp-stage[data-ph=con]{--ph:var(--tx)} .tp-stage[data-ph=bot],.tp-stage[data-ph=top]{--ph:var(--tx3)}
+.tp-top{display:flex;justify-content:space-between;align-items:baseline;font:600 12px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ph)}
+.tp-top .num{letter-spacing:.02em;color:var(--tx3);font-weight:500} .tp-top b{color:var(--tx);font-size:15px}
+.tp-big{text-align:center;line-height:0;margin:16px 0 14px;color:var(--ph);transition:color .15s} .tp-big .dm{height:54px}
+.tp-bar{height:3px;border-radius:2px;background:var(--line);overflow:hidden} .tp-bar i{display:block;height:100%;background:var(--ph);transform-origin:left;transform:scaleX(0)}
+.tp-btns{display:flex;gap:8px;margin-top:12px} .tp-btns .btn{height:46px} .tp-btns .tp-test{flex:0 0 96px}
+.tp.on .tp-btns .btn{background:var(--panel);color:var(--tx);border:1px solid var(--line2)}
+.tp-set{margin-top:14px;padding-top:14px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:10px;animation:in .18s ease-out}
+.tp-steps{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.tp-opt{display:grid;grid-template-columns:64px minmax(0,1fr);align-items:center;gap:10px}
+.tp-opt>span{font:500 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--tx3)}
+.tp-opt .ctl,.tp-steps .ctl{display:flex;align-items:center;justify-content:space-between;background:var(--panel);border:1px solid var(--line);border-radius:12px;height:40px}
+.tp-opt .ctl button,.tp-steps .ctl button{width:44px;height:100%;background:none;border:0;color:var(--tx);font-size:20px}
+.tp-opt .ctl .n,.tp-steps .ctl .n{font-size:15px;font-weight:600}
+.tp-steps .step .lb{font:500 10.5px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--tx3);margin:0 0 5px 2px}
+.tp-steps .step{background:none;border:0;padding:0;text-align:left} .tp-steps .step .ctl{display:flex} .tp-steps .step button{height:100%;border-radius:0;font-size:20px} .tp-steps .step .n{font:600 15px var(--mono);color:var(--tx)}

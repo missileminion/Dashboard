@@ -10,6 +10,7 @@ export const RULES = {
   azmWeek:        { bad: v => v < 150,                text: "Under 150 active zone minutes in 7 days" },
   weeksOnGoal:    { bad: (v, of) => v < of / 2,       text: "Under half of recent weeks reached 5 gym days" },
   workouts:       { bad: v => v <= 4,                 text: "4 or fewer workouts last week (goal 5–6)" },
+  repLength:      { bad: v => v > 8,                  text: "A rep tempo over 8 s in total (lower + pauses + lift), which may reduce the growth stimulus" },
   runChange:      { bad: v => v < 0,                  text: "Run form below its reference (negative change)" },
   illnessScore:   { bad: v => v >= 0.6,                text: "Body Check reads Low, Mild or Strong (anything but All clear)" },
   liftChange:     { bad: v => v <= -5,                text: "A lift's estimated 1-rep max is down 5% or more against 4 weeks earlier" },

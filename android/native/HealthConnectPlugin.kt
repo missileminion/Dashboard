@@ -11,6 +11,7 @@ package io.github.missileminion.dashboard
 
 import android.content.Intent
 import android.net.Uri
+import android.view.WindowManager
 import androidx.activity.result.ActivityResultLauncher
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
@@ -68,6 +69,16 @@ class HealthConnectPlugin : Plugin() {
             pending?.resolve(JSObject().put("granted", JSArray(granted.toList())).put("all", granted.containsAll(perms)))
             pending = null
         } } catch (e: Exception) { android.util.Log.e("HealthConnect", "permission launcher", e); null }
+    }
+
+    // Not Health Connect, but this is the app's one plugin: keep the screen on while the rep metronome runs (web audio stops in the background).
+    @PluginMethod
+    fun keepScreenOn(call: PluginCall) {
+        val on = call.getBoolean("on") ?: false
+        activity.runOnUiThread {
+            if (on) activity.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) else activity.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            call.resolve()
+        }
     }
 
     @PluginMethod
