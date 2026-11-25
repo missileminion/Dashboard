@@ -36,7 +36,7 @@ const try_ = (fn, dflt = null) => { try { return fn(); } catch (e) { console.err
 const ib = k => (k && INFO[k] ? `<button class="i" type="button" data-i="${k}" aria-label="More information">i</button>` : "");
 const hhmm = at => new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
 const sigma = z => (z >= 0 ? "+" : "−") + n3(Math.abs(z));
-const row = (k, v, unit, { key = "", isBad = false, note = "" } = {}) => `<div class="row"><span class="k">${k}${ib(key)}</span><span class="v"><span class="num ${v == null ? "gap" : isBad ? "bad" : ""}">${v ?? "—"}</span>${v == null || !unit ? "" : `<span class="u">${unit}</span>`}${note ? `<span class="note">${note}</span>` : ""}</span></div>`;
+const row = (k, v, unit, { key = "", isBad = false, note = "", sub = "" } = {}) => `<div class="row"><span class="k">${k}${ib(key)}${sub ? `<small>${sub}</small>` : ""}</span><span class="v"><span class="num ${v == null ? "gap" : isBad ? "bad" : ""}">${v ?? "—"}</span>${v == null || !unit ? "" : `<span class="u">${unit}</span>`}${note ? `<span class="note">${note}</span>` : ""}</span></div>`;
 
 function model() {
   const m = {};
@@ -112,7 +112,7 @@ async function drawWeather() {
 // =============================== Health: Sleep | Body ===============================
 function renderHealth() {
   const el = pane("health"); if (!M) return;
-  el.innerHTML = `<div class="seg stick" id="hSeg"><button type="button" data-h="sleep" class="${hsub === "sleep" ? "on" : ""}">Sleep</button><button type="button" data-h="body" class="${hsub === "body" ? "on" : ""}">Body</button></div><div id="hBody"></div>`;
+  el.innerHTML = `<div class="stickw"><div class="seg" id="hSeg"><button type="button" data-h="sleep" class="${hsub === "sleep" ? "on" : ""}">Sleep</button><button type="button" data-h="body" class="${hsub === "body" ? "on" : ""}">Body</button></div></div><div id="hBody"></div>`;
   (hsub === "body" ? renderBody : renderSleep)($("hBody"));
 }
 let hrToken = 0;
@@ -171,9 +171,9 @@ function renderBody(el) {
   <div class="kick sec">Training load</div>
   <div class="list">
     ${row("Load balance", m.lb ? "×" + m.lb.ratio.toFixed(2) : null, "", { key: "load", isBad: m.lb ? bad("loadRatio", m.lb.ratio) : false, note: m.lb ? `fatigue ${Math.round(m.lb.fatigue)} · fitness ${Math.round(m.lb.fitness)}` : "needs 28 days" })}
-    ${row("Active zone minutes", a7 == null ? null : Math.round(a7), "7 days", { isBad: bad("azmWeek", a7) })}
-    ${row("Gym last week", gymLast ?? null, "of 6", { key: "gymDays", isBad: bad("workouts", gymLast) })}
-    ${row("HRV, 7-day average", hrv7 == null ? null : Math.round(hrv7), "ms", { key: "hrvStatus", isBad: hrvOut })}
+    ${row("Active zone minutes", a7 == null ? null : Math.round(a7), "min", { sub: "last 7 days", isBad: bad("azmWeek", a7) })}
+    ${row("Gym", gymLast ?? null, "of 6 days", { sub: "last week", key: "gymDays", isBad: bad("workouts", gymLast) })}
+    ${row("HRV", hrv7 == null ? null : Math.round(hrv7), "ms", { sub: "7-day average", key: "hrvStatus", isBad: hrvOut })}
     ${row("Cardio fitness", vo2 ? vo2.v.toFixed(1) : null, "VO2 max", { key: "vo2", note: vo2Chg == null ? "" : `<span class="${red("vo2Change", vo2Chg)}">${vo2Chg >= 0 ? "▲" : "▼"} ${n3(Math.abs(vo2Chg))}% in 30 days</span>` })}
   </div>`;
   try { earlyOrb($("orb"), m.signs, try_(() => A.earlySigns(byDate, addDays(today, -1), addDays))); } catch (e) { console.error(e); }
