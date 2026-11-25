@@ -61,16 +61,16 @@ const AIR = { tpe: "Asia/Taipei", taipei: "Asia/Taipei", nrt: "Asia/Tokyo", hnd:
   syd: "Australia/Sydney", mel: "Australia/Melbourne", melbourne: "Australia/Melbourne", bne: "Australia/Brisbane", brisbane: "Australia/Brisbane", per: "Australia/Perth", perth: "Australia/Perth", akl: "Pacific/Auckland", jnb: "Africa/Johannesburg", cpt: "Africa/Johannesburg", johannesburg: "Africa/Johannesburg", cai: "Africa/Cairo", nbo: "Africa/Nairobi", nairobi: "Africa/Nairobi", cmn: "Africa/Casablanca", los: "Africa/Lagos", lagos: "Africa/Lagos", utc: "UTC", gmt: "UTC" };
 const zoneOf = name => { const q = String(name).trim().toLowerCase(); if (!q) return null; if (ZONES[q]) return ZONES[q]; if (AIR[q]) return AIR[q]; try { new Intl.DateTimeFormat("en-US", { timeZone: String(name).trim() }); return String(name).trim(); } catch { return null; } };
 
-const GROUPS = { log: "Log", gym: "Gym log", health: "Health numbers", body: "Body and recovery", cal: "Calendar", tasks: "Stickynote", timer: "Timers", time: "Time and dates", convert: "Convert and pace", fit: "Fitness calculators", math: "Math tools", rand: "Random", text: "Text tools", sys: "Console" };
+const GROUPS = { log: "Log", gym: "Gym log", health: "Health numbers", body: "Body and recovery", cal: "Calendar", timer: "Timers", time: "Time and dates", convert: "Convert and pace", fit: "Fitness calculators", math: "Math tools", rand: "Random", text: "Text tools", sys: "Console" };
 export { GROUPS };
 
 export function buildLibrary(c) {
   const { print, err, dim, ask, choose, A, calc, today, undos, parseWhen, fmtDay, hhmm, midnight, addDaysD, loadWeights, setWeight, delWeight, call, log, bottom, lastOut, history, aliases, names, timers, askInput } = c;
   const L = {}, meta = [];
-  const def = (cat, nm, use, d, fn) => { if (cat === "tasks" && !(A.tasks && A.tasks.text)) return; const [n, ...al] = nm.split(" "); L[n] = fn; meta.push({ n, cat, use, d, al }); };
+  const def = (cat, nm, use, d, fn) => { const [n, ...al] = nm.split(" "); L[n] = fn; meta.push({ n, cat, use, d, al }); };
   const H = () => { const h = A.health && A.health(); if (!h || !h.days || !h.days.length) U("the health numbers are not loaded yet."); return h; };
   const gymApi = () => { const g = A.gym && A.gym(); if (!g) U("the gym log is not ready yet."); return g; };
-  const calApi = () => A.cal || U("the calendar is not ready yet."), tasksApi = () => (A.tasks && A.tasks.text ? A.tasks : U("Stickynote is not ready yet."));
+  const calApi = () => A.cal || U("the calendar is not ready yet.");
   const nums = s => (s.match(/-?\d+(?:\.\d+)?/g) || []).map(Number);
   const allNums = s => { const t = s.replace(/,/g, " ").trim().split(/\s+/).filter(Boolean); return t.length && t.every(x => /^-?\d+(\.\d+)?(e-?\d+)?$/i.test(x)) ? t.map(Number) : null; };
   const lastKg = () => { const w = loadWeights(); return w.length ? w[w.length - 1].kg : null; };
@@ -380,22 +380,7 @@ export function buildLibrary(c) {
   def("cal", "when", "when <event words>", "when the next matching event is", async a => { const cal = calApi(); if (!a.trim()) U("usage: when dentist"); const ev = cal.find(a, {}).filter(e => e.e > new Date()).sort((x, y) => x.s - y.s)[0]; await print(ev ? `${ev.title}: ${fmtDay(ev.s)}${ev.allDay ? ", all day" : " " + hhmm(ev.s) + "–" + hhmm(ev.e)}  (${relDays(ev.s)})` : `nothing upcoming matches "${a.trim()}".`); });
   def("cal", "overdue open", "overdue", "events that already ended this week without being marked complete", async () => { const cal = calApi(), now = new Date(), ev = cal.events().filter(e => !e.allDay && !e.done && e.e < now && e.s > addDaysD(now, -7)).sort((x, y) => y.s - x.s); await print(ev.length ? [`${ev.length} past event${ev.length > 1 ? "s" : ""} not marked complete`, ...ev.slice(0, 15).map(e => `  ${fmtDay(e.s).padEnd(12)} ${hhmm(e.s)}  ${e.title}`), "  done <title words> marks one"] : "everything that has ended is marked complete.", "tm-dim"); });
 
-  /* ================= STICKYNOTE ================= */
-  const TASK = /^(\s*)[-*] \[( |x|X)\] ?(.*)$/;
-  const taskList = () => { const t = tasksApi().text().split("\n"); return t.map((line, i) => { const m = line.match(TASK); return m && m[3].trim() ? { i, done: m[2] !== " ", text: m[3], line } : null; }).filter(Boolean); };
-  const pickTask = (q, wantDone) => { const l = taskList().filter(t => t.done === wantDone); if (/^\d+$/.test(q)) { const open = taskList().filter(t => t.done === wantDone); return [open[+q - 1]].filter(Boolean); } const low = q.toLowerCase(); return l.filter(t => t.text.toLowerCase().includes(low)); };
-  const rewrite = (idx, newLine) => { const api = tasksApi(), ls = api.text().split("\n"), old = api.text(); ls[idx] = newLine; api.set(ls.join("\n")); return old; };
   def("cal", "tasks todo todos", "tasks   |   tasks complete <number | all>", "your open calendar tasks for yesterday and today, numbered; \"tasks complete\" ticks them off", async a => { if (/^(complete|done)\b/i.test((a || "").trim())) return call("completetasks", a.trim().replace(/^\w+\s*/, "")); await call("opentasks", ""); });
-  def("tasks", "finish check tick", "finish <number | words>", "tick a Stickynote task done (numbers are from the tasks list)", async a => {
-    if (!a.trim()) U("usage: finish 2   ·   finish buy shoes"); const hit = pickTask(a.trim(), false); if (!hit.length) U(`no open task matches "${a.trim()}".`);
-    const go = async t => { const prev = rewrite(t.i, t.line.replace(/\[ \]/, "[x]")); undos.push({ label: `finish ${t.text}`, fn: () => tasksApi().set(prev) }); await print(`✓ done: ${t.text}`); };
-    if (hit.length > 1 && !/^\d+$/.test(a.trim())) return choose(`"${a.trim()}" matches more than one task:`, hit.slice(0, 5).map(t => ({ label: t.text, value: t })), o => go(o.value)); await go(hit[0]);
-  });
-  def("tasks", "uncheck reopen", "uncheck <words>", "turn a finished task back into an open one", async a => { if (!a.trim()) U("usage: uncheck buy shoes"); const hit = pickTask(a.trim(), true); if (!hit.length) U(`no finished task matches "${a.trim()}".`); const t = hit[0], prev = rewrite(t.i, t.line.replace(/\[[xX]\]/, "[ ]")); undos.push({ label: `reopen ${t.text}`, fn: () => tasksApi().set(prev) }); await print(`✓ reopened: ${t.text}`); });
-  def("tasks", "deltask", "deltask <number | words>", "delete an open task (asks first)", async a => { if (!a.trim()) U("usage: deltask 3"); const hit = pickTask(a.trim(), false); if (!hit.length) U(`no open task matches "${a.trim()}".`); const t = hit[0]; return ask(`delete the task "${t.text}"? (y/n)`, async () => { const api = tasksApi(), prev = api.text(), ls = prev.split("\n"); ls.splice(t.i, 1); api.set(ls.join("\n")); undos.push({ label: `deleted task ${t.text}`, fn: () => api.set(prev) }); await print("✓ task deleted"); }); });
-  def("tasks", "cleardone", "cleardone", "remove every ticked task from Stickynote (asks first)", async () => { const done = taskList().filter(t => t.done); if (!done.length) return dim("no finished tasks to clear."); return ask(`remove ${done.length} finished task${done.length > 1 ? "s" : ""}? (y/n)`, async () => { const api = tasksApi(), prev = api.text(), ix = new Set(done.map(t => t.i)); api.set(prev.split("\n").filter((_, i) => !ix.has(i)).join("\n")); undos.push({ label: "cleared finished tasks", fn: () => api.set(prev) }); await print(`✓ ${done.length} cleared`); }); });
-  def("tasks", "notes", "notes [n]", "the last n lines of Stickynote that are not tasks (default 10)", async a => { const ls = tasksApi().text().split("\n").filter(l => l.trim() && !TASK.test(l)).slice(-parseN(a.split(/\s+/), 10)); await print(ls.length ? ls.map(l => "  " + l) : "no notes yet. note <text> adds one.", "tm-dim"); });
-  def("tasks", "grep", "grep <words>", "search every line of Stickynote", async a => { if (!a.trim()) U("usage: grep shoes"); const q = a.trim().toLowerCase(), ls = tasksApi().text().split("\n").filter(l => l.toLowerCase().includes(q)); await print(ls.length ? ls.slice(0, 20).map(l => "  " + l.trim()) : `nothing in Stickynote matches "${a.trim()}".`, "tm-dim"); });
 
   /* ================= TIMERS ================= */
   def("timer", "left remaining", "left", "time left in the focus session", async () => { const tm = A.timer; if (!tm || !tm.status || tm.status.mode === "idle") return dim("no focus session is running."); const s = tm.status, left = s.allot - s.elapsed; await print(`${s.mode === "work" ? "focus" : "break"}: ${left >= 0 ? secT(left) + " left" : secT(-left) + " over"}${s.paused ? " (paused)" : ""}`); });
@@ -454,7 +439,6 @@ export function buildLibrary(c) {
     try { const cal = A.cal, ev = cal ? cal.events().filter(e => !e.allDay && !e.done && e.e > now).sort((x, y) => x.s - y.s)[0] : null;
       if (ev) { const mins = Math.round((ev.s - now) / 6e4); out.push(`  Next     ${ev.title}, ${ev.s <= now ? "on now" : mins < 60 ? `in ${mins} min` : mins < 1440 ? `in ${Math.floor(mins / 60)} h ${mins % 60} min` : fmtDay(ev.s)} (${hhmm(ev.s)}–${hhmm(ev.e)})`); } else out.push("  Next     nothing coming up in the loaded calendar"); } catch {}
     try { const g = A.gym && A.gym(), todays = g ? g.entries.filter(e => e.date === ymd(now)) : []; out.push(todays.length ? `  Gym      ${todays.reduce((s, e) => s + (e.sets || 1), 0)} set${todays.reduce((s, e) => s + (e.sets || 1), 0) === 1 ? "" : "s"} logged today` : `  Gym      nothing logged yet today${ctx && ctx.plan.today !== "Run" ? ` (${ctx.plan.today})` : ""}`); } catch {}
-    try { if (A.tasks && A.tasks.text) { const open = taskList().filter(t => !t.done).length; out.push(`  Tasks    ${open ? `${open} open` : "none open"}`); } } catch {}
     try { const w = loadWeights(), lw = w[w.length - 1]; if (lw) { const ago = Math.round((midnight(now) - midnight(new Date(lw.date + "T12:00"))) / 864e5); out.push(`  Weight   ${n3(lw.kg)} kg${ago ? `, ${ago} day${ago > 1 ? "s" : ""} ago` : ", logged today"}`); if (ago >= 3) tryRows.push("weight 70.4 logs today's"); } else tryRows.push("weight 70.4 logs your first weigh-in"); } catch {}
     if (hr < 12) tryRows.unshift("today", "routine"); else if (hr < 18) tryRows.unshift("free", "block 2h study"); else tryRows.unshift("bedtime", "agenda");
     out.push("", `try: ${[...new Set(tryRows)].slice(0, 4).join("  ·  ")}`, "or just say it: how did I sleep · what's next · help");
@@ -462,7 +446,7 @@ export function buildLibrary(c) {
   });
   def("sys", "commands", "commands", "every command name on one screen", async () => { const by = {}; meta.forEach(m => (by[m.cat] ||= []).push(m.n)); await print(Object.entries(by).map(([k, v]) => `${(GROUPS[k] || k).padEnd(18)} ${v.sort().join(" ")}`), "tm-dim"); });
 
-  addMore({ def, print, dim, ask, askInput, choose, err, undos, parseWhen, fmtDay, hhmm, midnight, addDaysD, call, history, H, series, MET, metric, calApi, tasksApi, gymApi, taskList, pickTask, rewrite, TASK, lastKg, loadWeights,
+  addMore({ def, print, dim, ask, askInput, choose, err, undos, parseWhen, fmtDay, hhmm, midnight, addDaysD, call, history, H, series, MET, metric, calApi, gymApi, lastKg, loadWeights,
     pad, hmm, num, nn, mean, sdev, trim, thou, chart, link, dotHBars, timers, clk, rd, html, U, esc, ymd, addDays, n3, nums, relDays, longDay, copyText, beep, rankExercises, debtNow, ZONES, zoneOf });
   return { cmds: L, meta };
 }

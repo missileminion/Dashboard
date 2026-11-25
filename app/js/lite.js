@@ -281,7 +281,7 @@ async function refreshWeb(interactive) {
   if (!signedOut) { try { await sync(t => { busyText = t.replace(/^daily-/, "").split("-")[0]; pill(); }); healthPush().catch(e => console.warn("health push", e)); } catch (e) { if (e.auth) signedOut = true; } }
   busy = false; try { await load(); } catch (e) { console.error(e); } pill();
 }
-async function fullSync(force = false) {   // everything the phone shares with the web: health, gym, tasks, calendar, notes
+async function fullSync(force = false) {   // everything the phone shares with the web: health, gym, calendar, notes
   const healthP = isNative ? hcRefresh(force) : hasToken() ? refreshWeb(false) : load();
   await Promise.allSettled([healthP, gym.pull(), agenda.load(force), notes.refresh(), settings.check()]);
   if (cur === "today" || cur === "plan") paint(); pill();

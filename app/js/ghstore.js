@@ -9,7 +9,7 @@ export const gh = {
   set(repo, token) { try { localStorage.setItem(R, repo.trim()); localStorage.setItem(T, token.trim()); } catch {} },
   clear() { try { localStorage.removeItem(R); localStorage.removeItem(T); } catch {} },
 };
-const seen = r => { syncwarn.seen("gh", "The gym log, journal and sticky note", "gym", r.status, r.headers.get(EXPIRY_HEADER)); return r; };
+const seen = r => { syncwarn.seen("gh", "The gym log, journal and health data", "gym", r.status, r.headers.get(EXPIRY_HEADER)); return r; };
 const err = (status, msg) => Object.assign(new Error(msg || "HTTP " + status), { status });
 const hdr = () => ({ Authorization: `Bearer ${gh.token}`, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" });
 const b64 = s => btoa(unescape(encodeURIComponent(s))), unb64 = s => decodeURIComponent(escape(atob(s.replace(/\n/g, ""))));
@@ -29,7 +29,7 @@ export async function ghRead(path, again = false) {   // {text, sha} or null whe
   const j = await r.json(); return { text: unb64(j.content), sha: j.sha };
 }
 // Writes go one at a time: GitHub refuses (409, sometimes 500) two commits to the same repo at the same moment, and on start-up
-// the gym log, the sticky note and the health cache all want to save at once. A server error (5xx) is retried twice before it counts.
+// the gym log, the journal and the health cache all want to save at once. A server error (5xx) is retried twice before it counts.
 let queue = Promise.resolve();
 const wait = ms => new Promise(r => setTimeout(r, ms));
 export function ghWrite(path, text, sha, message) {   // returns the new sha; throws status 409 or 422 when the file changed underneath us

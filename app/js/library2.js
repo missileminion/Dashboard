@@ -5,7 +5,7 @@ import { gh, ghRead, ghWrite, ghMessage } from "./ghstore.js";
 import { loadProfile, saveProfile, targets, adjustAdvice, findFood, usdaFood, gramsFor, macrosOf, bmr, tdee } from "./macros.js";
 
 export function addMore(X) {
-  const { def, print, dim, ask, askInput, choose, err, undos, parseWhen, fmtDay, hhmm, midnight, addDaysD, call, history, H, series, MET, metric, calApi, tasksApi, gymApi, taskList, pickTask, rewrite, TASK, lastKg, loadWeights,
+  const { def, print, dim, ask, askInput, choose, err, undos, parseWhen, fmtDay, hhmm, midnight, addDaysD, call, history, H, series, MET, metric, calApi, gymApi, lastKg, loadWeights,
     pad, hmm, num, nn, mean, sdev, trim, thou, chart, link, dotHBars, timers, clk, rd, html, U, esc, ymd, addDays, n3, nums, relDays, longDay, copyText, beep, rankExercises, debtNow, zoneOf } = X;
   const minOf = d => d.getHours() * 60 + d.getMinutes(), at = (day, m) => { const d = new Date(midnight(day)); d.setMinutes(m); return d; };
   const evLine = e => `${e.allDay ? "all day" : `${hhmm(e.s)}–${hhmm(e.e)}`}  ${e.title}`;
@@ -144,20 +144,6 @@ export function addMore(X) {
     const e = timed(), by = {}; e.forEach(x => { const k = +midnight(x.s); by[k] = (by[k] || 0) + (x.e - x.s) / 36e5; }); const ks = Object.keys(by).sort(), mx = Math.max(1, ...Object.values(by));
     const lab = k => new Date(+k).toLocaleDateString("en-US", { weekday: "short", day: "numeric"});
     await print(ks.length ? [chart(dotHBars(ks.map(k => ({ label: lab(k), value: by[k], text: `${trim(by[k], 1)} h` })), { max: mx }), ks.map(k => `${lab(k)} ${trim(by[k], 1)} h`).join("\n")), `total ${trim(Object.values(by).reduce((s, v) => s + v, 0), 1)} h`, link("cal", "Open Calendar")] : "no events in view", "tm-dim");
-  });
-
-  /* ================= STICKYNOTE: edit tasks ================= */
-  def("tasks", "edittask retask", "edittask <number> <new text>", "change the words of an open task", async a => {
-    const m = a.trim().match(/^(\d+)\s+(.+)$/); if (!m) U("usage: edittask 2 call the dentist"); const t = pickTask(m[1], false)[0]; if (!t) U(`there is no open task ${m[1]}. tasks lists them.`);
-    const old = rewrite(t.i, t.line.replace(TASK, (_, sp, mk) => `${sp}- [${mk}] ${m[2].trim()}`)); undos.push({ label: "edit task", fn: () => tasksApi().set(old) }); await print(`✓ task ${m[1]}: ${m[2].trim()}`);
-  });
-  def("tasks", "prioritize top", "prioritize <number | words>", "move an open task to the top of the list", async a => {
-    if (!a.trim()) U("usage: prioritize 4"); const t = pickTask(a.trim(), false)[0]; if (!t) U("no open task matches."); const api = tasksApi(), old = api.text(), ls = old.split("\n"), first = ls.findIndex(l => TASK.test(l) && l.match(TASK)[2] === " ");
-    const [line] = ls.splice(t.i, 1); ls.splice(Math.min(first, t.i), 0, line); api.set(ls.join("\n")); undos.push({ label: "prioritize", fn: () => api.set(old) }); await print(`✓ moved to the top: ${t.text}`);
-  });
-  def("tasks", "addtasks batch", "addtasks milk; eggs; bread", "add several tasks at once, separated by semicolons", async a => {
-    const items = a.split(/;|\n/).map(s => s.trim()).filter(Boolean); if (!items.length) U("usage: addtasks milk; eggs; bread"); const api = tasksApi(), lines = items.map(t => api.append(`- [ ] ${t}`));
-    undos.push({ label: `${items.length} tasks`, fn: () => lines.forEach(l => api.removeLine(l)) }); await print(`✓ added ${items.length} task${items.length > 1 ? "s" : ""}`);
   });
 
   /* ================= HEALTH: reviews ================= */

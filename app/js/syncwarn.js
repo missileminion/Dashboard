@@ -1,4 +1,4 @@
-// One shared warning for everything that syncs through a GitHub token (notes, gym log, journal, stickynote).
+// One shared warning for everything that syncs through a GitHub token (notes, gym log, journal, health data).
 // A bar appears at the top of every tab when GitHub stops accepting the token, and a few days before a token expires.
 const items = new Map(), DAYS = 7; let bar = null;
 const dismissed = new Set(); try { JSON.parse(sessionStorage.getItem("sw.off") || "[]").forEach(k => dismissed.add(k)); } catch {}

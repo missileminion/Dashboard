@@ -1,6 +1,6 @@
 // Gym log: the weight-wheel set logger (ported from the standalone Gym Log page) inside the dashboard.
 // Entries are {id, date, day, exercise, weight (lb), reps, sets}. They are saved to gym-log.json on disk through /api/gymlog,
-// with a copy kept in the browser as a backup, exactly like the Stickynote. Every change fires "gymlog:change" so the Gym cards can update.
+// with a copy kept in the browser as a backup, Every change fires "gymlog:change" so the Gym cards can update.
 import { esc, HOSTED } from "./util.js";
 import { gh, ghCheck, ghRead, ghWrite, ghMessage } from "./ghstore.js";
 

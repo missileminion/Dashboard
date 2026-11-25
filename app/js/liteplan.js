@@ -1,55 +1,11 @@
-// Plan: the calendar's next 7 days (through the Apps Script bridge, read-only here) and the Stickynote tasks.
-// The Stickynote is the same file as the web Productivity tab (stickynote.md in the data repo, mirrored in stickynote.mirror/base/sha),
-// with the same rule when both devices changed it: nothing is lost, the other device's text goes below a dividing line.
-import { gh, ghRead, ghWrite, ghMessage } from "./ghstore.js";
+// Plan: the calendar's next 7 days (through the Apps Script bridge) as the day path and the chosen day's events.
 import * as cal from "./calbridge.js";
 import { addDays, ymd, esc } from "./util.js";
 import { pathHTML, wirePath } from "./litepath.js";
 
-const KEY = "stickynote.mirror", BASE = "stickynote.base", SHA = "stickynote.sha", GHPATH = "stickynote.md", OTHER = "\n\n--- from your other device ---\n";
-const TASK = /^(\s*(?:[-*+]|\d+[.)])\s?)\[( |x|X)\] ?(.*)$/;   // "- [ ]", also "* [ ]", "+ [ ]" and "1. [ ]"
 const ls = { get: k => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch {} } };
-const DEMO_NOTE = "## This week\n- [ ] Thermo problem set 6\n- [ ] Email lab partner about CAD files\n- [x] Book dentist\n- [ ] Print poster draft\n\n## Later\n- [ ] Renew bike lock\nRemember: library closes at 22:00 on Fridays";
 const dayName = d => d === ymd(new Date()) ? "Today" : d === addDays(ymd(new Date()), 1) ? "Tomorrow" : new Date(d + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "short" });
 const hhmm = d => `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-
-// ---- the Stickynote, shared by Plan and Today ----
-export const sticky = {
-  demo: false, text: "", sha: null, busy: false, again: false, listeners: new Set(), status: "",
-  init(demo) { this.demo = demo; this.text = demo ? DEMO_NOTE : ls.get(KEY) ?? ""; this.sha = ls.get(SHA); },
-  on(fn) { this.listeners.add(fn); }, emit() { this.listeners.forEach(f => f()); },
-  tasks() { return this.text.split("\n").map((l, i) => { const m = l.match(TASK); return m ? { i, done: m[2] !== " ", text: m[3] } : null; }).filter(Boolean); },
-  set(text) { this.text = text; if (!this.demo) ls.set(KEY, text); this.emit(); clearTimeout(this.t); this.t = setTimeout(() => this.push(), 900); },
-  toggle(i) {   // a plain line becomes a ticked task, so anything in the note can be checked off
-    const ls_ = this.text.split("\n"), l = ls_[i]; if (l == null) return; const m = l.match(TASK);
-    ls_[i] = m ? `${m[1]}[${m[2] === " " ? "x" : " "}] ${m[3]}` : `${l.match(/^\s*/)[0]}- [x] ${l.trim().replace(/^[-*+]\s+/, "")}`; this.set(ls_.join("\n"));
-  },
-  edit(i, t) { const ls_ = this.text.split("\n"), l = ls_[i]; if (l == null) return; const m = l.match(TASK); if (!t.trim()) ls_.splice(i, 1); else ls_[i] = m ? `${m[1]}[${m[2]}] ${t.trim()}` : `${l.match(/^\s*(?:[-*+]\s+)?/)[0]}${t.trim()}`; this.set(ls_.join("\n")); },
-  add(t) { if (!t.trim()) return; const lines = this.text ? this.text.split("\n") : [], first = lines.findIndex(l => TASK.test(l)); if (first < 0) lines.push(`- [ ] ${t.trim()}`); else lines.splice(first, 0, `- [ ] ${t.trim()}`); this.set(lines.join("\n")); },
-  async pull() {
-    if (this.demo || !gh.on) return;
-    try {
-      const rem = await ghRead(GHPATH); if (!rem) return this.push();
-      const base = ls.get(BASE) ?? "", mine = this.text;
-      this.sha = rem.sha; ls.set(SHA, rem.sha);
-      if (this.status) { this.status = ""; this.emit(); }   // GitHub answered: clear an old error
-      if (rem.text === mine) { ls.set(BASE, mine); return; }
-      if (mine === base || !mine.trim()) { this.text = rem.text; ls.set(KEY, rem.text); ls.set(BASE, rem.text); this.emit(); return; }   // only the other device changed it
-      if (rem.text === base) return this.push();   // only this phone changed it
-      this.text = mine + OTHER + rem.text; ls.set(KEY, this.text); this.emit(); this.push();   // both changed: keep both
-    } catch (e) { this.status = ghMessage(e); this.emit(); }
-  },
-  async push() {
-    if (this.demo || !gh.on) return; if (this.busy) { this.again = true; return; } this.busy = true;
-    try {
-      for (let k = 0; k < 2; k++) {
-        try { const t = this.text; this.sha = await ghWrite(GHPATH, t, this.sha, "Update stickynote"); ls.set(SHA, this.sha); ls.set(BASE, t); if (this.status) { this.status = ""; this.emit(); } break; }
-        catch (e) { if ((e.status !== 409 && e.status !== 422) || k) throw e; this.busy = false; await this.pull(); this.busy = true; }
-      }
-    } catch (e) { this.status = ghMessage(e); this.emit(); if (e.status >= 500 || e.status === 0) { clearTimeout(this.rt); this.rt = setTimeout(() => this.push(), 60e3); } }
-    this.busy = false; if (this.again) { this.again = false; this.push(); }
-  },
-};
 
 // ---- calendar: next 7 days, cached so the tab paints at once ----
 export const agenda = {
@@ -64,12 +20,6 @@ export const agenda = {
   on(d) { const a = new Date(d + "T00:00:00"), b = new Date(addDays(d, 1) + "T00:00:00"); return (this.events || []).filter(e => e.s < b && e.e > a).sort((x, y) => (y.allDay - x.allDay) || x.s - y.s); },
 };
 export const evRow = (e, now = new Date()) => `<div class="ev ${e.e < now ? "past" : ""}${e.done ? " done" : ""}${e.pri ? " p" + e.pri : ""}"><span class="t">${e.allDay ? "all day" : `${hhmm(e.s)}<small>${hhmm(e.e)}</small>`}</span><i></i><span><b>${e.pri ? `<em>${"!".repeat(e.pri)}</em> ` : ""}${esc(e.title || "(no title)")}</b>${e.location ? `<small>${esc(e.location)}</small>` : ""}</span></div>`;
-
-export function taskRows(list, { limit = 0 } = {}) {
-  const out = []; let n = 0;
-  for (const t of list) { if (limit && n >= limit) break; out.push(`<div class="task ${t.done ? "done" : ""}"><button class="box" type="button" data-tog="${t.i}" aria-label="${t.done ? "Mark not done" : "Mark done"}"></button><span class="tx" data-edit="${t.i}">${esc(t.text)}</span></div>`); n++; }
-  return out.join("");
-}
 
 // ---- the Plan tab: the day path, then the chosen day's events. Tap an event to open its editor in place (like the web's expanding day card);
 // the round check marks it done. Everything writes to Google Calendar through the bridge, with the same title rules as the web.
