@@ -124,9 +124,9 @@ export function buildReport(c) {
     const dn = d => new Date(d + "T12:00:00").toLocaleDateString("en-US", { weekday: "long" }), flags = [];
     for (const n of wx.next) {
       const w = [];
-      if (n.rainProb >= 60 && n.rainMm >= 5) w.push(`rain (${Math.round(n.rainMm)} mm)`);
+      if (n.rainMm >= 0.1) w.push(`rain (${n.rainMm < 1 ? "light" : Math.round(n.rainMm) + " mm"}, ${n.rainProb}% chance)`);   // any rain at all
       if (n.feelsMax != null && n.feelsMax >= 30) w.push(`heat, ${Math.round(n.feelsMax)}° feels-like`);
-      if (n.feelsMin != null && n.feelsMin <= 0) w.push(`freezing, ${Math.round(n.feelsMin)}° feels-like`);
+      if (n.feelsMin != null && n.feelsMin < 15) w.push(`cool, down to ${Math.round(n.feelsMin)}° feels-like`);
       if (n.wind != null && n.wind >= 40) w.push(`strong wind, ${Math.round(n.wind)} km/h`);
       const swing = n.high - wx.highToday; if (Math.abs(swing) >= 8) w.push(`${Math.abs(Math.round(swing))}° ${swing > 0 ? "warmer" : "colder"} than today`);
       if (w.length) flags.push(`${dn(n.date)}: ${list(w)}`);
