@@ -43,9 +43,9 @@ export function buildReport(c) {
   const logDays = {}; gymEntries.forEach(e => { (logDays[e.date] ||= {})[e.day] = (logDays[e.date][e.day] || 0) + 1; });
   const lastLogDate = Object.keys(logDays).filter(d => d <= today).sort().at(-1), lastSplit = lastLogDate ? Object.entries(logDays[lastLogDate]).sort((a, b) => b[1] - a[1])[0][0] : null;
   const planned = A.plannedFor(today), plannedRun = planned === "Run", nextSplit = SPLIT.includes(planned) ? planned : null;   // your fixed weekly plan, not a guess from the log
-  const gymToday = (T.workouts || []).some(A.isGym) || A.gymLog.days.has(today), runToday = (T.workouts || []).some(w => /RUN/i.test(w.type || ""));
+  const gymToday = A.gymLog.days.has(today), runToday = (T.workouts || []).some(w => /RUN/i.test(w.type || ""));
   const trainedToday = gymToday || runToday;
-  const lastGymBand = allWork.filter(w => A.isGym(w)).map(w => w.date).sort().at(-1), lastGymDate = [lastLogDate, lastGymBand].filter(Boolean).sort().at(-1);
+  const lastGymBand = allWork.filter(w => A.isGym(w)).map(w => w.date).sort().at(-1), lastGymDate = lastLogDate;
   const daysSinceGym = lastGymDate ? Math.round((new Date(today) - new Date(lastGymDate)) / 864e5) : null;
   const lastRunDate = allWork.filter(w => /RUN/i.test(w.type || "")).map(w => w.date).sort().at(-1), daysSinceRun = lastRunDate ? Math.round((new Date(today) - new Date(lastRunDate)) / 864e5) : null;
   const phase = hourNow < 11 ? "morning" : hourNow < 17 ? "day" : hourNow < 21 ? "evening" : "night";

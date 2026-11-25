@@ -225,7 +225,7 @@ export const isGym = w => GYM_TYPES.includes(w.type) && (w.seconds || 0) >= 20 *
 export const gymTracking = { start: "2026-10-15" };
 export function gymDaysInWindow(byDate, endDate, n, addDays) {
   const first = addDays(endDate, -(n - 1)); if (first < gymTracking.start) return null;
-  let c = 0; for (let i = 0; i < n; i++) { const d = addDays(first, i); if ((byDate[d]?.workouts || []).some(isGym) || gymLog.days.has(d)) c++; } return c;
+  let c = 0; for (let i = 0; i < n; i++) { const d = addDays(first, i); if (gymLog.days.has(d)) c++; } return c;
 }
 export function gymDaysInWeek(byDate, mondayStr, addDays) { return gymDaysInWindow(byDate, addDays(mondayStr, 6), 7, addDays); }
 

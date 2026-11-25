@@ -23,7 +23,7 @@ export const PROGRAM = {
     ["Low-to-high cable fly", "2 × 12–15"], ["Cable triceps pushdown", "3 × 10–12"]],
 };
 export const e1rm = (w, r) => (r <= 1 ? w : w * (1 + r / 30));   // Epley estimate of a one-rep max
-const MAX_W = 600, ITEM = 64, pad = n => String(n).padStart(2, "0"), fmt = n => (Number.isInteger(n) ? n : n.toFixed(1));
+const MAX_W = 600, ITEM = 64, pad = n => String(n).padStart(2, "0"), fmt = n => String(+n.toFixed(2)), KG = 0.45359237, WEEK = ["Pull", "Legs", "Push", null, "Pull", "Legs", "Push"];   // WEEK is indexed by Date.getDay() (Sun..Sat): Sun pull, Mon legs, Tue push, Wed rest, Thu pull, Fri legs, Sat push
 const nowDate = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
 const toLocal = s => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
 const prettyDate = s => toLocal(s).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", year: "numeric" });
@@ -32,9 +32,13 @@ const cmpDesc = (a, b) => b.date.localeCompare(a.date) || b.id - a.id;
 const buzz = ms => { try { navigator.vibrate && navigator.vibrate(ms); } catch {} };
 
 export function initGymLog(root, { demo = false } = {}) {
-  let entries = [], deleted = new Set(), ghSha = null, step = 5, weight = 45, filter = "All", lastIdx = -1, lastBuzz = 0, curDay = Object.keys(PROGRAM)[0];
+  let entries = [], deleted = new Set(), ghSha = null, step = 0.25, unit = "lb", weight = 45, filter = "All", lastIdx = -1, lastBuzz = 0, curDay = Object.keys(PROGRAM)[0];
   let dirty = false, inflight = false, again = false, timer = null, filePath = "", status = "Loading…", statusBad = false;
-  try { const d = localStorage.getItem("gymlog.day"); if (d && PROGRAM[d]) curDay = d; } catch {}
+  try { const d = localStorage.getItem("gymlog.day"); if (d && PROGRAM[d]) curDay = d; const u = localStorage.getItem("gymlog.unit"); if (u === "kg" || u === "lb") unit = u; } catch {}
+  // weights are always stored in pounds; the wheel and the lists show the chosen unit, and kg is converted on save
+  const toDisp = lb => (unit === "kg" ? lb * KG : lb), toLb = v => (unit === "kg" ? Math.round(v / KG * 100) / 100 : v), show = lb => fmt(toDisp(lb));
+  const dayFor = date => { const n = WEEK[toLocal(date).getDay()]; return (n && Object.keys(PROGRAM).find(k => k.split(" (")[0] === n)) || null; };   // null on the rest day
+  { const a = dayFor(nowDate()); if (a) curDay = a; }
 
   root.innerHTML = `
   <div class="gl-grid">
@@ -43,8 +47,8 @@ export function initGymLog(root, { demo = false } = {}) {
       <div class="gl-days" id="glDays"></div>
       <div class="gl-selwrap"><select id="glEx" aria-label="Exercise"></select></div>
       <div class="gl-info"><span id="glTarget"></span><span id="glLast"></span></div>
-      <div class="gl-wheelbox"><div class="gl-wheel" id="glWheel" aria-label="Weight in pounds"></div></div>
-      <div class="gl-under"><span class="gl-seglabel">Step</span><div class="gl-seg" id="glStep"><button data-s="2.5" type="button">2.5</button><button data-s="5" type="button" class="on">5</button><button data-s="10" type="button">10</button></div></div>
+      <div class="gl-wheelbox"><div class="gl-wheel" id="glWheel" aria-label="Weight"></div></div>
+      <div class="gl-under"><span class="gl-seglabel">Unit</span><div class="gl-seg" id="glUnit"><button data-u="lb" type="button">lb</button><button data-u="kg" type="button">kg</button></div><span class="gl-seglabel" style="margin-left:10px">Step</span><div class="gl-seg" id="glStep"><button data-s="0.25" type="button" class="on">.25</button><button data-s="1" type="button">1</button><button data-s="5" type="button">5</button></div></div>
       <div class="gl-row">
         <div><label class="gl-l">Reps</label><div class="gl-stepper"><button type="button" data-t="glReps" data-d="-1" aria-label="Fewer reps">−</button><input id="glReps" type="number" inputmode="numeric" min="0" value="8"><button type="button" data-t="glReps" data-d="1" aria-label="More reps">+</button></div></div>
         <div><label class="gl-l">Sets</label><div class="gl-stepper"><button type="button" data-t="glSets" data-d="-1" aria-label="Fewer sets">−</button><input id="glSets" type="number" inputmode="numeric" min="1" value="3"><button type="button" data-t="glSets" data-d="1" aria-label="More sets">+</button></div></div>
@@ -160,15 +164,15 @@ export function initGymLog(root, { demo = false } = {}) {
     const ex = PROGRAM[curDay].find(e => e[0] === exSel.value);
     $$("glTarget").textContent = ex ? "Target " + ex[1] : "";
     const last = entries.filter(e => e.exercise === exSel.value).sort(cmpDesc)[0];
-    $$("glLast").textContent = last ? `Last ${fmt(last.weight)} × ${last.reps}, ${shortDate(last.date)}` : "No previous log";
-    if (last) setWheel(last.weight);
+    $$("glLast").textContent = last ? `Last ${show(last.weight)} ${unit} × ${last.reps}, ${shortDate(last.date)}` : "No previous log";
+    if (last) setWheel(toDisp(last.weight));
   }
   exSel.onchange = onExercise;
 
   /* ---------- weight wheel ---------- */
   function buildWheel() {
     const frag = document.createDocumentFragment();
-    for (let v = 0; v <= MAX_W + 1e-9; v += step) { const d = document.createElement("div"), sp = document.createElement("span"); sp.textContent = fmt(v); d.appendChild(sp); d.dataset.v = v; frag.appendChild(d); }
+    for (let v = 0; v <= toDisp(MAX_W) + 1e-9; v += step) { const d = document.createElement("div"), sp = document.createElement("span"); sp.textContent = fmt(v); d.appendChild(sp); d.dataset.v = v; frag.appendChild(d); }
     wheel.innerHTML = ""; wheel.appendChild(frag);
   }
   wheel.addEventListener("click", e => { const d = e.target.closest("div[data-v]"); if (d) wheel.scrollTo({ top: Math.round(parseFloat(d.dataset.v) / step) * ITEM, behavior: "smooth" }); });
@@ -185,6 +189,9 @@ export function initGymLog(root, { demo = false } = {}) {
   }
   wheel.addEventListener("scroll", () => requestAnimationFrame(() => markSel()), { passive: true });
   let wasHidden = true; new ResizeObserver(() => { const hidden = !wheel.clientHeight; if (wasHidden && !hidden) setWheel(weight); wasHidden = hidden; }).observe(wheel);   // the tab starts hidden, where scroll positions can't be set
+  const markUnit = () => [...$$("glUnit").children].forEach(x => x.classList.toggle("on", x.dataset.u === unit));
+  $$("glUnit").onclick = e => { const b = e.target.closest("button"); if (!b || b.dataset.u === unit) return; const lb = toLb(weight); unit = b.dataset.u; try { localStorage.setItem("gymlog.unit", unit); } catch {} markUnit(); setWheel(toDisp(lb)); render(); onExercise(); buzz(8); };
+  markUnit();
   $$("glStep").onclick = e => { const b = e.target.closest("button"); if (!b) return; [...$$("glStep").children].forEach(x => x.classList.toggle("on", x === b)); const cur = weight; step = parseFloat(b.dataset.s); setWheel(cur); buzz(8); };
   root.querySelectorAll(".gl-stepper button").forEach(b => (b.onclick = () => { const i = $$(b.dataset.t), min = i.id === "glSets" ? 1 : 0; i.value = Math.max(min, (parseInt(i.value) || 0) + parseInt(b.dataset.d)); buzz(5); }));
 
@@ -194,8 +201,8 @@ export function initGymLog(root, { demo = false } = {}) {
   /* ---------- save + history ---------- */
   $$("glSave").onclick = () => {
     if (!$$("glDate").value) { $$("glDate").value = nowDate(); showDate(); }
-    entries.push({ id: Date.now(), date: $$("glDate").value, day: curDay, exercise: exSel.value, weight, reps: parseInt($$("glReps").value) || 0, sets: parseInt($$("glSets").value) || 1 });
-    changed(); render(); $$("glLast").textContent = `Last ${fmt(weight)} × ${$$("glReps").value}, ${shortDate($$("glDate").value)}`;
+    entries.push({ id: Date.now(), date: $$("glDate").value, day: curDay, exercise: exSel.value, weight: toLb(weight), reps: parseInt($$("glReps").value) || 0, sets: parseInt($$("glSets").value) || 1 });
+    changed(); render(); $$("glLast").textContent = `Last ${fmt(weight)} ${unit} × ${$$("glReps").value}, ${shortDate($$("glDate").value)}`;
     const b = $$("glSave"); b.textContent = "Logged ✓"; setTimeout(() => (b.textContent = "Log set"), 1100); buzz([20, 40, 20]);
   };
   function render() {
@@ -204,14 +211,14 @@ export function initGymLog(root, { demo = false } = {}) {
     const list = entries.filter(e => filter === "All" || e.day === filter).sort(cmpDesc), box = $$("glLog"); box.innerHTML = "";
     if (!list.length) { box.innerHTML = '<div class="basis" style="padding:var(--s5) 0">Nothing logged yet. Pick a weight and tap Log set.</div>'; return; }
     const prev = {}, delta = {};
-    [...entries].sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id).forEach(e => { if (prev[e.exercise] !== undefined) delta[e.id] = Math.round((e.weight - prev[e.exercise]) * 10) / 10; prev[e.exercise] = e.weight; });
+    [...entries].sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id).forEach(e => { if (prev[e.exercise] !== undefined) delta[e.id] = Math.round(toDisp(e.weight - prev[e.exercise]) * 100) / 100; prev[e.exercise] = e.weight; });
     let curDate = "", shown = 0;
     for (const e of list) {
       if (++shown > 120) break;
       if (e.date !== curDate) { curDate = e.date; box.insertAdjacentHTML("beforeend", `<div class="gl-datehead">${esc(prettyDate(e.date))}</div>`); }
       const dl = delta[e.id], dh = dl > 0 ? `<span class="gl-up">+${fmt(dl)}</span>` : dl < 0 ? `<span class="gl-down">−${fmt(Math.abs(dl))}</span>` : "";
       const row = document.createElement("div"); row.className = "gl-entry";
-      row.innerHTML = `<div class="gl-main"><div class="gl-ex">${esc(e.exercise)}</div><div class="basis">${esc(dayName(e.day || ""))}</div></div><div class="gl-w"><b class="num">${fmt(e.weight)}<span>lb</span></b><small class="num">${dh}${e.sets} × ${e.reps}</small></div><button class="gl-del" type="button" aria-label="Delete entry">×</button>`;
+      row.innerHTML = `<div class="gl-main"><div class="gl-ex">${esc(e.exercise)}</div><div class="basis">${esc(dayName(e.day || ""))}</div></div><div class="gl-w"><b class="num">${show(e.weight)}<span>${unit}</span></b><small class="num">${dh}${e.sets} × ${e.reps}</small></div><button class="gl-del" type="button" aria-label="Delete entry">×</button>`;
       row.querySelector(".gl-del").onclick = () => { { entries = entries.filter(x => x.id !== e.id); deleted.add(e.id); changed(); render(); onExercise(); } };
       box.appendChild(row);
     }
@@ -234,10 +241,10 @@ export function initGymLog(root, { demo = false } = {}) {
 
   /* ---------- init ---------- */
   $$("glDate").value = nowDate(); showDate();
-  $$("glDate").addEventListener("change", showDate);
+  $$("glDate").addEventListener("change", () => { showDate(); const a = dayFor($$("glDate").value); if (a && a !== curDay) { curDay = a; renderDays(); fillExercises(); } });   // the routine day follows the chosen date
   $$("glDate").addEventListener("click", () => { try { $$("glDate").showPicker(); } catch {} });
   setWheel(weight); renderDays(); fillExercises(); render();
-  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { $$("glDate").value = nowDate(); showDate(); } });
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { $$("glDate").value = nowDate(); showDate(); const a = dayFor(nowDate()); if (a && a !== curDay) { curDay = a; renderDays(); fillExercises(); } } });
 
   (async () => {
     let mirror = null, fromFile = null;
