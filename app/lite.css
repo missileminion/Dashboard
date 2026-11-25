@@ -249,6 +249,7 @@ button.row:active,a.row:active{background:var(--press)}
 .sheet h2{font-size:21px;margin:2px 4px 6px;font-weight:700;display:flex;align-items:center;gap:10px}
 .sheet h2 .back{font-size:26px;color:var(--tx2);width:32px}
 .sheet p.lead{color:var(--tx2);font-size:13.5px;margin:0 4px 16px}
+details.adv{margin:22px 0 0;border-top:1px solid var(--line2);padding-top:12px} details.adv>summary{color:var(--tx3);font-size:13px;cursor:pointer;padding:6px 4px;list-style:none} details.adv>summary::-webkit-details-marker{display:none} details.adv>summary::before{content:"▸ "} details.adv[open]>summary::before{content:"▾ "} details.adv p.lead{margin-top:8px}
 .sheet .list{background:var(--panel)}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--tx3);flex:none}
 .dot.ok{background:var(--good)} .dot.err{background:var(--bad)}

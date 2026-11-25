@@ -221,13 +221,15 @@ const health = {
   state() {
     if (DEMO) return { text: "Demo data", ok: true };
     if (isNative) return !hc ? { text: "Checking…", ok: null } : !hc.available ? { text: "Not installed", ok: false } : !hc.all ? { text: "Needs permission", ok: false } : { text: "Reading automatically", ok: true };
-    return !window.CONFIG?.CLIENT_ID ? { text: "Set up in full dashboard", ok: null } : signedOut ? { text: "Signed out", ok: false } : { text: "Signed in", ok: true };
+    return { text: gh.on ? "From the phone, via GitHub" : "Connect GitHub first", ok: gh.on ? true : null };
   },
   html() {
     if (isNative) return `<p class="lead">The band's data is read from Health Connect whenever the app opens, then shared with the web through GitHub. Only data written by ${esc(origins().join(", "))} is used.</p>
       ${!hc?.available ? `<button class="btn" type="button" data-hc="install">Get Health Connect</button>` : !hc.all ? `<button class="btn" type="button" data-hc="connect">Allow access</button>` :
         `<div class="btns"><button class="btn ghost" type="button" data-hc="sources">Check sources</button><button class="btn" type="button" data-hc="read">Read now</button></div>`}<div class="msg" id="hcMsg"></div>`;
-    return `<p class="lead">On the web, health data comes from the Google Health API, or from the phone app through GitHub.</p><button class="btn" type="button" data-hc="signin">${signedOut ? "Sign in with Google" : "Sync now"}</button>`;
+    return `<p class="lead">On the web, health data comes from the phone app through GitHub. Nothing to tap here.</p>
+      <details class="adv"><summary>Advanced: Google Health fallback</summary><p class="lead">Only for when Health Connect on the phone is not working. Google's numbers are calculated a little differently, and a Google sync can replace days the phone filled in.${window.CONFIG?.CLIENT_ID ? "" : " Set up the Google client ID in the full dashboard first."}</p>
+      ${window.CONFIG?.CLIENT_ID ? `<button class="btn ghost" type="button" data-hc="signin">${signedOut ? "Sign in with Google" : "Sync from Google now"}</button>` : ""}</details>`;
   },
   async act(a) {
     if (a === "install") return hcInstall();

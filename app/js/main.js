@@ -278,11 +278,11 @@ function banner(html, cls = "") { const b = $("banner"); b.hidden = !html; b.cla
 const needsId = () => !DEMO && (!window.CONFIG?.CLIENT_ID || /PASTE/i.test(CONFIG.CLIENT_ID));
 async function status(errors = []) {
   if (needsId()) {   // the published copy has no config.js: the client ID is entered once per device and kept in this browser
-    banner(`<span>Paste your Google OAuth client ID to connect Google Health (kept only in this browser, never sent anywhere but to Google).</span><input id="cidIn" placeholder="1234-abc.apps.googleusercontent.com" style="margin-left:auto;flex:1 1 220px;min-width:0;background:var(--raised);color:var(--tx);border:1px solid var(--line);border-radius:6px;padding:6px 10px"><button class="btn" id="cidSave">Save</button>`);
-    $("cidSave").onclick = () => { const v = $("cidIn").value.trim(); if (/\.apps\.googleusercontent\.com$/.test(v)) { try { localStorage.setItem("clientId", v); } catch {} location.reload(); } else $("cidIn").style.borderColor = "var(--worse)"; };
+    banner(""); const ab = document.querySelector("#advSync .advbody"); if (ab && !$("cidIn")) { $("refresh").hidden = true; ab.insertAdjacentHTML("beforeend", `<p class="basis">To use Google as a fallback, paste your OAuth client ID. It stays in this browser and is only sent to Google.</p><input id="cidIn" placeholder="1234-abc.apps.googleusercontent.com" style="width:100%;box-sizing:border-box;margin-bottom:8px;background:var(--surface);color:var(--tx);border:1px solid var(--line);border-radius:6px;padding:6px 10px"><button class="btn" id="cidSave">Save</button>`); }
+    if ($("cidSave")) $("cidSave").onclick = () => { const v = $("cidIn").value.trim(); if (/\.apps\.googleusercontent\.com$/.test(v)) { try { localStorage.setItem("clientId", v); } catch {} location.reload(); } else $("cidIn").style.borderColor = "var(--worse)"; };
     return;
   }
-  if (DEMO) { $("device").textContent = "Google Fitbit Air (demo)"; $("synced").textContent = "Demo data, not yours"; $("signin").hidden = true; $("refresh").hidden = true; $("demoTag").hidden = false; banner(""); return; }
+  if (DEMO) { $("device").textContent = "Google Fitbit Air (demo)"; $("synced").textContent = "Demo data, not yours"; $("signin").hidden = true; $("advSync").hidden = true; $("demoTag").hidden = false; banner(""); return; }
   const at = await getMeta("lastSyncedAt"), dev = await getMeta("device");
   if (dev) $("device").textContent = dev;
   const ago = at ? (Date.now() - at) / 60000 : null;
@@ -290,7 +290,7 @@ async function status(errors = []) {
   $("signin").hidden = true;   // the banner carries the Sign in button
   if (errors.length) banner(`<span>●</span><span>Some data failed to load: ${esc(errors.join("; "))}. Showing cached data.</span><button class="btn" style="margin-left:auto" id="bRetry">Retry</button>`, "err");
   else if (signedOut && !days.length) banner(`<i class="dot"></i><b>Connect Google Health</b><span class="sub">read-only</span><button class="btn go" id="bSign">Sign in</button>`, "signin");
-  else if (signedOut) banner(`<i class="dot"></i><b>Signed out</b><span class="sub">showing saved data</span><button class="btn go" id="bSign">Sign in</button>`, "signin");
+  else if (signedOut) banner("");   // saved data from the phone is the normal case now; Google sign-in lives under Advanced
   else if (ago != null && ago > 180) banner(`<span>▲</span><span>Last synced ${(ago / 60).toFixed(1)} h ago. The band syncs when the Google Health app is opened on your phone.</span>`, "warn");
   else banner("");
   $("bSign") && ($("bSign").onclick = () => refresh(true)); $("bRetry") && ($("bRetry").onclick = () => refresh(false));
@@ -318,6 +318,7 @@ async function refresh(interactive) {
   await status(errors);
 }
 
+if (window.Capacitor?.isNativePlatform?.()) $("advSync").hidden = true;   // Google sign-in cannot work inside the Android WebView
 $("signin").onclick = () => refresh(true);
 $("refresh").onclick = () => refresh(true);   // a click may open the sign-in window, so it asks properly
 $("prevN").onclick = () => { selNight = Math.max(0, selNight - 1); render(); };

@@ -161,7 +161,7 @@ window.bootDone=function(){var b=document.getElementById("boot");if(!b||b.datase
     <span class="demo hv" id="demoTag" hidden>DEMO DATA</span>
     <span class="meta hv"><span id="device">Fitbit</span> · <span class="num" id="synced">Not synced</span></span>
     <button class="btn hv" id="signin" hidden>Sign in</button>
-    <button class="btn hv" id="refresh">Refresh</button>
+    <details class="hv advsync" id="advSync"><summary>Advanced</summary><div class="advbody"><p class="basis">Health data comes from the phone app through GitHub. Use this only if Health Connect on the phone is not working. Google calculates a few numbers differently, and a Google sync can replace days the phone filled in.</p><button class="btn" id="refresh">Sync from Google</button></div></details>
   </div>
   <div id="banner" class="banner hv" hidden></div>
   <div id="fail" class="banner err hv" hidden></div>

@@ -965,3 +965,7 @@ body.lm .ag-card{background:rgba(255,255,255,.66)!important;border-color:rgba(20
 .hm-cat input{flex:1 1 120px;min-width:0;height:42px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--tx);padding:0 14px;font:15px var(--sans);outline:0} .hm-cat input:focus{border-color:#6db8ff}
 .hm-cat button{height:42px;padding:0 22px;border-radius:12px;border:0;background:var(--tx);color:#111;font:600 15px var(--sans);cursor:pointer}
 .hm-cx{margin-left:8px;border:0;background:none;color:inherit;opacity:.5;font:inherit;cursor:pointer} .hm-cx:hover{opacity:1;color:#e5594f}
+
+/* ---------- Advanced: the Google sync fallback, collapsed and out of the way ---------- */
+.advsync{position:relative;font-size:12.5px;color:var(--tx3)} .advsync>summary{cursor:pointer;list-style:none;padding:6px 8px;border-radius:8px} .advsync>summary::-webkit-details-marker{display:none} .advsync>summary:hover{color:var(--tx2)}
+.advsync .advbody{position:absolute;right:0;top:100%;z-index:30;width:min(300px,86vw);margin-top:6px;padding:12px;border-radius:12px;background:var(--raised);border:1px solid var(--line);box-shadow:0 12px 30px -12px rgba(0,0,0,.6)} .advsync .advbody p{margin:0 0 10px;color:var(--tx2)}

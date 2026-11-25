@@ -27,7 +27,7 @@ export function initSettings({ sheet, body, demo, native, health, onChange, toas
     const city = jget("weather.city"), cal = jget("cal.cfg"), h = health.state();
     if (page === "main") body.innerHTML = `${head("Connections", false)}<p class="lead">The phone and the web dashboard share data through these. Each is set up once.</p>
       <div class="list">
-        ${row("health", native ? "Health Connect" : "Google Health", h.text, h.ok)}
+        ${row("health", native ? "Health Connect" : "Health data", h.text, h.ok)}
         ${row("github", "Sync with web", gh.on ? gh.repo : "Not connected", status.gh)}
         ${row("notes", "Notes", notesCfg.remote ? notesCfg.repo : "Only on this phone", status.notes)}
         ${row("calendar", "Calendar", cal?.url ? "Connected" : "Not connected", status.cal)}
@@ -58,7 +58,7 @@ export function initSettings({ sheet, body, demo, native, health, onChange, toas
       <label class="field"><span>City</span><input id="wQ" type="search" placeholder="${esc(city?.label || "Search a city")}" autocomplete="off" spellcheck="false"></label>
       <div class="list" id="wRes" hidden></div>
       <div class="seg" id="wUnit" style="margin-top:4px">${["C", "F"].map(u => `<button type="button" data-u="${u}" class="${(jget("weather.unit") || "C") === u ? "on" : ""}">°${u}</button>`).join("")}</div>`;
-    if (page === "health") body.innerHTML = head(native ? "Health Connect" : "Google Health") + health.html();
+    if (page === "health") body.innerHTML = head(native ? "Health Connect" : "Health data") + health.html();
   }
   const msg = (t, bad = false) => { const m = body.querySelector("#sMsg"); if (m) { m.textContent = t; m.classList.toggle("bad", bad); } };
   const val = id => body.querySelector("#" + id)?.value.trim() || "";
