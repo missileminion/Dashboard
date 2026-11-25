@@ -28,7 +28,8 @@ export const sticky = {
       const rem = await ghRead(GHPATH); if (!rem) return this.push();
       const base = ls.get(BASE) ?? "", mine = this.text;
       this.sha = rem.sha; ls.set(SHA, rem.sha);
-      if (rem.text === mine) { ls.set(BASE, mine); this.status = ""; return; }
+      if (this.status) { this.status = ""; this.emit(); }   // GitHub answered: clear an old error
+      if (rem.text === mine) { ls.set(BASE, mine); return; }
       if (mine === base || !mine.trim()) { this.text = rem.text; ls.set(KEY, rem.text); ls.set(BASE, rem.text); this.emit(); return; }   // only the other device changed it
       if (rem.text === base) return this.push();   // only this phone changed it
       this.text = mine + OTHER + rem.text; ls.set(KEY, this.text); this.emit(); this.push();   // both changed: keep both
@@ -38,10 +39,10 @@ export const sticky = {
     if (this.demo || !gh.on) return; if (this.busy) { this.again = true; return; } this.busy = true;
     try {
       for (let k = 0; k < 2; k++) {
-        try { const t = this.text; this.sha = await ghWrite(GHPATH, t, this.sha, "Update stickynote"); ls.set(SHA, this.sha); ls.set(BASE, t); this.status = ""; break; }
+        try { const t = this.text; this.sha = await ghWrite(GHPATH, t, this.sha, "Update stickynote"); ls.set(SHA, this.sha); ls.set(BASE, t); if (this.status) { this.status = ""; this.emit(); } break; }
         catch (e) { if ((e.status !== 409 && e.status !== 422) || k) throw e; this.busy = false; await this.pull(); this.busy = true; }
       }
-    } catch (e) { this.status = ghMessage(e); this.emit(); }
+    } catch (e) { this.status = ghMessage(e); this.emit(); if (e.status >= 500 || e.status === 0) { clearTimeout(this.rt); this.rt = setTimeout(() => this.push(), 60e3); } }
     this.busy = false; if (this.again) { this.again = false; this.push(); }
   },
 };

@@ -131,7 +131,7 @@ function renderSleep(el) {
   const debtV = m.sf.nights < 3 ? null : m.sf.hours < 0.1 ? "None" : hm(m.sf.hours * 60);
   el.innerHTML = `
   <div class="card night">
-    <div class="nnav"><button type="button" id="nPrev" ${nightIdx <= 0 ? "disabled" : ""} aria-label="Earlier night">‹</button><span class="lbl">${last ? "Last night" : dayLabel(n.date)}<small>${s ? `${clock(s.onsetMin)} → ${clock(s.wakeMin)}` : ""}</small></span><button type="button" id="nNext" ${last ? "disabled" : ""} aria-label="Later night">›</button></div>
+    <div class="nnav"><button type="button" id="nPrev" ${nightIdx <= 0 ? "disabled" : ""} aria-label="Earlier night">‹</button><span class="lbl">${n.date === today ? "Last night" : dayLabel(n.date)}<small>${s ? `${clock(s.onsetMin)} → ${clock(s.wakeMin)}` : ""}</small></span><button type="button" id="nNext" ${last ? "disabled" : ""} aria-label="Later night">›</button></div>
     <div class="big ${s && bad("sleepTime", s.tst) ? "bad" : ""}">${dm(s ? hm(s.tst) : "—")}</div>
     <div class="chartbox"><div id="hyp"></div><div id="tip"></div></div><div id="sleepStats"></div>
     <div style="text-align:right;margin-top:4px"><button class="i" type="button" id="sleepInfo" data-i="nightFlow" aria-label="About this chart">i</button></div>

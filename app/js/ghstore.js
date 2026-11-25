@@ -21,18 +21,30 @@ export async function ghCheck() {   // can this token see the repo and write to 
   const j = await r.json(); if (j.permissions && !j.permissions.push) throw err(403, "read-only token");
   return j.private;
 }
-export async function ghRead(path) {   // {text, sha} or null when the file doesn't exist yet
+export async function ghRead(path, again = false) {   // {text, sha} or null when the file doesn't exist yet
   const r = await fetch(url(`contents/${path}?t=${Date.now()}`), { headers: hdr(), cache: "no-store" }).catch(() => { throw err(0, "offline"); }); seen(r);
   if (r.status === 404) return null;
+  if (r.status >= 500 && !again) { await wait(1500); return ghRead(path, true); }
   if (!r.ok) throw err(r.status);
   const j = await r.json(); return { text: unb64(j.content), sha: j.sha };
 }
-export async function ghWrite(path, text, sha, message) {   // returns the new sha; throws status 409 or 422 when the file changed underneath us
-  const r = await fetch(url(`contents/${path}`), { method: "PUT", headers: { ...hdr(), "Content-Type": "application/json" }, body: JSON.stringify({ message, content: b64(text), ...(sha ? { sha } : {}) }) }).catch(() => { throw err(0, "offline"); }); seen(r);
-  if (!r.ok) throw err(r.status);
-  return (await r.json()).content.sha;
+// Writes go one at a time: GitHub refuses (409, sometimes 500) two commits to the same repo at the same moment, and on start-up
+// the gym log, the sticky note and the health cache all want to save at once. A server error (5xx) is retried twice before it counts.
+let queue = Promise.resolve();
+const wait = ms => new Promise(r => setTimeout(r, ms));
+export function ghWrite(path, text, sha, message) {   // returns the new sha; throws status 409 or 422 when the file changed underneath us
+  const run = async () => {
+    for (let k = 0; ; k++) {
+      const r = await fetch(url(`contents/${path}`), { method: "PUT", headers: { ...hdr(), "Content-Type": "application/json" }, body: JSON.stringify({ message, content: b64(text), ...(sha ? { sha } : {}) }) }).catch(() => { throw err(0, "offline"); }); seen(r);
+      if (r.ok) return (await r.json()).content.sha;
+      if (r.status >= 500 && k < 2) { await wait(1500 * (k + 1)); continue; }
+      throw err(r.status);
+    }
+  };
+  const p = queue.then(run, run); queue = p.catch(() => {}); return p;
 }
 export const ghMessage = e => e.status === 401 ? "GitHub rejected the token. Make a new one and reconnect."
   : e.status === 403 ? "The token can't write to that repo (it needs Contents: read and write)."
   : e.status === 404 ? "Repo not found, or the token can't see it. Check the name and the token's repository access."
-  : e.status === 0 ? "Can't reach GitHub right now. Check your connection, or an ad blocker or privacy extension blocking api.github.com." : "GitHub error " + e.status;
+  : e.status === 0 ? "Can't reach GitHub right now. Check your connection, or an ad blocker or privacy extension blocking api.github.com."
+  : e.status >= 500 ? "GitHub had a server error. Trying again shortly." : "GitHub error " + e.status;

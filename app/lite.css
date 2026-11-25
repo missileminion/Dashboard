@@ -116,7 +116,7 @@ button.row:active,a.row:active{background:var(--press)}
 .stat .sub{margin-top:10px}
 .alert{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .alert b{color:var(--bad);font-weight:650}
-.ev{display:grid;grid-template-columns:50px 3px 1fr;gap:10px;align-items:center;padding:9px 0;border-top:1px solid var(--line)}
+.ev{display:grid;grid-template-columns:50px 3px minmax(0,1fr);gap:10px;align-items:center;padding:9px 0;border-top:1px solid var(--line)}
 .ev:first-of-type{border-top:0}
 .ev .t{font:500 13px var(--mono);color:var(--tx2)}
 .ev i{width:3px;height:30px;border-radius:2px;background:var(--tx3)}
@@ -254,3 +254,4 @@ button.row:active,a.row:active{background:var(--press)}
 .pop b{color:var(--tx)} .pop p{margin:8px 0 0}
 .toast{position:fixed;z-index:60;left:50%;bottom:calc(var(--nav) + 16px);transform:translateX(-50%);padding:10px 16px;border-radius:999px;background:var(--btn);color:var(--btn-tx);font-size:13px;font-weight:600;white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis}
 .ev .t small{display:block;font-size:11.5px;color:var(--tx3)}
+.ev>span:last-child{min-width:0}
