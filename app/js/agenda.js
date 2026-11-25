@@ -161,3 +161,6 @@ export function wireAgenda(root, ctx) {
   }
   if (isToday) timer = setInterval(() => { if (!tl.isConnected) return clearInterval(timer); if (scrub == null && !document.body.classList.contains("cal-dragging")) paint(); }, 1000);
 }
+
+// the phone's Plan tab draws the same day path (litepath.js)
+export { timelineSVG, budget, load as dayLoad, place, alt, glow, light, onDay, hoursOn, chipHTML, heavyEv, VW, VH, X0, X1, Xm, mins, hhmm, hm as budgetHM };

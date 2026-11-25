@@ -4,6 +4,7 @@
 import { gh, ghRead, ghWrite, ghMessage } from "./ghstore.js";
 import * as cal from "./calbridge.js";
 import { addDays, ymd, esc } from "./util.js";
+import { pathHTML, wirePath } from "./litepath.js";
 
 const KEY = "stickynote.mirror", BASE = "stickynote.base", SHA = "stickynote.sha", GHPATH = "stickynote.md", OTHER = "\n\n--- from your other device ---\n";
 const TASK = /^(\s*(?:[-*+]|\d+[.)])\s?)\[( |x|X)\] ?(.*)$/;   // "- [ ]", also "* [ ]", "+ [ ]" and "1. [ ]"
@@ -71,26 +72,31 @@ export function taskRows(list, { limit = 0 } = {}) {
 }
 
 export function initPlan(root, { toast }) {
+  let focus = null;   // the day the path shows; today unless a chip was tapped
   async function render() {
     const t = ymd(new Date()), all = sticky.text.split("\n");
-    // the whole note, in order: headings as small titles, tasks as checkboxes, other lines as plain text
+    if (!focus || focus < t || focus > addDays(t, 6)) focus = t;
+    // the whole note, in order: headings as small titles, every other line a checkable row
     const body = all.map((l, i) => { const m = l.match(TASK); if (m) return taskRows([{ i, done: m[2] !== " ", text: m[3] }]); const h = l.match(/^#{1,6}\s+(.*)/); if (h) return `<div class="task h">${esc(h[1])}</div>`; if (l.trim() && !/^-{3,}/.test(l.trim())) return taskRows([{ i, done: false, text: l.trim().replace(/^[-*+]\s+/, "") }]); return ""; }).join("");
-    const calHtml = !cal.connected() ? `<button class="row card tap" type="button" data-connect="calendar"><span class="k"><b>Connect your calendar</b></span><span class="chev">›</span></button>` :
+    const list = cal.connected() ? agenda.events || [] : [], es = agenda.on(focus);
+    const dayList = !cal.connected() ? `<button class="row card tap" type="button" data-connect="calendar"><span class="k"><b>Connect your calendar</b></span><span class="chev">›</span></button>` :
       agenda.events == null ? `<div class="card"><div class="empty">${agenda.error ? esc(agenda.error) : "Loading…"}</div></div>` :
-      [...Array(7)].map((_, k) => addDays(t, k)).map(d => { const es = agenda.on(d); return es.length || k0(d, t) ? `<div class="day">${dayName(d)}</div><div class="card" style="padding:6px 16px">${es.length ? es.map(e => evRow(e)).join("") : `<div class="empty" style="padding:10px 0">Nothing scheduled</div>`}</div>` : ""; }).join("");
+      `<div class="card" style="padding:6px 16px">${es.length ? es.map(e => evRow(e)).join("") : `<div class="empty" style="padding:10px 0">Nothing scheduled</div>`}</div>`;
     root.innerHTML = `
+      ${pathHTML(focus, list, t)}
+      <div class="kick sec">${dayName(focus)}${cal.connected() ? `<a class="go" href="index.html?full&tab=cal">Full calendar ›</a>` : ""}</div>
+      ${dayList}
       <div class="kick sec">Tasks${sticky.status ? ` <span class="go bad">${esc(sticky.status)}</span>` : ""}</div>
       <form class="add" id="pAdd"><input id="pNew" placeholder="Add a task" autocomplete="off" enterkeyhint="done"><button type="submit" aria-label="Add">+</button></form>
       <div class="list">${body || `<div class="task p">No tasks. Add one above.</div>`}</div>
-      ${!gh.on && !sticky.demo ? `<button class="row card tap" type="button" data-connect="github"><span class="k"><b>Tasks are only on this phone</b></span><span class="chev">›</span></button>` : ""}
-      <div class="kick sec">Calendar${cal.connected() ? `<a class="go" href="index.html?full&tab=cal">Full calendar ›</a>` : ""}</div>
-      ${calHtml}`;
+      ${!gh.on && !sticky.demo ? `<button class="row card tap" type="button" data-connect="github"><span class="k"><b>Tasks are only on this phone</b></span><span class="chev">›</span></button>` : ""}`;
+    wirePath(root, focus, list, t);
   }
-  const k0 = (d, t) => d === t;   // always show today, even when empty
   root.addEventListener("submit", e => { if (e.target.id !== "pAdd") return; e.preventDefault(); const i = root.querySelector("#pNew"); sticky.add(i.value); i.value = ""; i.focus(); });
   root.addEventListener("click", e => {
-    const tog = e.target.closest("[data-tog]"), ed = e.target.closest("[data-edit]");
-    if (tog) { sticky.toggle(+tog.dataset.tog); try { navigator.vibrate?.(8); } catch {} }
+    const tog = e.target.closest("[data-tog]"), ed = e.target.closest("[data-edit]"), chip = e.target.closest("[data-fd]");
+    if (chip) { focus = chip.dataset.fd; render(); try { navigator.vibrate?.(6); } catch {} }
+    else if (tog) { sticky.toggle(+tog.dataset.tog); try { navigator.vibrate?.(8); } catch {} }
     else if (ed) editTask(+ed.dataset.edit, ed);
   });
   function editTask(i, el) {   // in place: the text becomes a field; empty it to delete the task
