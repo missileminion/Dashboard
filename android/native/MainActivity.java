@@ -11,6 +11,8 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(HealthConnectPlugin.class);
         super.onCreate(savedInstanceState);
+        getBridge().getWebView().setVerticalScrollBarEnabled(false);     // no scroll bars: the page scrolls without them
+        getBridge().getWebView().setHorizontalScrollBarEnabled(false);
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override public void handleOnBackPressed() {
                 getBridge().getWebView().evaluateJavascript("(window.__back && window.__back()) ? 'y' : 'n'", r -> {

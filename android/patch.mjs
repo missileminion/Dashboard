@@ -14,6 +14,9 @@ if (!fs.existsSync(A)) { console.error("android/android is missing: run `npx cap
 fs.mkdirSync(SRC, { recursive: true });
 for (const f of ["HealthConnectPlugin.kt", "PrivacyActivity.kt", "MainActivity.java"]) fs.copyFileSync(path.join(here, "native", f), path.join(SRC, f));
 console.log("copied native sources");
+// the app icon (drawn by icon.mjs): copied over the default Capacitor icon
+fs.cpSync(path.join(here, "native/res"), path.join(A, "app/src/main/res"), { recursive: true });
+console.log("copied the app icon");
 
 // 2. Kotlin (the Health Connect library is Kotlin-first)
 edit("build.gradle", s => s.includes("kotlin-gradle-plugin") ? s : s.replace(/(buildscript\s*\{[\s\S]*?dependencies\s*\{)/, `$1\n        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.21'`));

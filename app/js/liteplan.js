@@ -6,7 +6,7 @@ import * as cal from "./calbridge.js";
 import { addDays, ymd, esc } from "./util.js";
 
 const KEY = "stickynote.mirror", BASE = "stickynote.base", SHA = "stickynote.sha", GHPATH = "stickynote.md", OTHER = "\n\n--- from your other device ---\n";
-const TASK = /^(\s*)[-*] \[( |x|X)\] ?(.*)$/;
+const TASK = /^(\s*(?:[-*+]|\d+[.)])\s?)\[( |x|X)\] ?(.*)$/;   // "- [ ]", also "* [ ]", "+ [ ]" and "1. [ ]"
 const ls = { get: k => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch {} } };
 const DEMO_NOTE = "## This week\n- [ ] Thermo problem set 6\n- [ ] Email lab partner about CAD files\n- [x] Book dentist\n- [ ] Print poster draft\n\n## Later\n- [ ] Renew bike lock\nRemember: library closes at 22:00 on Fridays";
 const dayName = d => d === ymd(new Date()) ? "Today" : d === addDays(ymd(new Date()), 1) ? "Tomorrow" : new Date(d + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "short" });
@@ -19,8 +19,11 @@ export const sticky = {
   on(fn) { this.listeners.add(fn); }, emit() { this.listeners.forEach(f => f()); },
   tasks() { return this.text.split("\n").map((l, i) => { const m = l.match(TASK); return m ? { i, done: m[2] !== " ", text: m[3] } : null; }).filter(Boolean); },
   set(text) { this.text = text; if (!this.demo) ls.set(KEY, text); this.emit(); clearTimeout(this.t); this.t = setTimeout(() => this.push(), 900); },
-  toggle(i) { const ls_ = this.text.split("\n"), m = ls_[i]?.match(TASK); if (!m) return; ls_[i] = `${m[1]}- [${m[2] === " " ? "x" : " "}] ${m[3]}`; this.set(ls_.join("\n")); },
-  edit(i, t) { const ls_ = this.text.split("\n"), m = ls_[i]?.match(TASK); if (!m) return; if (t.trim()) ls_[i] = `${m[1]}- [${m[2]}] ${t.trim()}`; else ls_.splice(i, 1); this.set(ls_.join("\n")); },
+  toggle(i) {   // a plain line becomes a ticked task, so anything in the note can be checked off
+    const ls_ = this.text.split("\n"), l = ls_[i]; if (l == null) return; const m = l.match(TASK);
+    ls_[i] = m ? `${m[1]}[${m[2] === " " ? "x" : " "}] ${m[3]}` : `${l.match(/^\s*/)[0]}- [x] ${l.trim().replace(/^[-*+]\s+/, "")}`; this.set(ls_.join("\n"));
+  },
+  edit(i, t) { const ls_ = this.text.split("\n"), l = ls_[i]; if (l == null) return; const m = l.match(TASK); if (!t.trim()) ls_.splice(i, 1); else ls_[i] = m ? `${m[1]}[${m[2]}] ${t.trim()}` : `${l.match(/^\s*(?:[-*+]\s+)?/)[0]}${t.trim()}`; this.set(ls_.join("\n")); },
   add(t) { if (!t.trim()) return; const lines = this.text ? this.text.split("\n") : [], first = lines.findIndex(l => TASK.test(l)); if (first < 0) lines.push(`- [ ] ${t.trim()}`); else lines.splice(first, 0, `- [ ] ${t.trim()}`); this.set(lines.join("\n")); },
   async pull() {
     if (this.demo || !gh.on) return;
@@ -71,7 +74,7 @@ export function initPlan(root, { toast }) {
   async function render() {
     const t = ymd(new Date()), all = sticky.text.split("\n");
     // the whole note, in order: headings as small titles, tasks as checkboxes, other lines as plain text
-    const body = all.map((l, i) => { const m = l.match(TASK); if (m) return taskRows([{ i, done: m[2] !== " ", text: m[3] }]); const h = l.match(/^#{1,6}\s+(.*)/); if (h) return `<div class="task h">${esc(h[1])}</div>`; if (l.trim() && !/^-{3,}/.test(l.trim())) return `<div class="task p">${esc(l.replace(/^[-*]\s+/, "• "))}</div>`; return ""; }).join("");
+    const body = all.map((l, i) => { const m = l.match(TASK); if (m) return taskRows([{ i, done: m[2] !== " ", text: m[3] }]); const h = l.match(/^#{1,6}\s+(.*)/); if (h) return `<div class="task h">${esc(h[1])}</div>`; if (l.trim() && !/^-{3,}/.test(l.trim())) return taskRows([{ i, done: false, text: l.trim().replace(/^[-*+]\s+/, "") }]); return ""; }).join("");
     const calHtml = !cal.connected() ? `<button class="row card tap" type="button" data-connect="calendar"><span class="k"><b>Connect your calendar</b></span><span class="chev">›</span></button>` :
       agenda.events == null ? `<div class="card"><div class="empty">${agenda.error ? esc(agenda.error) : "Loading…"}</div></div>` :
       [...Array(7)].map((_, k) => addDays(t, k)).map(d => { const es = agenda.on(d); return es.length || k0(d, t) ? `<div class="day">${dayName(d)}</div><div class="card" style="padding:6px 16px">${es.length ? es.map(e => evRow(e)).join("") : `<div class="empty" style="padding:10px 0">Nothing scheduled</div>`}</div>` : ""; }).join("");

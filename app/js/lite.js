@@ -185,6 +185,7 @@ function show(k, { push = true } = {}) {
   cur = k; TABS.forEach(t => (pane(t).hidden = t !== k)); [...$("tabs").children].forEach(b => b.classList.toggle("on", b.dataset.p === k));
   $("title").innerHTML = dm(NAMES[k]); pop.hidden = true; try { localStorage.setItem("lite.tab", k); } catch {}
   paint(k); scrollTo(0, 0);
+  if (k === "gym") gym.shown();   // the weight ruler can only be positioned once its tab is visible
 }
 function paint(k = cur) {
   try { if (k === "today") renderToday(); else if (k === "health") renderHealth(); else if (k === "plan") plan.render(); }

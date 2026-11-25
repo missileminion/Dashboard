@@ -255,3 +255,16 @@ button.row:active,a.row:active{background:var(--press)}
 .toast{position:fixed;z-index:60;left:50%;bottom:calc(var(--nav) + 16px);transform:translateX(-50%);padding:10px 16px;border-radius:999px;background:var(--btn);color:var(--btn-tx);font-size:13px;font-weight:600;white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis}
 .ev .t small{display:block;font-size:11.5px;color:var(--tx3)}
 .ev>span:last-child{min-width:0}
+
+/* weight ruler: a sideways scale under the weight; the centre line is the chosen weight */
+.ruler{position:relative;display:flex;overflow-x:auto;overflow-y:hidden;height:58px;-webkit-mask:linear-gradient(90deg,transparent,#000 22%,#000 78%,transparent);mask:linear-gradient(90deg,transparent,#000 22%,#000 78%,transparent);overscroll-behavior-x:contain;touch-action:pan-x}
+.ruler .sp{flex:0 0 50%}
+.rtrack{position:relative;flex:0 0 auto;height:100%;background:
+  linear-gradient(90deg,var(--tx3) 1px,transparent 1px) 0 0/calc(var(--px) * 5) 22px repeat-x,
+  linear-gradient(90deg,var(--line2) 1px,transparent 1px) 0 0/var(--px) 12px repeat-x}
+.rtrack span{position:absolute;top:28px;transform:translateX(-50%);font:500 11px var(--mono);color:var(--tx3)}
+.rwrap{position:relative;margin:-6px -16px 14px}
+.rwrap::after{content:"";position:absolute;left:50%;top:0;width:2px;height:30px;margin-left:-1px;border-radius:1px;background:var(--tx);pointer-events:none}
+/* no scroll bars anywhere */
+*{scrollbar-width:none}
+*::-webkit-scrollbar{display:none;width:0;height:0}

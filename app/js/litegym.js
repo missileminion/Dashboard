@@ -56,6 +56,7 @@ export function initLiteGym(root, { demo = false, toast = () => {}, onChange = (
     <div class="sel"><select id="gEx" aria-label="Exercise">${prog.map(([n]) => `<option ${n === ex ? "selected" : ""}>${esc(n)}</option>`).join("")}</select></div>
     <div class="glinfo"><span>${esc(target)}</span><span>${l ? `last ${fmt(toDisp(l.weight))} × ${l.reps} · ${short(l.date)}` : "first time"}</span></div>
     <div class="wt"><button class="rnd" type="button" data-w="-1" aria-label="Less weight">−</button><div class="big" id="gW">${dm(fmt(toDisp(weight)))}<small>${unit}</small></div><button class="rnd" type="button" data-w="1" aria-label="More weight">+</button></div>
+    <div class="rwrap" aria-hidden="true"><div class="ruler" id="gR"><i class="sp"></i><div class="rtrack" id="gRT">${ticks()}</div><i class="sp"></i></div></div>
     <div class="opts"><div class="seg sm" id="gStep">${[.25, 1, 5].map(s => `<button type="button" data-s="${s}" class="${s === step ? "on" : ""}">${s === .25 ? ".25" : s}</button>`).join("")}</div>
       <div class="seg sm" id="gUnit">${["lb", "kg"].map(u => `<button type="button" data-u="${u}" class="${u === unit ? "on" : ""}">${u}</button>`).join("")}</div></div>
     <div class="steps">${[["reps", "Reps", reps], ["sets", "Sets", sets]].map(([k, lb, v]) => `<div class="step"><div class="lb">${lb}</div><div class="ctl"><button type="button" data-k="${k}" data-d="-1" aria-label="Fewer ${k}">−</button><span class="n">${v}</span><button type="button" data-k="${k}" data-d="1" aria-label="More ${k}">+</button></div></div>`).join("")}</div>
@@ -65,7 +66,28 @@ export function initLiteGym(root, { demo = false, toast = () => {}, onChange = (
     <div class="kick sec">Today ${todays.length ? `· ${todays.reduce((s, e) => s + (e.sets || 1), 0)} sets` : ""}</div>
     <div class="list sets">${todays.length ? todays.map(e => `<div class="row"><span class="ex">${esc(e.exercise)}</span><span class="num">${fmt(toDisp(e.weight))}<span class="u">${unit}</span> × ${e.reps} × ${e.sets || 1}</span><button type="button" class="x ${armed === e.id ? "arm" : ""}" data-x="${e.id}" aria-label="${armed === e.id ? "Tap again to delete" : "Delete"}">✕</button></div>`).join("") : `<div class="row"><span class="k">Nothing logged today.</span></div>`}</div>
     ${history()}`;
+    rulerInit();
   }
+  // ---- the weight ruler: drag sideways to pick a weight; it settles on the chosen step ----
+  const MAX = () => (unit === "kg" ? 270 : 600), PX = () => (unit === "kg" ? 22 : 10), LBL = () => (unit === "kg" ? 5 : 10);
+  function ticks() { let h = ""; for (let v = 0; v <= MAX(); v += LBL()) h += `<span style="left:${v * PX()}px">${v}</span>`; return h; }
+  let rulerSet = false, rulerT = 0, lastBuzz = null;
+  function rulerTo(smooth = false) {   // move the ruler to the current weight without treating it as a drag
+    const r = root.querySelector("#gR"); if (!r) return; rulerSet = true;
+    r.scrollTo({ left: toDisp(weight) * PX(), behavior: smooth ? "smooth" : "auto" }); setTimeout(() => (rulerSet = false), smooth ? 350 : 60);
+  }
+  function rulerInit() {
+    const r = root.querySelector("#gR"), t = root.querySelector("#gRT"); if (!r) return;
+    t.style.width = MAX() * PX() + "px"; t.style.setProperty("--px", PX() + "px"); rulerTo();
+    let seen = 0; new ResizeObserver(() => { const w = r.clientWidth; if (w && w !== seen) { seen = w; requestAnimationFrame(() => rulerTo()); } }).observe(r);   // the tab may be hidden when this runs: centre once it shows
+    r.addEventListener("scroll", () => {
+      if (rulerSet) return;
+      const v = Math.max(0, Math.min(MAX(), Math.round(r.scrollLeft / PX() / step) * step));
+      if (v !== lastBuzz) { lastBuzz = v; weight = toLb(v); paintW(); buzz(4); }
+      clearTimeout(rulerT); rulerT = setTimeout(() => rulerTo(true), 140);   // settle exactly on the step
+    }, { passive: true });
+  }
+  const paintW = () => { const w = root.querySelector("#gW"); if (w) w.innerHTML = dm(fmt(toDisp(weight))) + `<small>${unit}</small>`; };
   function history() {   // the last few sessions, one line each
     const ds = [...new Set(entries.map(e => e.date))].filter(d => d < today()).sort().reverse().slice(0, 6); if (!ds.length) return "";
     return `<div class="kick sec">Recent</div><div class="list">${ds.map(d => { const es = entries.filter(e => e.date === d), n = es.reduce((s, e) => s + (e.sets || 1), 0); return `<div class="row"><div class="k">${short(d)} · ${esc(es[0].day || "")}</div><div class="v"><span class="num">${n}</span><span class="u">sets</span></div></div>`; }).join("")}</div>`;
@@ -73,7 +95,7 @@ export function initLiteGym(root, { demo = false, toast = () => {}, onChange = (
 
   // ---- input: one listener for the whole pane; + and − repeat while held ----
   let hold = 0, holdT = 0;
-  const bump = (d) => { weight = Math.max(0, Math.min(600, toLb(Math.round((toDisp(weight) + d * step) / step) * step))); const w = root.querySelector("#gW"); if (w) w.innerHTML = dm(fmt(toDisp(weight))) + `<small>${unit}</small>`; buzz(6); };
+  const bump = (d) => { weight = Math.max(0, Math.min(600, toLb(Math.round((toDisp(weight) + d * step) / step) * step))); paintW(); rulerTo(); buzz(6); };
   const stop = () => { clearTimeout(holdT); clearInterval(hold); hold = holdT = 0; };
   root.addEventListener("pointerdown", e => { const b = e.target.closest("[data-w]"); if (!b) return; const d = +b.dataset.w; bump(d); holdT = setTimeout(() => (hold = setInterval(() => bump(d), 70)), 380); });
   ["pointerup", "pointercancel", "pointerleave"].forEach(t => root.addEventListener(t, stop));
@@ -94,7 +116,7 @@ export function initLiteGym(root, { demo = false, toast = () => {}, onChange = (
   else { try { const m = JSON.parse(localStorage.getItem(KEY) || "null"); if (Array.isArray(m)) entries = m; else if (m) { entries = m.entries || []; (m.deleted || []).forEach(id => deleted.add(id)); } } catch {} entries = entries.filter(e => !deleted.has(e.id)); }
   pickEx(); onChange(entries); draw(); pull();
   document.addEventListener("visibilitychange", () => { if (!document.hidden) pull(); });
-  return { get entries() { return entries; }, pull };
+  return { get entries() { return entries; }, pull, shown: () => rulerTo() };
 }
 
 // demo only: five weeks of the split, with weights creeping up
