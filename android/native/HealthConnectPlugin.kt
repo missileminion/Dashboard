@@ -26,6 +26,7 @@ import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -38,7 +39,10 @@ import kotlin.reflect.KClass
 
 @CapacitorPlugin(name = "HealthConnect")
 class HealthConnectPlugin : Plugin() {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    // Any failure inside a read is logged and reported to the page; it must never take the app down.
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO + CoroutineExceptionHandler { _, e -> android.util.Log.e("HealthConnect", "uncaught", e) })
+    // Timestamps from the page (Date.now()) arrive as Long, which PluginCall.getDouble() does not accept, so read any JSON number here.
+    private fun num(call: PluginCall, name: String): Double? = (call.data.opt(name) as? Number)?.toDouble()
     private var launcher: ActivityResultLauncher<Set<String>>? = null
     private var pending: PluginCall? = null
     private val client by lazy { HealthConnectClient.getOrCreate(context) }
@@ -60,15 +64,15 @@ class HealthConnectPlugin : Plugin() {
 
     override fun load() {
         // Registered while the activity is being created, which is when Capacitor loads plugins.
-        launcher = activity.registerForActivityResult(PermissionController.createRequestPermissionResultContract()) { granted ->
+        launcher = try { activity.registerForActivityResult(PermissionController.createRequestPermissionResultContract()) { granted ->
             pending?.resolve(JSObject().put("granted", JSArray(granted.toList())).put("all", granted.containsAll(perms)))
             pending = null
-        }
+        } } catch (e: Exception) { android.util.Log.e("HealthConnect", "permission launcher", e); null }
     }
 
     @PluginMethod
     fun status(call: PluginCall) {
-        val sdk = HealthConnectClient.getSdkStatus(context)
+        val sdk = try { HealthConnectClient.getSdkStatus(context) } catch (e: Exception) { return call.reject(e.message ?: "Health Connect unavailable") }
         if (sdk != HealthConnectClient.SDK_AVAILABLE) { call.resolve(JSObject().put("available", false).put("sdk", sdk)); return }
         scope.launch {
             try {
@@ -84,7 +88,7 @@ class HealthConnectPlugin : Plugin() {
     fun request(call: PluginCall) {
         val l = launcher ?: return call.reject("permission launcher not ready")
         pending = call
-        activity.runOnUiThread { l.launch(perms) }
+        activity.runOnUiThread { try { l.launch(perms) } catch (e: Exception) { pending = null; call.reject(e.message ?: "could not open Health Connect") } }
     }
 
     @PluginMethod
@@ -94,7 +98,10 @@ class HealthConnectPlugin : Plugin() {
         call.resolve()
     }
 
-    private fun range(call: PluginCall) = TimeRangeFilter.between(Instant.ofEpochMilli(call.getDouble("start")!!.toLong()), Instant.ofEpochMilli(call.getDouble("end")!!.toLong()))
+    private fun range(call: PluginCall): TimeRangeFilter {
+        val a = num(call, "start") ?: throw IllegalArgumentException("start missing"); val b = num(call, "end") ?: throw IllegalArgumentException("end missing")
+        return TimeRangeFilter.between(Instant.ofEpochMilli(a.toLong()), Instant.ofEpochMilli(b.toLong()))
+    }
     private fun originFilter(call: PluginCall): Set<DataOrigin> = try { call.getArray("origins")?.toList<String>()?.map { DataOrigin(it) }?.toSet() ?: emptySet() } catch (e: Exception) { emptySet() }
 
     private suspend fun <T : Record> readAll(k: KClass<T>, r: TimeRangeFilter, o: Set<DataOrigin>): List<T> {
@@ -123,7 +130,7 @@ class HealthConnectPlugin : Plugin() {
     fun read(call: PluginCall) {
         val type = call.getString("type") ?: return call.reject("type missing")
         if (type !in types) return call.reject("unknown type $type")
-        val r = range(call); val o = originFilter(call)
+        val r = try { range(call) } catch (e: Exception) { return call.reject(e.message) }; val o = originFilter(call)
         scope.launch {
             try {
                 val out = JSArray()
@@ -164,8 +171,8 @@ class HealthConnectPlugin : Plugin() {
     // The page then counts fat-burn minutes once and cardio/peak minutes twice, as Fitbit does.
     @PluginMethod
     fun activeZoneMinutes(call: PluginCall) {
-        val start = call.getDouble("start")!!.toLong(); val end = call.getDouble("end")!!.toLong()
-        val rest = call.getDouble("rest") ?: 60.0; val max = call.getDouble("max") ?: 198.0; val o = originFilter(call)
+        val start = num(call, "start")?.toLong() ?: return call.reject("start missing"); val end = num(call, "end")?.toLong() ?: return call.reject("end missing")
+        val rest = num(call, "rest") ?: 60.0; val max = num(call, "max") ?: 198.0; val o = originFilter(call)
         scope.launch {
             try {
                 val zone = ZoneId.systemDefault(); val perDay = sortedMapOf<String, IntArray>()
@@ -194,7 +201,7 @@ class HealthConnectPlugin : Plugin() {
 
     @PluginMethod
     fun origins(call: PluginCall) {
-        val r = range(call)
+        val r = try { range(call) } catch (e: Exception) { return call.reject(e.message) }
         scope.launch {
             val count = sortedMapOf<String, Int>()
             for (k in listOf(SleepSessionRecord::class, RestingHeartRateRecord::class, HeartRateVariabilityRmssdRecord::class, HeartRateRecord::class, ExerciseSessionRecord::class)) {
