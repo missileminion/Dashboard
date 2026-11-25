@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#05060a" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#eef1f6" media="(prefers-color-scheme: light)">
+<meta name="color-scheme" content="dark light">
+<title>Dashboard</title>
+<!-- Lite: the phone layout. Same data, same rules, same storage as index.html; four swipeable panes and nothing else. -->
+<link rel="modulepreload" href="js/lite.js"><link rel="modulepreload" href="js/litegym.js"><link rel="modulepreload" href="js/analytics.js"><link rel="modulepreload" href="js/util.js"><link rel="modulepreload" href="js/standards.js"><link rel="modulepreload" href="js/sync.js"><link rel="modulepreload" href="js/auth.js"><link rel="modulepreload" href="js/db.js">
+<link rel="preload" href="fonts/pressroom-display-bold.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="lite.css">
+</head><body>
+<header class="top">
+  <h1 id="title">Today</h1>
+  <button class="chip" id="chip" type="button">…</button>
+</header>
+
+<main class="panes" id="panes">
+  <section class="pane" id="p-today" aria-label="Today"><div class="in" id="today"></div></section>
+  <section class="pane" id="p-sleep" aria-label="Sleep"><div class="in" id="sleep"></div></section>
+  <section class="pane" id="p-body" aria-label="Body"><div class="in" id="body"></div></section>
+  <section class="pane" id="p-gym" aria-label="Gym"><div class="in" id="gym"></div></section>
+</main>
+
+<nav class="tabs" id="tabs" aria-label="Sections">
+  <button type="button" data-p="0" class="on"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg><span>Today</span></button>
+  <button type="button" data-p="1"><svg viewBox="0 0 24 24"><path d="M19.5 14.6A8 8 0 0 1 9.4 4.5a8 8 0 1 0 10.1 10.1z"/></svg><span>Sleep</span></button>
+  <button type="button" data-p="2"><svg viewBox="0 0 24 24"><path d="M2.5 12.5h4l2.2-5 3.6 10 2.6-6.5 1.6 1.5h5"/></svg><span>Body</span></button>
+  <button type="button" data-p="3"><svg viewBox="0 0 24 24"><path d="M6.5 7v10M17.5 7v10M3.5 9.5v5M20.5 9.5v5M6.5 12h11"/></svg><span>Gym</span></button>
+</nav>
+<div class="pop" id="pop" hidden></div>
+<div class="toast" id="toast" hidden></div>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="config.js"></script>
+<script>window.CONFIG=window.CONFIG||{SCOPES:"https://www.googleapis.com/auth/googlehealth.sleep.readonly https://www.googleapis.com/auth/googlehealth.health_metrics_and_measurements.readonly https://www.googleapis.com/auth/googlehealth.activity_and_fitness.readonly",CLIENT_ID:(function(){try{return localStorage.getItem("clientId")||""}catch(e){return ""}})()};</script>
+<script type="module" src="js/lite.js"></script>
+<script>// offline copy for the website; inside the Android shell the files are already on the phone, so no service worker there
+if ("serviceWorker" in navigator && location.protocol === "https:" && !(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())) addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); });</script>
+</body></html>

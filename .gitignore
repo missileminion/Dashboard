@@ -5,3 +5,10 @@ gym-log*.json
 .DS_Store
 # your Google client ID lives only here for now (see app/config.example.js)
 app/config.js
+# Android shell: generated project and build output are recreated by android/setup.sh
+android/node_modules/
+android/android/
+android/package-lock.json
+*.jks
+*.keystore
+local.properties

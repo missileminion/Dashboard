@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#05060a">
+<script>/* inside the Android app the phone layout is the start page; lite.html links back here with ?full */ var NATIVE=!!(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform()); if(NATIVE&&!/[?&]full/.test(location.search))location.replace("lite.html");</script>
 <meta name="color-scheme" content="dark">
 <title>Health</title>
 <!-- the app is 38 small modules; naming them all up front lets the browser fetch them in one round instead of one level at a time -->
@@ -245,7 +246,7 @@ window.bootDone=function(){var b=document.getElementById("boot");if(!b||b.datase
 <script src="config.js"></script>
 <script>window.CONFIG=window.CONFIG||{SCOPES:"https://www.googleapis.com/auth/googlehealth.sleep.readonly https://www.googleapis.com/auth/googlehealth.health_metrics_and_measurements.readonly https://www.googleapis.com/auth/googlehealth.activity_and_fitness.readonly",CLIENT_ID:(function(){try{return localStorage.getItem("clientId")||""}catch(e){return ""}})()};</script>
 <script type="module" src="js/main.js"></script>
-<script>if ("serviceWorker" in navigator && location.protocol === "https:") { addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); });
+<script>if ("serviceWorker" in navigator && location.protocol === "https:" && !window.NATIVE) { addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); });
   // the cached copy opens instantly and is re-checked in the background; when the check finds a newer version, offer a reload
   navigator.serviceWorker.addEventListener("message", function (e) { if (!e.data || e.data.type !== "updated" || document.getElementById("upd")) return;
     var b = document.createElement("button"); b.id = "upd"; b.type = "button"; b.textContent = "Updated. Tap to reload"; b.onclick = function () { location.reload(); }; document.body.appendChild(b); }); }</script>

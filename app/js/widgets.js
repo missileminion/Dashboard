@@ -173,8 +173,8 @@ function axis(flow, g, s, labelY) {
 }
 
 // ---------- LANES: four floating glass lanes, each with its own colour line, durations on the left ----------
-export function drawLanes(el, tipEl, flow) {
-  const g = { W: 960, mL: 86, pw: 960 - 86 - 12, top: 6, bandH: 74, gap: 12, padT: 14, padB: 10 }, H = g.top + 4 * g.bandH + 3 * g.gap + 44, geo = buildFlow(flow, g), mins = minsOf(flow.stage);
+export function drawLanes(el, tipEl, flow, { W = 960 } = {}) {   // W: drawing width; a phone passes a smaller one so the labels stay readable
+  const g = { W, mL: 86, pw: W - 86 - 12, top: 6, bandH: 74, gap: 12, padT: 14, padB: 10 }, H = g.top + 4 * g.bandH + 3 * g.gap + 44, geo = buildFlow(flow, g), mins = minsOf(flow.stage);
   let s = `<svg viewBox="0 0 ${g.W} ${H}" id="lnSvg" font-family="Inter,system-ui,sans-serif"><defs><filter id="lnGlow" x="-5%" y="-40%" width="110%" height="180%"><feGaussianBlur stdDeviation="3"/></filter><linearGradient id="lnPanel" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="var(--lane-a)"/><stop offset="1" stop-color="var(--lane-b)"/></linearGradient>` + BANDS.map(k => `<linearGradient id="lnA${k}" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${NF[k]}" stop-opacity=".30"/><stop offset="1" stop-color="${NF[k]}" stop-opacity="0"/></linearGradient>`).join("") + `</defs>`;
   BANDS.forEach(k => { const t = geo.by(k); s += `<rect x="${g.mL}" y="${t}" width="${g.pw}" height="${g.bandH}" rx="16" fill="url(#lnPanel)" stroke="var(--lane-bd)"/><line x1="${g.mL + 14}" x2="${g.mL + g.pw - 14}" y1="${t + g.bandH / 2}" y2="${t + g.bandH / 2}" stroke="var(--lane-mid)" stroke-dasharray="2 5"/><circle cx="10" cy="${t + g.bandH / 2 - 8}" r="4" fill="${NF[k]}"/><text x="22" y="${t + g.bandH / 2 - 4}" font-size="12" fill="var(--tx)">${NFL[k]}</text><text x="22" y="${t + g.bandH / 2 + 12}" font-size="11" fill="var(--tx3)" font-family="monospace">${fmDur(mins[k])}</text>`; });
   // connectors in the gaps, then the lines

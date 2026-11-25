@@ -1,0 +1,17 @@
+{
+  "name": "dashboard-android",
+  "private": true,
+  "description": "Android shell for ../app (Capacitor). The web app itself has no build step; Node is only needed here.",
+  "scripts": {
+    "setup": "sh setup.sh",
+    "sync": "cap sync android",
+    "apk": "cap sync android && cd android && ./gradlew assembleDebug"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/core": "^7.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.0.0"
+  }
+}

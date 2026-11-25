@@ -9,7 +9,7 @@ const clock = sod => `${pad(Math.floor(sod / 3600) % 24)}:${pad(Math.floor(sod %
 const clockS = sod => `${clock(sod)}:${pad(Math.floor(sod % 60))}`;
 
 // Draws one night from the API's stage list. Every block sits at its exact recorded start and end.
-export function drawNight(day, { restKnown = true } = {}) {
+export function drawNight(day, { restKnown = true, W = 960 } = {}) {
   const raw = (day.sleepStages || []).map(([type, a, b]) => ({ type, a: Date.parse(a) / 1000, b: Date.parse(b) / 1000 })).filter(g => g.b > g.a);
   if (!raw.length) { $("hyp").innerHTML = `<div class="basis" style="padding:var(--s6) 0">No stage detail for this night.</div>`; $("sleepStats").innerHTML = ""; return; }
   const t0 = raw[0].a, total = raw[raw.length - 1].b - t0, off = day.sleepOffset || 0, sod = s => ((s + off) % 86400 + 86400) % 86400;
@@ -18,7 +18,7 @@ export function drawNight(day, { restKnown = true } = {}) {
     return { lane, s: g.a - t0, e: g.b - t0 };
   });
   const dur = l => segs.filter(g => g.lane === l).reduce((a, g) => a + g.e - g.s, 0) / 60;
-  const W = 960, rowH = 36, gap = 36, top = 30, H = top + 5 * (rowH + gap) - gap + 34, x = sec => sec / total * W, rt = l => top + LANES.indexOf(l) * (rowH + gap), rc = l => rt(l) + rowH / 2;
+  const rowH = 36, gap = 36, top = 30, H = top + 5 * (rowH + gap) - gap + 34, x = sec => sec / total * W, rt = l => top + LANES.indexOf(l) * (rowH + gap), rc = l => rt(l) + rowH / 2;
   let s = `<svg viewBox="0 0 ${W} ${H}" id="hypSvg" font-family="Inter,system-ui,sans-serif">`;
   LANES.forEach(l => s += `<text x="0" y="${rt(l) - 11}" font-size="15" fill="var(--tx)">${LAB[l]} <tspan fill="var(--tx2)">• ${l === "REST" && !restKnown ? "not in Google Health data" : fmtMin(dur(l))}</tspan></text><rect x="0" y="${rt(l)}" width="${W}" height="${rowH}" rx="${rowH / 2}" fill="var(--track)"/>`);
   const main = segs.filter(g => g.lane !== "REST");
