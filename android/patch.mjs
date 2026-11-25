@@ -2,8 +2,9 @@
 // Safe to run again: every change checks first. Run by setup.sh; you never need to edit the generated project by hand.
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const here = path.dirname(new URL(import.meta.url).pathname), A = path.join(here, "android");
+const here = path.dirname(fileURLToPath(import.meta.url)), A = path.join(here, "android");
 const PKG = "io.github.missileminion.dashboard", SRC = path.join(A, "app/src/main/java", ...PKG.split("."));
 const read = p => fs.readFileSync(path.join(A, p), "utf8"), write = (p, s) => fs.writeFileSync(path.join(A, p), s);
 const edit = (p, fn) => { const s = read(p), t = fn(s); if (t !== s) { write(p, t); console.log("patched", p); } };
@@ -24,6 +25,9 @@ edit("app/build.gradle", s => {
 edit("gradle.properties", s => s.includes("kotlin.jvm.target.validation.mode") ? s : s + "\nkotlin.jvm.target.validation.mode=warning\n");
 // 3. Health Connect needs Android 8 (API 26) or newer
 edit("variables.gradle", s => s.replace(/minSdkVersion\s*=\s*\d+/, m => (+m.match(/\d+/)[0] < 26 ? "minSdkVersion = 26" : m)));
+// connect-client 1.1.0 must be compiled against API 36 with Android Gradle plugin 8.9.1+ (the app still targets API 35)
+edit("variables.gradle", s => s.replace(/compileSdkVersion\s*=\s*\d+/, m => (+m.match(/\d+/)[0] < 36 ? "compileSdkVersion = 36" : m)));
+edit("build.gradle", s => s.replace(/com\.android\.tools\.build:gradle:(\d+)\.(\d+)\.(\d+)/, (m, a, b) => (+a < 8 || (+a === 8 && +b < 9) ? "com.android.tools.build:gradle:8.9.1" : m)));
 
 // 4. manifest: read permissions, the Health Connect package query, and the privacy screen Health Connect links to
 const PERMS = ["SLEEP", "RESTING_HEART_RATE", "HEART_RATE_VARIABILITY", "OXYGEN_SATURATION", "RESPIRATORY_RATE", "VO2_MAX", "EXERCISE", "HEART_RATE", "DISTANCE", "SKIN_TEMPERATURE", "HEALTH_DATA_HISTORY"];

@@ -12,3 +12,4 @@ android/package-lock.json
 *.jks
 *.keystore
 local.properties
+*.apk
