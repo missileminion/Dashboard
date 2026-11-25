@@ -17,7 +17,7 @@ import { line, vital } from "./charts.js";
 import { gh } from "./ghstore.js";
 import { initLiteGym } from "./litegym.js";
 import { initNotes } from "./litenotes.js";
-import { initPlan, sticky, agenda, evRow, taskRows } from "./liteplan.js";
+import { initPlan, agenda, evRow } from "./liteplan.js";
 import { initSettings } from "./litesettings.js";
 import { isNative, hcStatus, hcConnect, hcInstall, hcSync, hcNightHr, hcOrigins, origins } from "./hc.js";
 
@@ -62,7 +62,6 @@ function renderToday() {
   // next up: what is left today, or tomorrow's first events once today is over
   let next = [], nextLbl = "Next up";
   if (agenda.events) { const td = agenda.on(today); next = td.filter(e => !e.allDay && e.e > now).concat(td.filter(e => e.allDay)).slice(0, 3); if (!next.length) { next = agenda.on(addDays(today, 1)).slice(0, 2); nextLbl = "Tomorrow"; } }
-  const open = sticky.tasks().filter(t => !t.done);
   el.innerHTML = `
   <div class="card hero">
     <div class="kick">Today's call ${ib("today")}</div>
@@ -76,7 +75,6 @@ function renderToday() {
     <div class="card stat"><div class="lb"><span>Bed by</span>${ib("bedtime")}</div><div class="big">${dm(m.bed ? clock(m.bed.minutes) : "—")}</div>${m.bed && (m.bed.extra || m.bed.loadExtra) ? `<div class="sub">+${m.bed.extra + m.bed.loadExtra} min catch-up</div>` : ""}</div>
   </div>
   ${agenda.events && next.length ? `<button class="card tap" type="button" data-to="plan"><div class="kick">${nextLbl}<span class="go">Plan ›</span></div><div style="margin-top:6px">${next.map(e => evRow(e, now)).join("")}</div></button>` : ""}
-  ${open.length ? `<div class="card" style="padding:16px 0 4px"><div class="kick" style="padding:0 16px">Tasks<button class="go" type="button" data-to="plan">${open.length} open ›</button></div><div data-tasks style="margin-top:6px">${taskRows(open, { limit: 3 })}</div></div>` : ""}
   <div class="card" id="wx"></div>
   <button class="card tap" type="button" data-to="gym"><div class="kick">Gym this week<span class="go"><span class="num" style="color:var(--tx);font-size:13px">${done}</span> of 6 ›</span></div>
     <div class="week">${wk.map((d, i) => `<div class="${A.gymLog.days.has(d) ? "on" : ""} ${d > today ? "fut" : ""} ${d === today ? "now" : ""}"><i></i><span>${"MTWTFSS"[i]}</span></div>`).join("")}</div></button>`;
@@ -85,6 +83,11 @@ function renderToday() {
 
 const WMO = c => c === 0 ? "Clear" : c <= 2 ? "Partly cloudy" : c === 3 ? "Overcast" : c === 45 || c === 48 ? "Fog" : c <= 57 ? "Drizzle" : c <= 67 ? "Rain" : c <= 77 ? "Snow" : c <= 82 ? "Showers" : c <= 86 ? "Snow showers" : "Thunderstorm";
 const jget = k => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
+// tiny line icons for the forecast strip (currentColor, so the theme colours them)
+const WXI = c => { const sun = `<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4"/>`, cloud = `<path d="M7 18h10a4 4 0 0 0 0-8 5.5 5.5 0 0 0-10.6 1.5A3.3 3.3 0 0 0 7 18z"/>`;
+  const g = c === 0 || c === 1 ? sun : c === 2 ? `<circle cx="8" cy="8" r="3"/><path d="M8 2.5v1M2.5 8h1M4.2 4.2l.7.7"/><path d="M9 19h8a3.5 3.5 0 0 0 0-7 4.6 4.6 0 0 0-8.7 1.3A2.9 2.9 0 0 0 9 19z"/>` : c === 3 || c === 45 || c === 48 ? cloud
+    : c >= 71 && c <= 77 || c === 85 || c === 86 ? cloud.replace("18h", "14h").replace("0 0 7 18z", "0 0 7 14z") + `<path d="M8 18v.01M12 20v.01M16 18v.01"/>` : c >= 95 ? cloud.replace("18h", "14h").replace("0 0 7 18z", "0 0 7 14z") + `<path d="m12 15-2 4h4l-2 4"/>` : cloud.replace("18h", "14h").replace("0 0 7 18z", "0 0 7 14z") + `<path d="M8 17l-1 3M12 17l-1 3M16 17l-1 3"/>`;
+  return `<svg viewBox="0 0 24 24" aria-hidden="true">${g}</svg>`; };
 async function drawWeather() {
   const el = $("wx"); if (!el) return;
   const city = DEMO ? { name: "Demo city", lat: 0, lon: 0 } : jget("weather.city"), F = (jget("weather.unit") || "C") === "F";
@@ -92,14 +95,16 @@ async function drawWeather() {
   let w = jget("lite.wx");
   const paintW = () => { const d = w.d, T = c => (c == null ? "—" : Math.round(F ? c * 9 / 5 + 32 : c) + "°"), W = k => (F ? Math.round(k * .621) + " mph" : Math.round(k) + " km/h");
     if (!$("wx")) return; $("wx").innerHTML = `<div class="wx"><div class="t">${dm(T(d.now))}</div><div class="d"><b>${esc(city.name)}</b>${WMO(d.code)} · <span class="num">${T(d.hi)} / ${T(d.lo)}</span></div>
-      <div class="m"><span>Rain</span><span class="num">${d.rain ?? "—"}%</span><span>UV</span><span class="num ${red("uv", d.uv)}">${d.uv == null ? "—" : Math.round(d.uv)}</span><span>Wind</span><span class="num ${red("wind", d.wind)}">${d.wind == null ? "—" : W(d.wind)}</span>${bad("heat", d.feel) ? `<span>Feels</span><span class="num bad">${T(d.feel)}</span>` : ""}</div></div>`; };
-  if (DEMO) w = { d: { now: 9.4, hi: 12.8, lo: 4.1, feel: 11.2, rain: 60, uv: 2.1, wind: 18, code: 61 } };
+      <div class="m"><span>Rain</span><span class="num">${d.rain ?? "—"}%</span><span>UV</span><span class="num ${red("uv", d.uv)}">${d.uv == null ? "—" : Math.round(d.uv)}</span><span>Wind</span><span class="num ${red("wind", d.wind)}">${d.wind == null ? "—" : W(d.wind)}</span>${bad("heat", d.feel) ? `<span>Feels</span><span class="num bad">${T(d.feel)}</span>` : ""}</div></div>
+      ${w.days?.length ? `<div class="fc">${w.days.map(x => `<div title="${WMO(x.code)}"><span>${new Date(x.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short" })}</span>${WXI(x.code)}<b class="num">${T(x.hi)}</b><i class="num">${T(x.lo)}</i><small class="num">${x.rain ?? 0}%</small></div>`).join("")}</div>` : ""}`; };
+  if (DEMO) w = { d: { now: 9.4, hi: 12.8, lo: 4.1, feel: 11.2, rain: 60, uv: 2.1, wind: 18, code: 61 }, days: [[1, 14, 6, 10, 2], [2, 16, 7, 0, 0], [3, 13, 8, 70, 63], [4, 11, 5, 90, 95], [5, 12, 4, 20, 3], [6, 15, 6, 0, 1]].map(([k, hi, lo, rain, code]) => ({ date: addDays(today || ymd(new Date()), k), hi, lo, rain, code })) };
   if (w && (DEMO || w.name === city.name)) paintW(); else el.innerHTML = `<div class="empty">Weather…</div>`;
-  if (DEMO || (w && w.name === city.name && Date.now() - w.at < 30 * 60e3)) return;
+  if (DEMO || (w && w.name === city.name && w.days && Date.now() - w.at < 30 * 60e3)) return;
   try {
-    const u = `https://api.open-meteo.com/v1/forecast?latitude=${city.lat}&longitude=${city.lon}&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,apparent_temperature_max,precipitation_probability_max,uv_index_max,wind_speed_10m_max&timezone=auto&forecast_days=1`;
+    const u = `https://api.open-meteo.com/v1/forecast?latitude=${city.lat}&longitude=${city.lon}&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,precipitation_probability_max,uv_index_max,wind_speed_10m_max&timezone=auto&forecast_days=7`;
     const j = await (await fetch(u)).json(), D = k => j.daily[k][0];
-    w = { at: Date.now(), name: city.name, d: { now: j.current.temperature_2m, code: j.current.weather_code, hi: D("temperature_2m_max"), lo: D("temperature_2m_min"), feel: D("apparent_temperature_max"), rain: D("precipitation_probability_max"), uv: D("uv_index_max"), wind: D("wind_speed_10m_max") } };
+    w = { at: Date.now(), name: city.name, d: { now: j.current.temperature_2m, code: j.current.weather_code, hi: D("temperature_2m_max"), lo: D("temperature_2m_min"), feel: D("apparent_temperature_max"), rain: D("precipitation_probability_max"), uv: D("uv_index_max"), wind: D("wind_speed_10m_max") },
+      days: j.daily.time.slice(1).map((date, i) => ({ date, code: j.daily.weather_code[i + 1], hi: j.daily.temperature_2m_max[i + 1], lo: j.daily.temperature_2m_min[i + 1], rain: j.daily.precipitation_probability_max[i + 1] })) };
     localStorage.setItem("lite.wx", JSON.stringify(w)); paintW();
   } catch { if (!w && $("wx")) $("wx").innerHTML = `<div class="empty">Weather unavailable offline.</div>`; }
 }
@@ -121,7 +126,7 @@ async function nightHr(n) {
 async function drawSleepChart(n) {
   const my = ++hrToken; let hr = null; try { hr = await nightHr(n); } catch (e) { console.warn("night heart rate", e); }
   const el = $("hyp"); if (my !== hrToken || !el) return;
-  if (hr?.length) { $("sleepStats").innerHTML = ""; drawLanes(el, $("tip"), nightFlow(n, hr), { W: 520 }); $("sleepInfo").dataset.i = "nightFlow"; }
+  if (hr?.length) { $("sleepStats").innerHTML = ""; drawLanes(el, $("tip"), nightFlow(n, hr), { W: 500, dots: false, mL: 54 }); $("sleepInfo").dataset.i = "nightFlow"; }
   else { drawNight(n, { restKnown: false, W: 520 }); $("sleepInfo").dataset.i = "stages"; }
 }
 function renderSleep(el) {
@@ -188,7 +193,7 @@ function show(k, { push = true } = {}) {
   if (k === "gym") gym.shown();   // the weight ruler can only be positioned once its tab is visible
 }
 function paint(k = cur) {
-  try { if (k === "today") renderToday(); else if (k === "health") renderHealth(); else if (k === "plan") plan.render(); }
+  try { if (k === "today") renderToday(); else if (k === "health") renderHealth(); else if (k === "plan") plan.paint(); }
   catch (e) { console.error(k, e); }
 }
 $("tabs").onclick = e => { const b = e.target.closest("button"); if (!b) return; if (b.dataset.p === cur) { scrollTo({ top: 0, behavior: "smooth" }); if (cur === "notes") notes.back(); } else show(b.dataset.p); };
@@ -197,8 +202,6 @@ document.addEventListener("click", e => {
   const b = e.target.closest(".i");   // "i" popovers first, so they never also trigger the card they sit on
   if (b) { e.stopPropagation(); e.preventDefault(); if (!pop.hidden && pop.dataset.k === b.dataset.i) { pop.hidden = true; return; } pop.innerHTML = INFO[b.dataset.i] || ""; pop.dataset.k = b.dataset.i; pop.hidden = false; pop.scrollTop = 0; return; }
   if (!e.target.closest(".pop")) pop.hidden = true;
-  const tog = e.target.closest("[data-tasks] [data-tog]");
-  if (tog) { e.stopPropagation(); sticky.toggle(+tog.dataset.tog); try { navigator.vibrate?.(8); } catch {} return; }
 }, true);
 document.addEventListener("click", e => {
   const to = e.target.closest("[data-to]"), cn = e.target.closest("[data-connect]"), h = e.target.closest("[data-h]");
@@ -242,7 +245,7 @@ async function pill() {
   const needHealth = isNative && hc && (!hc.available || !hc.all);
   if (needHealth || !gh.on) { b.classList.add("go"); t.textContent = "Connect"; return; }
   const at = await getMeta("lastSyncedAt"); t.textContent = at ? hhmm(at) : "Sync";
-  if (settings.status.gh === false || sticky.status) b.classList.add("err"); else if (at && Date.now() - at < 36 * 36e5) b.classList.add("ok");
+  if (settings.status.gh === false) b.classList.add("err"); else if (at && Date.now() - at < 36 * 36e5) b.classList.add("ok");
 }
 $("sync").onclick = () => {
   if (DEMO || busy) return;
@@ -279,12 +282,11 @@ async function refreshWeb(interactive) {
 }
 async function fullSync(force = false) {   // everything the phone shares with the web: health, gym, tasks, calendar, notes
   const healthP = isNative ? hcRefresh(force) : hasToken() ? refreshWeb(false) : load();
-  await Promise.allSettled([healthP, gym.pull(), sticky.pull(), agenda.load(force), notes.refresh(), settings.check()]);
+  await Promise.allSettled([healthP, gym.pull(), agenda.load(force), notes.refresh(), settings.check()]);
   if (cur === "today" || cur === "plan") paint(); pill();
 }
 
 // ---- modules ----
-sticky.init(DEMO);
 const settings = initSettings({ sheet: $("sheet"), body: $("sheetBody"), demo: DEMO, native: isNative, health, toast, onChange: what => { if (what === "weather") { if (cur === "today") drawWeather(); } else fullSync(true); pill(); } });
 const plan = initPlan(pane("plan"), { toast });
 const gym = initLiteGym(pane("gym"), { demo: DEMO, toast, onChange: entries => {
@@ -292,13 +294,13 @@ const gym = initLiteGym(pane("gym"), { demo: DEMO, toast, onChange: entries => {
   if (days.length || DEMO) { M = model(); if (cur === "today" || cur === "health") paint(); }
 } });
 const notes = initNotes(pane("notes"), { demo: DEMO, toast });
-sticky.on(() => { if (cur === "today") renderToday(); pill(); });
 
 // Android Back: popover → sheet → note editor / folder → previous tab → leave the app (MainActivity asks this)
 window.__back = () => {
   if (!pop.hidden) { pop.hidden = true; return true; }
   if (settings.back()) return true;
   if (cur === "notes" && notes.back()) return true;
+  if (cur === "plan" && plan.back()) return true;
   if (trail.length) { show(trail.pop(), { push: false }); return true; }
   if (cur !== "today") { show("today", { push: false }); return true; }
   return false;

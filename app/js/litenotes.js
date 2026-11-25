@@ -1,6 +1,7 @@
 // Notes on the phone: the same notes as the web Notes tab (markdown files in your notes repo, or this device only without a token),
 // the same editor (Milkdown Crepe), the same draft keys. A folder list that opens instantly from a cached copy, search by name,
 // and a full-screen editor that saves by itself. Trash works like the web: a note moves to _trash/.
+import { marks } from "./notemarks.js";
 import { syncwarn, EXPIRY_HEADER } from "./syncwarn.js";
 
 const ESM = "https://esm.sh/@milkdown/", CREPE = ESM + "crepe@7.23.0", CSS = [ESM + "crepe@7.23.0/lib/theme/common/style.css", "https://esm.sh/katex@0.16.11/dist/katex.min.css"];
@@ -28,7 +29,7 @@ const local = {
   async list() { return Object.keys(this.all()); }, async read(p) { const o = this.all(); return p in o ? { text: o[p], sha: null } : null; },
   async write(p, t) { const o = this.all(); o[p] = t; this.save(o); return null; }, async remove(p) { const o = this.all(); delete o[p]; this.save(o); },
 };
-const DEMO_NOTES = { "Welcome.md": "# Welcome\n\nThis is the demo. Notes live in your notes repo once it is connected.\n", "Thermo/Entropy.md": "# Entropy\n\n$dS \\ge \\frac{\\delta Q}{T}$\n", "Thermo/Cycles.md": "# Cycles\n\n- Carnot\n- Rankine\n- Brayton\n", "Ideas.md": "# Ideas\n\n- [ ] Bike rack bracket\n" };
+const DEMO_NOTES = { "Welcome.md": "# Welcome\n\nThis is the demo. Notes live in your <mark>notes repo</mark> once it is <span style=\"color:#9db6ff\">connected</span>.\n", "Thermo/Entropy.md": "# Entropy\n\n$dS \\ge \\frac{\\delta Q}{T}$\n", "Thermo/Cycles.md": "# Cycles\n\n- Carnot\n- Rankine\n- Brayton\n", "Ideas.md": "# Ideas\n\n- [ ] Bike rack bracket\n" };
 
 export function initNotes(root, { demo = false, toast = () => {} } = {}) {
   const store = () => (demo ? demoStore : notesCfg.remote ? remote : local);
@@ -69,7 +70,9 @@ export function initNotes(root, { demo = false, toast = () => {} } = {}) {
 
   // ---- the editor ----
   async function engine() {
-    if (!engineP) engineP = (async () => { for (const h of CSS) { const l = document.createElement("link"); l.rel = "stylesheet"; l.href = h; document.head.appendChild(l); } return import(CREPE); })();
+    // the same engine as the web Notes tab, with the same highlight / colour / comment marks, so <mark> and <span style> show as formatting, not as code
+    if (!engineP) engineP = (async () => { for (const h of CSS) { const l = document.createElement("link"); l.rel = "stylesheet"; l.href = h; document.head.appendChild(l); }
+      const [m, kit] = await Promise.all([import(CREPE), import("https://esm.sh/@milkdown/kit@7.23.0/utils")]); return { ...m, list: marks(kit).list }; })();
     return engineP;
   }
   function setSt(t) { const el = document.getElementById("eSt"); if (el) el.textContent = t; }
@@ -85,9 +88,9 @@ export function initNotes(root, { demo = false, toast = () => {} } = {}) {
     if (draft && f && draft.base !== f.text) toast("This note changed elsewhere; showing the latest version");
     const body = ed.querySelector("#eBody");
     try {
-      const { Crepe } = await engine(); if (cur?.ed !== ed) return; const F = Crepe.Feature;
+      const { Crepe, list } = await engine(); if (cur?.ed !== ed) return; const F = Crepe.Feature;
       crepe = new Crepe({ root: body, defaultValue: cur.md, features: { [F.AI]: false, [F.Toolbar]: false, [F.TopBar]: false, [F.ImageBlock]: false }, featureConfigs: { [F.Placeholder]: { text: "Write, or type / for blocks" } } });
-      await crepe.create(); crepe.on(l => l.markdownUpdated((ctx, md) => changed(md)));
+      crepe.editor.use(list); await crepe.create(); crepe.on(l => l.markdownUpdated((ctx, md) => changed(md)));
     } catch (e) {   // offline the first time: a plain text editor on the same markdown
       body.innerHTML = `<textarea id="eTa" spellcheck="true" placeholder="Write…"></textarea>`; const ta = body.querySelector("#eTa"); ta.value = cur.md; ta.oninput = () => changed(ta.value);
     }

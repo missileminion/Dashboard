@@ -14,7 +14,9 @@ const short = d => new Date(d + "T12:00:00").toLocaleDateString("en-US", { month
 export function initLiteGym(root, { demo = false, toast = () => {}, onChange = () => {} } = {}) {
   let entries = [], deleted = new Set(), sha = null, unit = "lb", step = 1, day = "Pull", ex = null, weight = 45, reps = 8, sets = 3, armed = null, status = "", statusBad = false, timer = 0, saving = false, again = false;
   try { const u = localStorage.getItem("gymlog.unit"); if (u === "kg" || u === "lb") unit = u; const d = localStorage.getItem("gymlog.day"); if (PROGRAM[d]) day = d; step = +localStorage.getItem("lite.step") || 1; } catch {}
-  { const w = WEEK[new Date().getDay()]; if (w) day = w; }
+  // open on the workout your schedule has for today; on the run/rest day (Wednesday) on the next one (Thursday's pull)
+  const scheduled = () => { const g = new Date().getDay(); for (let k = 0; k < 7; k++) { const w = WEEK[(g + k) % 7]; if (w && PROGRAM[w]) return w; } return day; };
+  day = scheduled(); let shownOn = ymd(new Date());
   const today = () => ymd(new Date());
   const toDisp = lb => (unit === "kg" ? lb * KG : lb), toLb = v => (unit === "kg" ? Math.round(v / KG * 100) / 100 : v);
   const lastOf = name => entries.filter(e => e.exercise === name).sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id)[0];
@@ -115,7 +117,7 @@ export function initLiteGym(root, { demo = false, toast = () => {}, onChange = (
   if (demo) entries = demoEntries();
   else { try { const m = JSON.parse(localStorage.getItem(KEY) || "null"); if (Array.isArray(m)) entries = m; else if (m) { entries = m.entries || []; (m.deleted || []).forEach(id => deleted.add(id)); } } catch {} entries = entries.filter(e => !deleted.has(e.id)); }
   pickEx(); onChange(entries); draw(); pull();
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) pull(); });
+  document.addEventListener("visibilitychange", () => { if (document.hidden) return; if (ymd(new Date()) !== shownOn) { shownOn = ymd(new Date()); day = scheduled(); ex = null; pickEx(); draw(); } pull(); });   // a new day: back to that day's workout
   return { get entries() { return entries; }, pull, shown: () => rulerTo() };
 }
 

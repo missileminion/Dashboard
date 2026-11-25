@@ -143,7 +143,7 @@ button.row:active,a.row:active{background:var(--press)}
 .nnav .lbl small{display:block;font:12px var(--mono);color:var(--tx3);font-weight:400}
 .night .big{line-height:0;text-align:center;margin:16px 0 2px;color:var(--good)}
 .night .big .dm{height:38px}
-.chartbox{position:relative;margin:14px -4px 0}
+.chartbox{position:relative;margin:14px -10px 0}
 #hyp svg,.lchart svg{display:block;width:100%;height:auto}
 #tip{position:absolute;top:0;pointer-events:none;background:var(--tipbg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12px;display:none;white-space:nowrap;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);z-index:2}
 #tip .t{font-family:var(--mono);color:var(--tx2);margin-bottom:2px}
@@ -269,11 +269,11 @@ button.row:active,a.row:active{background:var(--press)}
 *{scrollbar-width:none}
 *::-webkit-scrollbar{display:none;width:0;height:0}
 
-/* day path (Plan): the web Calendar's sun path, always on a night-sky panel; the glow follows the sun at the clock (or the scrubbed time) */
-.dp{position:relative;margin:0 -16px;background:radial-gradient(70% 90% at 50% 64%,var(--glow,rgba(80,110,170,.4)),transparent 78%),#05060a;transition:background .25s;
-  -webkit-mask:linear-gradient(90deg,transparent,#000 9%,#000 91%,transparent);mask:linear-gradient(90deg,transparent,#000 9%,#000 91%,transparent)}
-.dp-sc{overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain}
-.dp .ag-path{display:block;width:640px;height:auto;padding:4px 0 0;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+/* day path (Plan): the web Calendar's sun path on a night-sky glow that follows the sun; no edges anywhere, everything fades out */
+.dp{position:relative;margin:-8px -16px 0;background:radial-gradient(60% 70% at 50% 62%,var(--glow,rgba(80,110,170,.4)),transparent 80%);transition:background .4s;
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 16%,#000 84%,transparent),linear-gradient(180deg,transparent,#000 10%,#000 86%,transparent);-webkit-mask-composite:source-in;
+  mask-image:linear-gradient(90deg,transparent,#000 16%,#000 84%,transparent),linear-gradient(180deg,transparent,#000 10%,#000 86%,transparent);mask-composite:intersect}
+.dp .ag-path{display:block;width:100%;height:auto;touch-action:pan-y;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .ag-path text{font-family:var(--mono);fill:#8e93a3}
 .ag-path .ag-ev{font:600 calc(13px / var(--k,1)) var(--sans)}
 .ag-path .ag-evt{font-size:calc(10px / var(--k,1));fill:#a3a7b7;letter-spacing:.04em}
@@ -294,3 +294,42 @@ button.row:active,a.row:active{background:var(--press)}
 .ag-chip b{font:600 13px var(--mono);color:var(--tx2)}
 .ag-chip.on{border-color:var(--tx);color:var(--tx)} .ag-chip.on b{color:var(--tx)}
 .ag-chip.today b{color:var(--bad)}
+
+/* Plan: the day's events. A round check marks done; tap the row to edit it in place. Priority colours follow the web calendar. */
+:root{--p1:#9db6ff;--p2:#ffcf8a;--p3:#ff9d92}
+.evs{padding:2px 14px}
+.er{display:grid;grid-template-columns:30px 48px minmax(0,1fr);gap:10px;align-items:center;padding:11px 0;border-top:1px solid var(--line);cursor:pointer;-webkit-tap-highlight-color:transparent}
+.evs>.er:first-child{border-top:0}
+.er .t{font:500 13px var(--mono);color:var(--tx2)} .er .t small{display:block;font-size:11.5px;color:var(--tx3)}
+.er .nm{min-width:0} .er .nm b{display:block;font-weight:500;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .er .nm small{display:block;font-size:12px;color:var(--tx3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.er em,.ev em{font-style:normal;font-family:var(--mono);font-weight:700}
+.er.p1 em,.ev.p1 em{color:var(--p1)} .er.p2 em,.ev.p2 em{color:var(--p2)} .er.p3 em,.ev.p3 em{color:var(--p3);text-shadow:0 0 10px var(--p3)}
+.er.p3 .nm b,.ev.p3 b{color:var(--p3);font-weight:650}
+.er.past{opacity:.5} .er.open{opacity:1}
+.er.done .nm b,.ev.done b{text-decoration:line-through;color:var(--tx3)}
+.chk{width:24px;height:24px;border-radius:50%;border:1.5px solid var(--line2);background:none;display:grid;place-items:center;padding:0}
+.chk svg{width:13px;height:13px;fill:none;stroke:transparent;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.er.done .chk{background:var(--tx);border-color:var(--tx)} .er.done .chk svg{stroke:var(--bg)}
+.ed{display:flex;flex-direction:column;gap:10px;padding:4px 0 14px;animation:in .18s ease-out}
+.ed input:not([type=checkbox]),.ed textarea{width:100%;background:var(--panel);border:1px solid var(--line);border-radius:12px;color:var(--tx);font:15px var(--sans);padding:11px 12px;outline:none;color-scheme:light dark}
+.ed input:focus,.ed textarea:focus{border-color:var(--line2)}
+.ed .ed-title{font-weight:600;font-size:16px}
+.ed textarea{resize:vertical;min-height:60px}
+.ed-all{display:flex;gap:8px;align-items:center;font-size:14px;color:var(--tx2)} .ed-all input{width:18px;height:18px}
+.ed-when{display:grid;grid-template-columns:52px minmax(0,1.3fr) minmax(0,1fr);gap:8px;align-items:center}
+.ed-when span{font:500 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--tx3)}
+.ed-when input[hidden]{display:none}
+.ed-pri button.p1{color:var(--p1)} .ed-pri button.p2{color:var(--p2)} .ed-pri button.p3{color:var(--p3)}
+.ed-msg{font-size:12.5px;color:var(--tx3)} .ed-msg.bad{color:var(--bad)} .ed-msg:empty{display:none}
+.btn.arm{color:var(--bad);border-color:var(--bad)}
+.kick .go[data-new]{background:none;border:0;font:inherit;color:var(--tx2);letter-spacing:.06em;text-transform:none;padding:4px 0}
+.sub.full{display:block;text-align:right;margin-top:10px;color:var(--tx3);font-size:13px;text-decoration:none}
+/* note marks (same as the web Notes): highlight, and comments as a soft underline */
+.nedit .milkdown mark{background:rgba(255,214,90,.28);color:inherit;border-radius:3px;padding:0 1px}
+.nedit .milkdown .nt-cmt{background:rgba(157,182,255,.16);border-radius:3px}
+/* the next six days under today's weather */
+.fc{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line);text-align:center}
+.fc div{display:flex;flex-direction:column;align-items:center;gap:3px}
+.fc span{font:500 10px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--tx3)}
+.fc svg{width:20px;height:20px;fill:none;stroke:var(--tx2);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;margin:2px 0}
+.fc b{font-size:13.5px;font-weight:600;color:var(--tx)} .fc i{font-style:normal;font-size:12px;color:var(--tx3)} .fc small{font-size:10.5px;color:var(--tx3)}

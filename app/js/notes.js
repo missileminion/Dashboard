@@ -2,6 +2,7 @@
 // Notes are plain markdown files. With a GitHub token they live in your private notes repo (files at the top level, pictures and attachments in _files/);
 // without one they are kept in this browser only, so the tab can be tried first. The editor loads from the web the first time the tab is opened.
 import { syncwarn, EXPIRY_HEADER } from "./syncwarn.js";
+import { marks, safeColor } from "./notemarks.js";
 const ESM = "https://esm.sh/@milkdown/", CREPE = ESM + "crepe@7.23.0", KIT = ESM + "kit@7.23.0/";
 const CSS = [ESM + "crepe@7.23.0/lib/theme/common/style.css", "https://esm.sh/katex@0.16.11/dist/katex.min.css"];
 const FONT = "https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap";
@@ -190,32 +191,6 @@ export function initNotes(root) {
   }
 
   /* ----- editor engine: Crepe plus highlight and colour marks ----- */
-  const safeColor = c => /^(#[0-9a-f]{3,8}|[a-z]{3,20})$/i.test(c) ? c : "";
-  function marks(kit) {
-    const hl = kit.$markSchema("highlight", () => ({ parseDOM: [{ tag: "mark" }], toDOM: () => ["mark", 0], parseMarkdown: { match: n => n.type === "hlMark", runner: (st, n, t) => { st.openMark(t); st.next(n.children); st.closeMark(t); } }, toMarkdown: { match: m => m.type.name === "highlight", runner: (st, m) => { st.withMark(m, "hlMark"); } } }));
-    const col = kit.$markSchema("textColor", () => ({ attrs: { color: { default: "" } }, parseDOM: [{ tag: "span[style]", getAttrs: el => { const c = safeColor((el.style.color || "").trim()); return c ? { color: c } : false; } }], toDOM: m => ["span", { style: `color:${m.attrs.color}` }, 0], parseMarkdown: { match: n => n.type === "colorMark", runner: (st, n, t) => { st.openMark(t, { color: n.color }); st.next(n.children); st.closeMark(t); } }, toMarkdown: { match: m => m.type.name === "textColor", runner: (st, m) => { st.withMark(m, "colorMark", undefined, { color: m.attrs.color }); } } }));
-    const encC = o => encodeURIComponent(JSON.stringify({ t: o.text || "", d: o.date || "" }));
-    const cm = kit.$markSchema("comment", () => ({ attrs: { text: { default: "" }, date: { default: "" } }, inclusive: false, parseDOM: [{ tag: "span[data-comment]", getAttrs: el => { try { const o = JSON.parse(decodeURIComponent(el.getAttribute("data-comment"))); return { text: String(o.t || ""), date: String(o.d || "") }; } catch { return false; } } }], toDOM: m => ["span", { class: "nt-cmt", "data-comment": encC(m.attrs), title: m.attrs.text }, 0], parseMarkdown: { match: n => n.type === "commentMark", runner: (st, n, t) => { st.openMark(t, { text: n.text, date: n.date }); st.next(n.children); st.closeMark(t); } }, toMarkdown: { match: m => m.type.name === "comment", runner: (st, m) => { st.withMark(m, "commentMark", undefined, { text: m.attrs.text, date: m.attrs.date }); } } }));
-    const rm = kit.$remark("notes-marks", () => function () {   // <mark>, <span style="color:…"> and <span data-comment="…"> become marks; the same text is written back out
-      const inner = (n, st, i) => st.containerPhrasing(n, { ...i, before: ">", after: "<" });
-      const d = this.data(); (d.toMarkdownExtensions ||= []).push({ handlers: { hlMark: (n, _, st, i) => "<mark>" + inner(n, st, i) + "</mark>", colorMark: (n, _, st, i) => `<span style="color:${n.color}">` + inner(n, st, i) + "</span>", commentMark: (n, _, st, i) => `<span data-comment="${encC(n)}">` + inner(n, st, i) + "</span>" } });
-      const opener = v => {
-        if (v === "<mark>") return { type: "hlMark" };
-        let m = /^<span style="color:\s*([^";]+);?">$/i.exec(v); if (m && safeColor(m[1].trim())) return { type: "colorMark", color: m[1].trim() };
-        m = /^<span data-comment="([^"]*)">$/.exec(v); if (m) { try { const o = JSON.parse(decodeURIComponent(m[1])); return { type: "commentMark", text: String(o.t || ""), date: String(o.d || "") }; } catch {} }
-        return null;
-      };
-      const closes = (v, top) => top && ((v === "</mark>" && top.type === "hlMark") || (v === "</span>" && (top.type === "colorMark" || top.type === "commentMark")));
-      const walk = node => { if (!node.children) return; node.children.forEach(walk); const out = [], stack = [], put = c => (stack.length ? stack[stack.length - 1].children : out).push(c);
-        for (const c of node.children) { const v = c.type === "html" ? c.value.trim() : "", open = v ? opener(v) : null;
-          if (open) { open.children = []; open.raw = v; stack.push(open); continue; }
-          if (v && closes(v, stack[stack.length - 1])) { put(stack.pop()); continue; }
-          put(c); }
-        while (stack.length) { const u = stack.pop(); put({ type: "html", value: u.raw }); u.children.forEach(put); }
-        node.children = out; };
-      return tree => walk(tree); });
-    return { list: [hl, col, cm, rm].flat(), hl, col, cmt: cm };
-  }
   async function engine() {
     if (mod) return; for (const h of CSS) { const l = document.createElement("link"); l.rel = "stylesheet"; l.href = h; document.head.appendChild(l); }
     const [crepeM, utils, core, cm, gfm, cmds] = await Promise.all([import(CREPE), import(KIT + "utils"), import(KIT + "core"), import(KIT + "preset/commonmark"), import(KIT + "preset/gfm"), import(KIT + "prose/commands")]);
