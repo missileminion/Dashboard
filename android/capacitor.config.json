@@ -2,7 +2,7 @@
   "appId": "io.github.missileminion.dashboard",
   "appName": "Dashboard",
   "webDir": "../app",
-  "server": { "androidScheme": "https", "appStartPath": "lite.html" },
+  "server": { "androidScheme": "https", "appStartPath": "/lite.html" },
   "android": { "backgroundColor": "#05060a", "adjustMarginsForEdgeToEdge": "auto" },
   "backgroundColor": "#05060a"
 }
