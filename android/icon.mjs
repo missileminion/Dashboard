@@ -16,8 +16,9 @@ for (let k = 1; k < TRACE.length; k++) {   // join the points with dots, one per
 const dots = (cx, gap) => { const out = [], x0 = cx - (GX - 1) / 2 * gap, y0 = cx - (GY - 1) / 2 * gap; for (let c = 0; c < GX; c++) for (let r = 0; r < GY; r++) { const key = `${c},${r}`; out.push({ x: x0 + c * gap, y: y0 + r * gap, lit: lit.has(key), red: key === PEAK }); } return out; };
 const circ = (x, y, rr) => `M${(x - rr).toFixed(2)},${y.toFixed(2)}a${rr},${rr} 0 1,0 ${2 * rr},0a${rr},${rr} 0 1,0 ${-2 * rr},0`;
 
-// Android: 108dp canvas, the grid inside the 66dp safe circle
-const D = dots(54, 4.6), path_ = (f) => D.filter(f).map(d => circ(d.x, d.y, d.red ? 2.1 : d.lit ? 1.8 : 0.8)).join("");
+// Android adaptive icon: 108dp canvas; every dot (the grid's corners too) stays inside the 66dp safe circle, so no launcher
+// shape (circle, squircle, scallop, ...) clips it. Corner dot: sqrt(7²+4²)·3.8 + 0.7 ≈ 31.3dp from the centre, under 33.
+const D = dots(54, 3.8), path_ = (f) => D.filter(f).map(d => circ(d.x, d.y, d.red ? 1.8 : d.lit ? 1.55 : 0.7)).join("");
 const fg = `<?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
     <path android:fillColor="${OFF}" android:fillAlpha="0.18" android:pathData="${path_(d => !d.lit)}"/>
