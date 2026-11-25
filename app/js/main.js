@@ -66,7 +66,8 @@ function render() {
   const debtChange = () => { if (sfPrev.nights < 3) return ""; const d = (sf.hours - sfPrev.hours) * 60; return Math.abs(d) < 2 ? `<div class="basis">same as yesterday</div>` : `<div class="basis" style="${d > 0 ? "color:var(--worse)" : ""}">${d > 0 ? "▲ " : "▼ "}${hm(Math.abs(d))} since yesterday</div>`; };
   });
   step("Readiness and load", () => {
-  rd = A.readiness(byDate, today, addDays), lb = A.banister(d => get(d, "azm"), today, addDays);
+  rd = A.readiness(byDate, today, addDays), lb = A.banister(d => A.dayLoad(get(d, "azm"), A.gymLog.sets[d] || 0), today, addDays);
+  bed = A.bedtimePlan(sf.hours, days, lb?.ratio ?? null);
   });
   step("Headline", () => {
   $("hero").innerHTML =
@@ -87,7 +88,7 @@ function render() {
   step("Sleep tiles", () => {
   $("sleepKpi").innerHTML = sqTile +
     tile("Sleep time", st7 == null ? null : hm(st7), "", delta(st7, st7p, "min", true, "14-night avg vs prior 14"), "", "", bad("sleepTime", st7)) +
-    tile("Bedtime tonight", clock(bed.minutes), "", bed.extra ? `<div class="basis">includes ${bed.extra} min catch-up</div>` : "", "", "bedtime");
+    tile("Bedtime tonight", clock(bed.minutes), "", `<div class="basis">${bed.stepped ? `goal ${clock(bed.goal)}, ${Math.round(((bed.usual - bed.minutes + 720) % 1440 + 1440) % 1440 - 720)} min earlier than usual` : `in bed ${hm(bed.inBed)} · ${Math.round(bed.eff * 100)}% efficiency`}${bed.extra || bed.loadExtra ? ` · +${bed.extra + bed.loadExtra} min catch-up` : ""}</div>`, "", "bedtime");
   });
   step("Sleep chart", () => drawSleepCard(nights));
   step("Sleep quality", () => renderQuality(nights));
@@ -172,7 +173,7 @@ function renderRuns() {
   const latest = rf.runs[rf.runs.length - 1];
   $("runKpi").innerHTML =
     tile("Distance", d7 == null ? (runs.length ? "0.00" : null) : km2(d7 / 1000), "km / 7d", delta(d7 == null ? (runs.length ? 0 : null) : d7 / 1000, d7p == null ? (runs.length ? 0 : null) : d7p / 1000, "km", true, "vs prior 7 days", 2, km2)) +
-    tile("Runs", runs.length ? within(0, 7).length : null, "/ 7d", delta(runs.length ? within(0, 7).length : null, runs.length ? within(7, 14).length : null, "", true, "vs prior 7 days", 0, v => String(Math.round(v)))) +
+    tile("Last run", runs.length ? Math.round((new Date(today) - new Date(runs[0].date)) / 864e5) : null, runs.length && Math.round((new Date(today) - new Date(runs[0].date)) / 864e5) === 1 ? "day ago" : "days ago", `<div class="basis">${runs.length ? new Date(runs[0].date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" }) : "No runs from the band yet"}</div>`) +
     tile("Latest run form", latest?.P == null ? null : (latest.P >= 0 ? "+" : "−") + n3(latest.P), "% vs baseline", `<div class="basis">${latest ? latest.E.toFixed(3) + " m per heartbeat" : "Needs runs with heart rate"}</div>`, "", "", latest?.P != null && bad("runChange", latest.P)) +
     tile("Momentum", rf.momentum == null ? null : (rf.momentum >= 0 ? "+" : "−") + n3(rf.momentum), "% / week", `<div class="basis">${rf.note}</div>`, "", "", rf.momentum != null && bad("runChange", rf.momentum));
   const vo = [...series("vo2max", 60)].reverse().find(x => x.v != null), vo30 = mean(series("vo2max", 12, addDays(today, -25)).map(x => x.v)), voPct = vo && vo30 ? 100 * (vo.v / vo30 - 1) : null;
@@ -197,7 +198,7 @@ addEventListener("wx:ready", () => { if (days.length) render(); });   // the wea
 const renderWeightEntry = () => { $("glogWeight").innerHTML = weightEntryHTML(today); wireWeight($("glogWeight"), today); };
 addEventListener("weight:change", () => { renderWeightEntry(); renderGym(); });
 addEventListener("gymlog:change", () => {   // logged sets also make that day a gym day; refresh everything that depends on it
-  A.gymLog.days = new Set((gymLogApi?.entries || []).map(e => e.date)); if (days.length) render();
+  const es = gymLogApi?.entries || []; A.gymLog.days = new Set(es.map(e => e.date)); A.gymLog.sets = {}; es.forEach(e => (A.gymLog.sets[e.date] = (A.gymLog.sets[e.date] || 0) + (e.sets || 1))); if (days.length) render();
 });
 function renderGym() {
   const iso = w => new Date(w.start + w.offset * 1000).toISOString().slice(0, 10);

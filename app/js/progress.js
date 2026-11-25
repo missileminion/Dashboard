@@ -30,7 +30,7 @@ function fitCore(pts, name, today, meta = {}) {
   const d0 = new Date(pts[0].date + "T12:00:00"), tOf = d => Math.round((new Date(d + "T12:00:00") - d0) / 864e5);
   pts = pts.map(p => ({ ...p, t: tOf(p.date) }));
   const span = pts.at(-1).t, tNow = Math.max(span, tOf(today));
-  if (pts.length < 5 || span < 14) return { ok: false, n: pts.length, span, name, pts, ...meta };
+  if (pts.length < 3 || span < 7) return { ok: false, n: pts.length, span, name, pts, ...meta };
   const xs = pts.map(p => Math.log(1 + p.t / TAU)), mx = xs.reduce((a, b) => a + b) / xs.length, my = pts.reduce((a, p) => a + p.y, 0) / pts.length;
   let sxx = 0, sxy = 0; pts.forEach((p, i) => { sxx += (xs[i] - mx) ** 2; sxy += (xs[i] - mx) * (p.y - my); });
   let b = sxx > 1e-9 ? sxy / sxx : 0; const plateau = b <= 0; if (plateau) b = 0;
@@ -75,7 +75,7 @@ const stage = pct => (pct >= 1 ? "a fast, early-stage pace" : pct >= 0.35 ? "a s
 // the chart and the plain-language readout for one lift
 export function journeyHTML(m, body) {
   const G = !!m.group_;
-  if (!m.ok) return `<div class="basis" style="padding:var(--s3) 0">${G ? (m.n >= 1 ? `${m.n} ${m.name} session${m.n > 1 ? "s" : ""} with a comparable lift logged so far.` : `No ${m.name} sets logged yet.`) + " The curve needs at least 5 sessions across 2 weeks or more." : `${m.n >= 1 ? `${m.n} session${m.n > 1 ? "s" : ""} logged so far.` : ""} The curve needs at least 5 sessions of this lift across 2 weeks or more.`} Keep logging and it appears here.</div>`;
+  if (!m.ok) return `<div class="basis" style="padding:var(--s3) 0">${G ? (m.n >= 1 ? `${m.n} ${m.name} session${m.n > 1 ? "s" : ""} with a comparable lift logged so far.` : `No ${m.name} sets logged yet.`) + " The curve needs at least 3 sessions across a week or more." : `${m.n >= 1 ? `${m.n} session${m.n > 1 ? "s" : ""} logged so far.` : ""} The curve needs at least 3 sessions of this lift across a week or more.`} Keep logging and it appears here.</div>`;
   const W = 600, H = 250, L = 46, R = 14, top = 14, bot = 34, plotW = W - L - R, plotH = H - top - bot, hist = Math.max(m.tNow, 14), horizon = hist + 84, tMax = Math.max(horizon, 112);
   const ideal = t => m.fit(0) * Math.pow(1.01, t / 7), proj = t => m.fit(t);
   const ys = [...m.pts.map(p => p.y), proj(tMax), ideal(Math.min(tMax, m.tNow + 84))], lo = Math.min(...m.pts.map(p => p.y)) * 0.96, hi = Math.max(...ys) * 1.04;

@@ -86,6 +86,21 @@ export function bedtime(shortfallHours) {
   return { minutes: mins, extra: Math.round(extra), nights: extra > 0 ? Math.ceil((shortfallHours * 60) / Math.max(extra, 1)) : 0 };
 }
 
+// Tonight's bedtime, built from what your last two weeks actually look like instead of a fixed clock time:
+//   in bed for  (ideal sleep + catch-up + load extra) / sleep efficiency      efficiency = your last 7 nights, kept between 80 and 95 %
+//   catch-up    sleep debt / 7 days, at most 30 min                          load extra: +15 min when fatigue is 1.3x fitness, +30 above 1.5x
+//   goal        wake time minus that;  tonight  = never more than 30 min earlier than your usual bedtime (median of 14 nights), so it is a step you can take
+export function bedtimePlan(shortfallHours, days, ratio = null) {
+  const extra = Math.min(MAX_CATCHUP_MIN, (shortfallHours * 60) / 7), loadExtra = ratio == null ? 0 : ratio > 1.5 ? 30 : ratio > 1.3 ? 15 : 0;
+  const st = days.slice(-7).map(nightStats).filter(Boolean), eff = st.length >= 3 ? Math.min(.95, Math.max(.8, mean(st.map(x => x.se)) / 100)) : .9;
+  const need = TARGET.idealMin + extra + loadExtra, inBed = need / eff, wrap = m => ((m % 1440) + 1440) % 1440;
+  const goal = wrap(TARGET.wakeMin - inBed);
+  const ons = days.slice(-14).map(nightStats).filter(Boolean).map(x => (x.onsetMin < 720 ? x.onsetMin + 1440 : x.onsetMin));
+  const usual = ons.length >= 5 ? median(ons) : null, g = goal < 720 ? goal + 1440 : goal;
+  const tonight = usual != null && usual - 30 > g ? wrap(usual - 30) : goal;
+  return { minutes: tonight, goal, usual: usual == null ? null : wrap(usual), eff, extra: Math.round(extra), loadExtra, inBed: Math.round(inBed), stepped: tonight !== goal };
+}
+
 // ---------- sleep quality: one equation, every term visible ----------
 // SQ = 100 * sum(w_k * s_k) / sum(w_k over available terms), then capped by duration: SQ <= 100 * (0.4 + 0.6 * s_dur)
 // so efficient but far-too-short sleep cannot score well. Each s_k is 0..1 and piecewise linear.
@@ -218,13 +233,13 @@ export const plannedFor = dateStr => WEEK_PLAN[new Date(dateStr + "T12:00:00").g
 
 // ---------- gym ----------
 // Days with sets in the gym log also count as gym days (the log is filled in by hand, the band may miss a session).
-export const gymLog = { days: new Set() };
+export const gymLog = { days: new Set(), sets: {} };   // days with a logged set, and how many sets each day (both from the Gym log)
 export const isGym = w => GYM_TYPES.includes(w.type) && (w.seconds || 0) >= 20 * 60;
 // Gym tracking starts fresh on this date: earlier gym sessions were never logged on the band, so they would only look like skipped days.
 // Anything that would need days before the start returns null ("no data yet") instead of a misleading zero.
 export const gymTracking = { start: "2026-10-15" };
 export function gymDaysInWindow(byDate, endDate, n, addDays) {
-  const first = addDays(endDate, -(n - 1)); if (first < gymTracking.start) return null;
+  const first = addDays(endDate, -(n - 1)); if (first < gymTracking.start || !gymLog.days.size) return null;
   let c = 0; for (let i = 0; i < n; i++) { const d = addDays(first, i); if (gymLog.days.has(d)) c++; } return c;
 }
 export function gymDaysInWeek(byDate, mondayStr, addDays) { return gymDaysInWindow(byDate, addDays(mondayStr, 6), 7, addDays); }
@@ -293,12 +308,16 @@ export function runProgress(rf, nowMs = Date.now()) {
 }
 
 // ---------- load: Banister fitness-fatigue ----------
-// Two first-order states driven by daily load w (active zone minutes, a stand-in for session load):
+// Two first-order states driven by daily load w (active zone minutes plus logged gym sets, see dayLoad):
 //   dF/dt = (w - F)/42   fitness: slow, the load you are adapted to
 //   dG/dt = (w - G)/7    fatigue: fast, the load you are carrying
 // Each is the exponentially weighted average of daily load, in minutes a day. Form = F - G (positive = fresher than adapted).
 // Days with no data are skipped, not counted as rest.
 export const TAU_FITNESS = 42, TAU_FATIGUE = 7;
+// Daily training load for the load balance: active zone minutes plus the gym log. Lifting barely raises heart rate into the zones, so every logged
+// set counts as GYM_MIN_PER_SET minutes of load (a 20-set session adds about 30). A judgement call, set here.
+export const GYM_MIN_PER_SET = 1.5;
+export const dayLoad = (azm, sets = 0) => (azm == null && !sets ? null : (azm || 0) + GYM_MIN_PER_SET * sets);
 export function banister(azmOf, today, addDays, span = 200) {
   let F = null, G = null, last = null, n = 0;
   for (let i = span; i >= 1; i--) {   // completed days only

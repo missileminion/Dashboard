@@ -108,23 +108,30 @@ export function buildReport(c) {
   // what you already did today, with the numbers
   const done = (T.workouts || []).filter(w => A.isGym(w) || /RUN/i.test(w.type || ""));
   const doneText = done.map(w => /RUN/i.test(w.type || "") ? `a ${w.distanceM != null ? (w.distanceM / 1000).toFixed(2) + " km " : ""}run${w.seconds ? ` in ${Math.round(w.seconds / 60)} minutes` : ""}` : `${Math.round((w.seconds || 0) / 60)} minutes in the gym`);
-  if (doneText.length) act.push(`Today you did ${list(doneText)}${T.azm ? `, ${Math.round(T.azm)} active zone minutes in all` : ""}. ${planned === "Run" || gymToday ? "That matches the plan." : `That is not what the plan had (${sessionNow}).`}`);
-  else if (phase !== "night") {
+  if (doneText.length) act.push(`Today you did ${list(doneText)}${T.azm ? `, ${Math.round(T.azm)} active zone minutes in all` : ""}. ${plannedRun || gymToday ? "" : `That is not what the plan had (${sessionNow}).`}`);
+  else if (phase !== "night" && !plannedRun) {   // no advice about running: only the gym days get a call
     if (call?.call === "Rest") act.push(`Your numbers say skip today's ${sessionNow} and keep movement easy; it can wait a day or two without costing you anything.`);
     else if (call?.call === "Steady") act.push(`Today is ${sessionNow}, but your numbers say hold back: ${planned === "Run" ? "keep the pace easy" : "stop a rep or two short of failure and skip any max attempts"}.`);
     else act.push(`Today is ${sessionNow}, and your numbers support going as planned.`);
-  }
-  if (phase !== "night" && !doneText.length && planned === "Run" && wx) {
-    if (hot) act.push(`It reaches ${wx.feelsMax}° feels-like, so run early or late.`);
-    else if (rainNow) act.push(`Rain is due ${rainText(rainNow)}, so run outside that window.`);
-    else if (wx.bestRun) act.push(`The best window is ${wx.bestRun.day} at ${wx.bestRun.time}, about ${wx.bestRun.feel}° with ${wx.bestRun.rain}% chance of rain.`);
   }
   // tomorrow, only once today is done or the evening has started, and only with something specific to say
   if (phase === "evening" || phase === "night" || doneText.length) {
     const lowRec = (rd.z != null && rd.z < -0.5) || sf.hours > 3.5;
     if (lowRec && !tomorrowIsRun) act.push(`Tomorrow is ${label(tomorrow)}: with recovery down${sf.hours > 3.5 ? " and the sleep debt still high" : ""}, treat the first working set as the test and add weight only if the bar moves well.`);
-    else if (lowRec && tomorrowIsRun) act.push(`Tomorrow is the run: with recovery down, set the pace by feel and not by the watch.`);
-    else if (tomorrowIsRun && wx?.bestRun && wx.bestRun.day !== "today") act.push(`Tomorrow is the run, and the best window is ${wx.bestRun.time} at about ${wx.bestRun.feel}°.`);
+  }
+  // the next three days, and only when the weather would change what you do (rain, heat, cold, wind, or a big swing from today)
+  if (wx?.next?.length && wx.highToday != null) {
+    const dn = d => new Date(d + "T12:00:00").toLocaleDateString("en-US", { weekday: "long" }), flags = [];
+    for (const n of wx.next) {
+      const w = [];
+      if (n.rainProb >= 60 && n.rainMm >= 5) w.push(`rain (${Math.round(n.rainMm)} mm)`);
+      if (n.feelsMax != null && n.feelsMax >= 30) w.push(`heat, ${Math.round(n.feelsMax)}° feels-like`);
+      if (n.feelsMin != null && n.feelsMin <= 0) w.push(`freezing, ${Math.round(n.feelsMin)}° feels-like`);
+      if (n.wind != null && n.wind >= 40) w.push(`strong wind, ${Math.round(n.wind)} km/h`);
+      const swing = n.high - wx.highToday; if (Math.abs(swing) >= 8) w.push(`${Math.abs(Math.round(swing))}° ${swing > 0 ? "warmer" : "colder"} than today`);
+      if (w.length) flags.push(`${dn(n.date)}: ${list(w)}`);
+    }
+    if (flags.length) act.push(`Weather ahead: ${flags.join("; ")}.`);
   }
   const usual = (((wakeT - ideal) % 1440) + 1440) % 1440, early = ((usual - bed.minutes + 720) % 1440 + 1440) % 1440 - 720;   // minutes earlier than your usual bedtime
   if (early >= 15) act.push(`Aim to be asleep by ${clock(bed.minutes)}, ${Math.round(early)} minutes earlier than usual: that extra time is what pays the debt down.`);
