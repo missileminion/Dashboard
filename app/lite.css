@@ -373,8 +373,14 @@ details.adv{margin:22px 0 0;border-top:1px solid var(--line2);padding-top:12px} 
 .tp .ctl{display:flex;align-items:center;justify-content:space-between;background:var(--panel);border:1px solid var(--line);border-radius:12px;height:40px}
 .tp .ctl button{width:26px;height:100%;background:none;border:0;padding:0;color:var(--tx);font-size:18px;flex:0 0 auto}
 .tp .ctl .n{font:600 14px var(--mono);color:var(--tx);text-align:center;flex:1}
-.tp-opt{display:grid;grid-template-columns:minmax(0,1fr) 112px;gap:8px;margin-top:8px;align-items:center}
-.tp-opt .ctl button{width:32px}
-.tp-opt .seg{width:100%} .tp .seg.sm button{height:32px}
-.tp-go{height:46px;margin-top:12px;width:100%}
+.tp-btns{display:flex;gap:8px;margin-top:2px} .tp-go{height:46px;flex:1} .tp-set{flex:0 0 52px;height:46px;display:grid;place-items:center;padding:0;color:var(--tx2)}
 .tp.on .tp-go{background:var(--panel);color:var(--tx);border:1px solid var(--line2)}
+/* settings sheet */
+.tp-sheet h2 .tp-sum{margin-left:auto;font:600 13px var(--mono);color:var(--tx3);letter-spacing:.04em} .tp-sheet h2 .tp-sum.bad{color:var(--bad)}
+.tp-in{padding:0;margin:0;background:none;border:0}
+.tp-in .tp-scale{margin:10px 4px 16px}
+.tp-opt{display:grid;grid-template-columns:70px minmax(0,1fr);gap:10px;margin-top:10px;align-items:center}
+.tp-opt>span{font:500 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--tx3)}
+.tp-opt .ctl button{width:44px}
+.tp-opt .seg{width:100%} .tp .seg.sm button{height:34px}
+.tp-done{height:48px;width:100%;margin-top:18px}

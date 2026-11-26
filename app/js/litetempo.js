@@ -1,5 +1,5 @@
 // Rep tempo metronome (above the gym log), from the owner's rep_metronome.html: the same Web Audio scheduler, sounds and voice clips,
-// in a fixed-size card (it never grows or collapses: settings are always in view, and Start only changes the readout). Phases: lower (eccentric), bottom pause, lift (concentric), top pause. A cue marks the start of lowering
+// in a fixed-size card (it never grows or collapses: settings open in a bottom sheet, and Start only changes the readout). Phases: lower (eccentric), bottom pause, lift (concentric), top pause. A cue marks the start of lowering
 // and lifting, optional ticks count the seconds, optional voice says "down" / "up". Sounds are scheduled ~120 ms ahead on the audio clock,
 // so timing stays exact even when the screen redraws late.
 //
@@ -106,21 +106,40 @@ export function initTempo(root) {
   }
   const seg = (attr, cur, opts) => `<div class="seg sm">${opts.map(([v, l]) => `<button type="button" data-${attr}="${v}" class="${String(cur) === String(v) ? "on" : ""}">${l}</button>`).join("")}</div>`;
   const ctl = (k, val, name) => `<div class="ctl"><button type="button" data-k="${k}" data-d="-1" aria-label="${name} down">−</button><span class="n num">${val}</span><button type="button" data-k="${k}" data-d="1" aria-label="${name} up">+</button></div>`;
+  // the card: readout, rep scale, Start and a settings button. Settings live in a bottom sheet, so the card never changes size.
+  const sheet = document.createElement("div"); sheet.className = "sheet"; sheet.hidden = true;
+  sheet.innerHTML = `<div class="sheet-bg" data-close></div><div class="sheet-card tp-sheet" role="dialog" aria-modal="true" aria-label="Tempo settings"><div class="sheet-grip" data-close></div><div class="tp-sb"></div></div>`;
+  document.body.appendChild(sheet);
+  const sb = sheet.querySelector(".tp-sb");
+  const SLIDERS = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>`;
   function draw() {
     const t = total();
     root.innerHTML = `<div class="card tp${running ? " on" : ""}" data-ph="">
       <div class="tp-head"><span class="kick">Tempo <button class="i" type="button" data-i="tempo" aria-label="About the tempo">i</button></span>
         <span class="tp-read${!running && bad("repLength", t) ? " bad" : ""}"><span id="tpPh">${running ? "Get ready" : tempoStr()}</span><span class="tp-big" id="tpBig">${dm(running ? "0.0" : f1(t))}</span><small>s</small></span></div>
       ${scale(t)}
-      <div class="tp-steps">${STEPS.map(([k, name]) => `<div class="step s-${k}"><div class="lb">${name}</div>${ctl(k, f1(S[k]), name)}</div>`).join("")}</div>
-      <div class="tp-opt">${seg("kind", S.kind, [["digital", "Click"], ["wood", "Wood"], ["clave", "Clave"]])}${ctl("vol", S.vol * 10 + "%", "Volume")}</div>
-      <div class="tp-opt">${seg("mode", S.mode, [["sound", "Sound"], ["both", "+ Voice"], ["voice", "Voice"]])}${seg("ticks", S.ticks, [[true, "Ticks"], [false, "Off"]])}</div>
-      <button type="button" class="btn tp-go" data-tp="go">${running ? "Stop" : "Start"}</button></div>`;
+      <div class="tp-btns"><button type="button" class="btn tp-go" data-tp="go">${running ? "Stop" : "Start"}</button><button type="button" class="btn ghost tp-set" data-tp="set" aria-label="Tempo settings">${SLIDERS}</button></div></div>`;
+    if (!sheet.hidden) drawSheet();
   }
-  root.addEventListener("click", e => {
+  function drawSheet() {
+    const t = total();
+    sb.innerHTML = `<h2>Tempo <span class="num tp-sum${bad("repLength", t) ? " bad" : ""}">${tempoStr()} · ${f1(t)} s</span></h2>
+      <div class="tp tp-in">${scale(t)}
+      <div class="tp-steps">${STEPS.map(([k, name]) => `<div class="step s-${k}"><div class="lb">${name}</div>${ctl(k, f1(S[k]), name)}</div>`).join("")}</div>
+      <div class="tp-opt"><span>Sound</span>${seg("kind", S.kind, [["digital", "Click"], ["wood", "Wood"], ["clave", "Clave"]])}</div>
+      <div class="tp-opt"><span>Cues</span>${seg("mode", S.mode, [["sound", "Sound"], ["both", "+ Voice"], ["voice", "Voice"]])}</div>
+      <div class="tp-opt"><span>Ticks</span>${seg("ticks", S.ticks, [[true, "On"], [false, "Off"]])}</div>
+      <div class="tp-opt"><span>Volume</span>${ctl("vol", S.vol * 10 + "%", "Volume")}</div>
+      <button type="button" class="btn tp-done" data-close>Done</button></div>`;
+  }
+  const openSheet = () => { drawSheet(); sheet.hidden = false; document.body.style.overflow = "hidden"; };
+  const closeSheet = () => { if (sheet.hidden) return false; sheet.hidden = true; document.body.style.overflow = ""; return true; };
+  function onClick(e) {
+    if (e.target.closest("[data-close]")) { closeSheet(); return; }
     const b = e.target.closest("button"); if (!b || b.classList.contains("i")) return;
     const tp = b.dataset.tp;
     if (tp === "go") { running ? stop() : start(); return; }
+    if (tp === "set") { openSheet(); return; }
     if (b.dataset.k) {
       const k = b.dataset.k, d = +b.dataset.d, st = STEPS.find(x => x[0] === k), [min, max, step] = st ? st.slice(2) : [1, 10, 1];
       S[k] = Math.max(min, Math.min(max, Math.round((S[k] + d * step) * 100) / 100)); save(); if (master) master.gain.value = S.vol / 10;
@@ -130,8 +149,9 @@ export function initTempo(root) {
     if (b.dataset.kind) { S.kind = b.dataset.kind; save(); draw(); initAudio(); click("ecc", ctx.currentTime + .03); return; }
     if (b.dataset.mode) { S.mode = b.dataset.mode; save(); draw(); return; }
     if (b.dataset.ticks) { S.ticks = b.dataset.ticks === "true"; save(); draw(); return; }
-  });
+  }
+  root.addEventListener("click", onClick); sheet.addEventListener("click", onClick);
   document.addEventListener("visibilitychange", () => { if (!document.hidden && running && !lock) navigator.wakeLock?.request("screen").then(l => (lock = l), () => {}); });
   draw();
-  return { stop: () => running && stop(), get running() { return running; } };
+  return { stop: () => running && stop(), back: closeSheet, get running() { return running; } };
 }

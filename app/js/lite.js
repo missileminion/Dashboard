@@ -312,6 +312,7 @@ const notes = initNotes(pane("notes"), { demo: DEMO, toast });
 window.__back = () => {
   if (!pop.hidden) { pop.hidden = true; return true; }
   if (settings.back()) return true;
+  if (tempo.back()) return true;
   if (cur === "notes" && notes.back()) return true;
   if (cur === "plan" && plan.back()) return true;
   if (trail.length) { show(trail.pop(), { push: false }); return true; }
