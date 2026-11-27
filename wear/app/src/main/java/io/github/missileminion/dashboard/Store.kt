@@ -82,6 +82,7 @@ object Store {
         p.getString("state", null)?.let { runCatching { applyState(JSONObject(it), save = false) } }
         mine = runCatching { JSONArray(p.getString("mine", "[]")).let { a -> (0 until a.length()).map { Entry.of(a.getJSONObject(it)) } } }.getOrDefault(emptyList())
         deleted = runCatching { JSONArray(p.getString("deleted", "[]")).let { a -> (0 until a.length()).map { a.getLong(it) }.toSet() } }.getOrDefault(emptySet())
+        p.getString("lastRun", null)?.let { runCatching { JSONObject(it).let { o -> lastRun = RunSummary(o.getDouble("km"), o.getLong("sec"), o.getLong("pace").takeIf { v -> v >= 0 }, o.getLong("at")) } } }
         if (p.contains("step")) step = p.getFloat("step", 1f).toDouble()
         units = runCatching { JSONObject(p.getString("units", "{}")).let { o -> o.keys().asSequence().associateWith { o.getString(it) } } }.getOrDefault(emptyMap())
         scope.launch {   // whatever the phone published while the app was closed
@@ -99,6 +100,15 @@ object Store {
             .putString("units", JSONObject(units).toString()).apply()
     }
     fun saveStep() = save()
+
+    // the last finished run, kept on the watch only (for the Run tile): distance, active time, average pace
+    data class RunSummary(val km: Double, val sec: Long, val pace: Long?, val at: Long)
+    var lastRun by mutableStateOf<RunSummary?>(null); private set
+    fun saveRun(km: Double, sec: Long) {
+        val r = RunSummary(km, sec, if (km > 0.05) (sec / km).toLong() else null, System.currentTimeMillis()); lastRun = r
+        app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("lastRun", JSONObject().put("km", r.km).put("sec", r.sec).put("pace", r.pace ?: -1).put("at", r.at).toString()).apply()
+        Tiles.refresh(app)
+    }
 
     fun applyState(o: JSONObject, save: Boolean = true) {
         o.optJSONObject("program")?.let { pr ->
@@ -118,12 +128,13 @@ object Store {
         val e = Entry(System.currentTimeMillis() + Random.nextInt(1000), today(), day, exercise, weightLb, reps, sets)
         mine = mine + e; save()
         send("/gym/add/${e.id}", e.json().toString())
+        Tiles.refresh(app)
         return e
     }
 
     fun undo(id: Long) {
         mine = mine.filter { it.id != id }; deleted = deleted + id; save()
-        send("/gym/del/$id", "{}")
+        send("/gym/del/$id", "{}"); Tiles.refresh(app)
     }
 
     private fun send(path: String, json: String) = scope.launch {

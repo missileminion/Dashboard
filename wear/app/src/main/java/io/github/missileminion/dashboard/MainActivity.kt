@@ -76,8 +76,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Store.init(this); Run.init(this)
+        take(intent)
         setContent { MaterialTheme { App() } }
     }
+    override fun onNewIntent(intent: android.content.Intent) { super.onNewIntent(intent); take(intent) }
+    private fun take(i: android.content.Intent?) { i?.getStringExtra("page")?.let { Launch.req = it to i.getBooleanExtra("start", false) } }   // from a tile
 }
 
 // ---- haptics: the watch's own patterns (follow its vibration settings) ----
@@ -132,7 +135,13 @@ fun App() {
 @Composable
 fun Home(onExercise: (String, String) -> Unit, onToday: () -> Unit) {
     val ds = days()
-    val pager = rememberPagerState(initialPage = todayPage()) { ds.size + 1 }
+    val pager = rememberPagerState(initialPage = Launch.req?.let { if (it.first == "run") 0 else todayPage() } ?: todayPage()) { ds.size + 1 }
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(Launch.req) {   // a tile asked for a card (and maybe to start the run)
+        val r = Launch.req ?: return@LaunchedEffect; Launch.req = null
+        pager.scrollToPage(if (r.first == "run") 0 else todayPage())
+        if (r.second && androidx.core.content.ContextCompat.checkSelfPermission(ctx, HR_PERM) == android.content.pm.PackageManager.PERMISSION_GRANTED) Run.start()
+    }
     Box(Modifier.fillMaxSize()) {
         HorizontalPager(state = pager, modifier = Modifier.fillMaxSize()) { page ->
             if (page == 0) RunCard() else DayCard(ds[page - 1], onExercise, onToday)

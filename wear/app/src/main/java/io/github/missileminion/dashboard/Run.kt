@@ -36,7 +36,8 @@ object Run {
     var calories by mutableStateOf(0.0); private set
     var speed by mutableStateOf<Double?>(null); private set         // m/s, latest
     var error by mutableStateOf<String?>(null)
-    private var checkpoint: Pair<Duration, Instant>? = null          // active time at a moment; time since then is added while running
+    private var checkpoint: Pair<Duration, Instant>? = null
+    private var tileAt = 0L          // active time at a moment; time since then is added while running
 
     fun activeSeconds(now: Instant = Instant.now()): Long {
         val (d, at) = checkpoint ?: return 0
@@ -57,7 +58,10 @@ object Run {
             m.getData(DataType.SPEED).lastOrNull()?.value?.let { speed = it }
             update.activeDurationCheckpoint?.let { checkpoint = it.activeDuration to it.time }
             val st = update.exerciseStateInfo.state
+            val was = state
             state = when { st.isEnded -> S.ENDED; st.isPaused -> S.PAUSED; else -> S.ACTIVE }
+            val t = System.currentTimeMillis()
+            if (state != was || t - tileAt > 30_000) { tileAt = t; Tiles.refresh(app) }   // the Run tile shows live pace: redraw it at most every 30 s
         }
         override fun onLapSummaryReceived(lapSummary: ExerciseLapSummary) {}
         override fun onRegistered() {}
@@ -82,12 +86,12 @@ object Run {
                 val types = want.filter { it in caps.supportedDataTypes }.toSet()
                 client.setUpdateCallback(callback)
                 client.startExerciseAsync(ExerciseConfig.builder(ExerciseType.RUNNING).setDataTypes(types).setIsGpsEnabled(true).build()).await()
-                state = S.ACTIVE
+                state = S.ACTIVE; Tiles.refresh(app)
             } catch (e: Exception) { state = S.IDLE; error = if (e is SecurityException || e.message?.contains("permission", true) == true) "Allow heart rate and location to start a run" else "Could not start the run" }
         }
     }
     fun pause() = scope.launch { runCatching { client.pauseExerciseAsync().await() } }
     fun resume() = scope.launch { runCatching { client.resumeExerciseAsync().await() } }
-    fun end() = scope.launch { runCatching { client.endExerciseAsync().await() }; state = S.ENDED }
+    fun end() = scope.launch { runCatching { client.endExerciseAsync().await() }; state = S.ENDED; Store.saveRun(distanceM / 1000, activeSeconds()) }
     fun reset() { if (state == S.ENDED) state = S.IDLE }
 }

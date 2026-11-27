@@ -113,7 +113,7 @@ export function initLiteGym(root, { demo = false, toast = () => {}, onChange = (
     r.addEventListener("scroll", () => {
       if (rulerSet) return;
       const v = Math.max(0, Math.min(MAX(), Math.round(r.scrollLeft / PX() / step) * step));
-      if (v !== lastBuzz) { lastBuzz = v; weight = toLb(v); paintW(); haptic(detent(v)); }   // a tick per marker: whole numbers major, quarters minor
+      if (v !== lastBuzz) { lastBuzz = v; weight = toLb(v); paintW(); haptic(v === 0 || v === MAX() ? "limit" : detent(v)); }   // the ends of the scale bump   // a tick per marker: whole numbers major, quarters minor
       clearTimeout(rulerT); rulerT = setTimeout(() => rulerTo(true), 140);   // settle exactly on the step
     }, { passive: true });
   }

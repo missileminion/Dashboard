@@ -103,21 +103,11 @@ class HealthConnectPlugin : Plugin() {
         }
     }
 
-    // UI haptics through the system's own patterns (they follow the phone's touch-feedback setting; no vibrate permission needed).
-    // minor/major: detents on a scale (Android 14's segment ticks, made for sliders); tap: a button; toggle; confirm; reject.
+    // UI haptics: the app's haptic language (Haptics.kt). Kinds: press, select, minor, major, limit, toggle, hold, confirm, reject.
     @PluginMethod
     fun haptic(call: PluginCall) {
-        val k = call.getString("kind") ?: "tap"
-        val u = Build.VERSION.SDK_INT >= 34; val r = Build.VERSION.SDK_INT >= 30
-        val c = when (k) {
-            "minor" -> if (u) H.SEGMENT_FREQUENT_TICK else H.CLOCK_TICK
-            "major" -> if (u) H.SEGMENT_TICK else H.CONTEXT_CLICK
-            "toggle" -> if (u) H.TOGGLE_ON else H.CONTEXT_CLICK
-            "confirm" -> if (r) H.CONFIRM else H.LONG_PRESS
-            "reject" -> if (r) H.REJECT else H.LONG_PRESS
-            else -> H.KEYBOARD_TAP
-        }
-        activity.runOnUiThread { bridge.webView.performHapticFeedback(c); call.resolve() }
+        val k = call.getString("kind") ?: "press"
+        activity.runOnUiThread { try { Haptics.play(context, bridge.webView, k) } catch (e: Exception) {}; call.resolve() }
     }
 
     @PluginMethod

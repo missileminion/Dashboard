@@ -82,7 +82,7 @@ export function initPlan(root, { toast }) {
   }
   root.addEventListener("click", e => {
     const t = e.target, chip = t.closest("[data-fd]"), r = t.closest(".er"), id = r?.dataset.eid;
-    if (chip) { focus = chip.dataset.fd; open = null; render(); haptic("tap"); return; }
+    if (chip) { focus = chip.dataset.fd; open = null; render(); haptic("select"); return; }
     if (t.closest("[data-new]")) { open = open === "new" ? null : "new"; render(); return; }
     if (t.closest("[data-done]") && id) {   // done: the title gets (or loses) "✓ " in Google Calendar; shown at once, undone if Google refuses
       const x = ev(id); if (!x) return; x.done = !x.done; render(); haptic("toggle");
@@ -90,7 +90,7 @@ export function initPlan(root, { toast }) {
       return;
     }
     if (r && id) { open = open === id ? null : id; armDel = null; render(); return; }
-    const pr = t.closest("[data-pr]"); if (pr) { haptic("toggle"); root.querySelectorAll("#eP button").forEach(b => b.classList.toggle("on", b === pr)); return; }
+    const pr = t.closest("[data-pr]"); if (pr) { haptic("select"); root.querySelectorAll("#eP button").forEach(b => b.classList.toggle("on", b === pr)); return; }
     const edEl = t.closest(".ed"); if (!edEl) return; const eid = edEl.dataset.ed, x = eid === "new" ? null : ev(eid);
     if (t.closest("[data-cancel]")) { open = null; render(); return; }
     if (t.closest("[data-save]")) { let b; try { b = body(x); } catch (er) { root.querySelector("#eE").textContent = er.message; return; }

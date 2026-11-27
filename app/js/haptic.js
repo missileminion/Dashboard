@@ -1,12 +1,18 @@
-// Haptics for the phone UI. On the Android app it asks the system for its own feedback patterns (the same ones the launcher and
-// keyboard use, so they follow the phone's "touch feedback" setting and feel native); in a browser it falls back to short vibrations.
-// Kinds: minor / major (detents on a scale), tap (a button), toggle (on/off), confirm (logged, saved), reject (delete, refused).
-// Every button press gets a "tap" from the one listener in lite.js, unless the screen already gave a more specific one.
+// The app's haptic language (the Android app plays it with shaped vibrations: android/native/Haptics.kt; a browser gets short buzzes).
+// One word per kind of moment, each with its own feel:
+//   press    a button                              select   picking one of several (segment, chip, tab)
+//   minor    a small mark on a scale (quarters)     major    a big mark (whole numbers), clearly heavier
+//   limit    the end of a scale or range            toggle   something switching on or off (done, a setting)
+//   hold     a long press registering               confirm  saved or logged ("da-DUM")
+//   reject   refused, or a first tap that arms a delete
+// Every button press gets "press" (or "select" inside a segmented control) from the one listener in lite.js, unless the
+// screen already gave a more specific one for that press.
 const C = () => window.Capacitor, native = () => !!C()?.isNativePlatform?.();
-const MS = { minor: 3, major: 8, tap: 6, toggle: 10, confirm: [12, 60, 18], reject: [20, 50, 20, 50, 20] };
+const MS = { minor: 3, major: 9, press: 7, tap: 7, select: 5, limit: [14, 40, 8], toggle: 12, hold: 18, confirm: [10, 70, 18], reject: [18, 80, 12] };
 let last = 0, firedFor = null;   // the press (event) a specific haptic already answered
 
-export function haptic(kind = "tap") {
+export function haptic(kind = "press") {
+  if (kind === "tap") kind = "press";
   const t = performance.now();
   if (t - last < (kind === "minor" || kind === "major" ? 12 : 40)) return;   // detents may come fast; anything else once per press
   last = t; firedFor = window.event || null;

@@ -12,7 +12,7 @@ if (!fs.existsSync(A)) { console.error("android/android is missing: run `npx cap
 
 // 1. our native code
 fs.mkdirSync(SRC, { recursive: true });
-for (const f of ["HealthConnectPlugin.kt", "PrivacyActivity.kt", "MainActivity.java", "WearSync.kt"]) fs.copyFileSync(path.join(here, "native", f), path.join(SRC, f));
+for (const f of ["HealthConnectPlugin.kt", "PrivacyActivity.kt", "MainActivity.java", "WearSync.kt", "Haptics.kt"]) fs.copyFileSync(path.join(here, "native", f), path.join(SRC, f));
 console.log("copied native sources");
 // the app icon (drawn by icon.mjs): copied over the default Capacitor icon
 fs.cpSync(path.join(here, "native/res"), path.join(A, "app/src/main/res"), { recursive: true });
@@ -51,6 +51,8 @@ edit("app/src/main/AndroidManifest.xml", s => {
   s = s.replace(/(<activity[^>]*\.MainActivity"[^>]*?)(android:windowSoftInputMode="[^"]*")?/, (m, a) => (m.includes("windowSoftInputMode") ? m : a + ' android:windowSoftInputMode="adjustResize" android:screenOrientation="portrait"'));
   return s;
 });
+// 4b. the haptic language plays shaped vibrations (Haptics.kt), which needs the ordinary vibrate permission
+edit("app/src/main/AndroidManifest.xml", s => s.includes("android.permission.VIBRATE") ? s : s.replace(/<application/, `<uses-permission android:name="android.permission.VIBRATE" />\n\n    <application`));
 // 5. the Galaxy Watch link: a background listener for sets logged on the watch (WearSync.kt)
 edit("app/src/main/AndroidManifest.xml", s => s.includes(".WearListener") ? s : s.replace(/<\/application>/, `    <service android:name=".WearListener" android:exported="true">
             <intent-filter>

@@ -13,12 +13,21 @@
         <uses-library android:name="com.google.android.wearable" android:required="false" />
         <!-- works on its own (the log is kept on the watch) and syncs through the phone app when it is around -->
         <meta-data android:name="com.google.android.wearable.standalone" android:value="true" />
-        <activity android:name=".MainActivity" android:exported="true" android:taskAffinity="" android:theme="@android:style/Theme.DeviceDefault">
+        <activity android:name=".MainActivity" android:exported="true" android:taskAffinity="" android:launchMode="singleTask" android:theme="@android:style/Theme.DeviceDefault">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <!-- tiles: swipe sideways from the watch face -->
+        <service android:name=".TodayTile" android:label="Gym today" android:exported="true" android:permission="com.google.android.wearable.permission.BIND_TILE_PROVIDER">
+            <intent-filter><action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" /></intent-filter>
+            <meta-data android:name="androidx.wear.tiles.PREVIEW" android:resource="@drawable/ic_dash_foreground" />
+        </service>
+        <service android:name=".RunTile" android:label="Run" android:exported="true" android:permission="com.google.android.wearable.permission.BIND_TILE_PROVIDER">
+            <intent-filter><action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" /></intent-filter>
+            <meta-data android:name="androidx.wear.tiles.PREVIEW" android:resource="@drawable/ic_dash_foreground" />
+        </service>
         <service android:name=".StateListener" android:exported="true">
             <intent-filter>
                 <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
