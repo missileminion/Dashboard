@@ -11,7 +11,8 @@ import { bad, red } from "./standards.js";
 import { INFO } from "./info.js";
 import { demoDays, demoSleepHr } from "./demo.js";
 import { dm } from "./dotfont.js";
-import { sleepMonth, earlyOrb, nightFlow, drawLanes } from "./widgets.js";
+import { sleepMonth, earlyOrb, nightFlow, drawLanes, routeDots } from "./widgets.js";
+import { runlog, mergedRuns } from "./runlog.js";
 import { drawNight } from "./sleepchart.js";
 import { line, vital } from "./charts.js";
 import { gh } from "./ghstore.js";
@@ -161,6 +162,31 @@ function vitalRow(k, name, unit, dec) {   // the original vital row: latest valu
   const base = series(k, 31, addDays(l.d, -1)).map(x => x.v), mu = mean(base), s = sd(base);
   return vital(name, l.v, unit, s == null ? null : [mu - s, mu + s], dec, l.d === today ? "" : ` · from ${dayLabel(l.d)}`);
 }
+// a heartbeat trace in dots that beats at the given rate: a faint trace, and a bright sweep crossing one beat per beat
+function beat(bpm, { w = 300, h = 54 } = {}) {
+  const cell = w / 3, y0 = h * .58, pts = k => { const x = k * cell, c = v => (x + v * cell).toFixed(1);
+    return `L${c(.1)} ${y0} Q${c(.16)} ${y0 - h * .1} ${c(.22)} ${y0} L${c(.3)} ${y0} L${c(.33)} ${y0 + h * .1} L${c(.37)} ${h * .06} L${c(.41)} ${y0 + h * .26} L${c(.45)} ${y0} L${c(.56)} ${y0} Q${c(.64)} ${y0 - h * .2} ${c(.72)} ${y0} L${c(1)} ${y0}`; };
+  const d = `M0 ${y0}` + [0, 1, 2].map(pts).join(""), id = "bt" + Math.floor(Math.random() * 1e6), dur = (3 * 60 / Math.max(30, bpm)).toFixed(2);
+  return `<svg class="beat" viewBox="0 0 ${w} ${h}" role="img" aria-label="Heart beating at ${Math.round(bpm)} beats a minute">
+    <defs><linearGradient id="${id}g"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".8" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+    <mask id="${id}"><rect class="sweep" x="${-cell}" y="0" width="${cell}" height="${h}" fill="url(#${id}g)" style="animation-duration:${dur}s;--w:${w + cell}px"/></mask></defs>
+    <path d="${d}" class="beat-dim"/><path d="${d}" class="beat-lit" mask="url(#${id})"/></svg>`;
+}
+const pace = s => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}`;
+function runsHTML() {
+  const runs = mergedRuns(days.flatMap(d => (d.workouts || []).filter(w => /RUN/i.test(w.type || "")).map(w => ({ ...w, date: new Date(w.start + (w.offset || 0) * 1000).toISOString().slice(0, 10) }))));
+  const r = runs[0]; let target = 0; try { target = +localStorage.getItem("run.paceTarget") || 0; } catch {}
+  const last = !r ? `<div class="note" style="margin:6px 2px 4px">No runs yet. Runs from the watch and the band show here.</div>` : `
+    <div class="kick" style="margin:0">${new Date(r.start + (r.offset || 0) * 1000).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", timeZone: "UTC" })}${r.source === "watch" ? " · watch" : ""}</div>
+    <div class="rn-big">${dm(r.distanceM == null ? "—" : (r.distanceM / 1000).toFixed(2))}<small>km</small></div>
+    <div class="rn-stats"><div><span>Pace</span><b>${r.paceSecPerKm ? pace(r.paceSecPerKm) : "—"}<i>/km</i></b></div><div><span>Time</span><b>${r.seconds ? pace(r.seconds) : "—"}</b></div><div><span>Avg HR</span><b>${r.avgHr ? Math.round(r.avgHr) : "—"}<i>bpm</i></b></div></div>
+    ${r.route?.length > 3 ? routeDots(r.route, { w: 340, h: 170, dot: 1.8 }) : ""}
+    ${r.avgHr ? beat(r.avgHr, { w: 300, h: 44 }) : ""}`;
+  const rows = runs.slice(1, 5).map(x => `<div class="row"><div class="k">${dayLabel(x.date)}</div><div class="v"><span class="num">${x.distanceM ? (x.distanceM / 1000).toFixed(2) : "—"}</span><span class="u">km</span></div></div>`).join("");
+  return `<div class="kick sec">Run ${ib("lastRun")}</div><div class="card rn">${last}</div>${rows ? `<div class="list">${rows}</div>` : ""}
+    <div class="list"><div class="row pt"><div class="k">Pace target<small>your watch buzzes you back onto it</small></div>
+      <div class="ptc">${target ? `<button type="button" data-pt="-5" aria-label="Faster target">−</button><span class="num">${pace(target)}</span><button type="button" data-pt="5" aria-label="Slower target">+</button><button type="button" class="pt-off" data-pt="off">Off</button>` : `<button type="button" class="pt-on" data-pt="on">Set</button>`}</div></div></div>`;
+}
 function renderBody(el) {
   const m = M, a7 = sum(win("azm", 7)), gymLast = try_(() => A.gymDaysInWeek(byDate, monday(addDays(today, -7)), addDays));
   const hrv7 = mean(win("hrv", 7)), hrv30 = win("hrv", 30, 7), hs = sd(hrv30), hmu = mean(hrv30), hrvOut = hs != null && hrv7 != null && Math.abs(hrv7 - hmu) > hs;
@@ -168,6 +194,7 @@ function renderBody(el) {
   el.innerHTML = `
   <div class="card"><div class="kick">Body check ${ib("early")}</div><div id="orb"></div></div>
   <div class="kick sec">Vitals ${ib("vitals")}</div>
+  ${(() => { const l = [...series("restingHr", 14)].reverse().find(x => x.v != null); return l ? `<div class="card hb"><div class="kick" style="margin:0">Heart ${ib("vitals")}</div><div class="hb-row">${beat(l.v)}<div class="hb-n">${dm(String(Math.round(l.v)))}<small>bpm at rest</small></div></div></div>` : ""; })()}
   <div class="list vitals">${vitalRow("restingHr", "Resting HR", "bpm", 0)}${vitalRow("hrv", "HRV", "ms", 0)}${vitalRow("breathing", "Breathing", "br/min", 1)}${vitalRow("spo2", "SpO2", "%", 1)}${vitalRow("skinTempDelta", "Skin temp Δ", "°C", 2)}</div>
   <div class="card"><div class="kick">Resting heart rate · 90 days</div><div class="lchart" id="lrhr" style="margin-top:8px"></div></div>
   <div class="kick sec">Training load</div>
@@ -177,7 +204,8 @@ function renderBody(el) {
     ${row("Gym", gymLast ?? null, "/6", { sub: "days last week", key: "gymDays", isBad: bad("workouts", gymLast) })}
     ${row("HRV", hrv7 == null ? null : Math.round(hrv7), "ms", { sub: "7-day average", key: "hrvStatus", isBad: hrvOut })}
     ${row("Cardio fitness", vo2 ? vo2.v.toFixed(1) : null, "", { sub: "VO2 max", key: "vo2", note: vo2Chg == null ? "" : `<span class="${red("vo2Change", vo2Chg)}">${vo2Chg >= 0 ? "▲" : "▼"} ${n3(Math.abs(vo2Chg))}% in 30 days</span>` })}
-  </div>`;
+  </div>
+  ${runsHTML()}`;
   try { earlyOrb($("orb"), m.signs, try_(() => A.earlySigns(byDate, addDays(today, -1), addDays))); } catch (e) { console.error(e); }
   try { line($("lrhr"), series("restingHr", 90), { h: 78 }); } catch (e) { console.error(e); }
 }
@@ -218,6 +246,16 @@ document.addEventListener("click", e => {
   if (!c || c.disabled || justFired(e)) return;
   haptic(c.closest(".seg, .sw, [role=tablist], #tabs") ? "select" : c.matches('input[type="checkbox"], input[type="radio"]') ? "toggle" : "press");
 });
+// pace target (Body → Run): seconds per km, 0 = off; the watch gets it with the next update
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-pt]"); if (!b) return;
+  let t = 0; try { t = +localStorage.getItem("run.paceTarget") || 0; } catch {}
+  const v = b.dataset.pt; t = v === "on" ? 360 : v === "off" ? 0 : Math.max(150, Math.min(900, t + +v));
+  try { localStorage.setItem("run.paceTarget", String(t)); } catch {}
+  haptic(v === "on" || v === "off" ? "toggle" : "select"); dispatchEvent(new Event("wear:push")); renderHealth();
+});
+addEventListener("runs:changed", () => { if (cur === "health") renderHealth(); });
+if (!DEMO) runlog.pull().then(() => { if (cur === "health") renderHealth(); });   // runs from the watch, through GitHub
 addEventListener("connections", e => settings.open(e.detail || "main"));
 addEventListener("goto", e => settings.open(e.detail === "notes" ? "notes" : "github"));   // the red sync bar's "Fix it"
 $("gear").onclick = () => settings.open("main");

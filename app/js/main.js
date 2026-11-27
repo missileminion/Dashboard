@@ -12,6 +12,7 @@ import { INFO } from "./info.js";
 import { buildReport } from "./report.js";
 import { initTimer } from "./timer.js";
 import { initGymLog, e1rm } from "./gymlog.js";
+import { runlog, mergedRuns } from "./runlog.js";
 import { fitLift, fitGroup, journeyHTML, bodyStats, GROUPS, groupOf } from "./progress.js";
 import { initCalendar } from "./calendar.js";
 import { initTerminal } from "./terminal.js";
@@ -106,6 +107,7 @@ function render() {
   });
   step("Illness signs data", () => { signs = A.earlySigns(byDate, today, addDays); });
   step("Runs", () => renderRuns());
+  if (!DEMO) runlog.pull().then(() => { try { renderRuns(); } catch {} });   // runs from the watch, through GitHub
   step("Gym", () => renderGym());
   step("Body Check", () => earlyOrb($("orb"), signs, A.earlySigns(byDate, addDays(today, -1), addDays)));
   step("Today", () => renderToday(signs, rd, lb, sq, lastNight));
@@ -164,7 +166,7 @@ function weekTile() {
   return `<div class="card"><div class="lbl">Active zone min this week</div><div class="val">${Math.round(tot)}<small>/ ${WEEK_AZM} min</small></div><div class="range" style="height:6px;margin:6px 0 0"><i style="left:0;width:${Math.min(100, tot / WEEK_AZM * 100)}%;background:var(--accent)"></i></div></div>`;
 }
 // every run with the local date it started on; the Runs card and the weekly review both read this, so their totals always agree
-const allRuns = () => days.flatMap(d => (d.workouts || []).filter(w => /RUN/i.test(w.type || "")).map(w => ({ ...w, date: new Date(w.start + w.offset * 1000).toISOString().slice(0, 10) }))).sort((a, b) => b.start - a.start);
+const allRuns = () => mergedRuns(days.flatMap(d => (d.workouts || []).filter(w => /RUN/i.test(w.type || "")).map(w => ({ ...w, date: new Date(w.start + w.offset * 1000).toISOString().slice(0, 10) }))));   // band runs plus the Galaxy Watch app's (runlog.js)
 let runToken = 0;
 function renderRuns() {
   const runs = allRuns();
@@ -186,7 +188,7 @@ function renderRuns() {
   document.querySelectorAll(".runrow").forEach(el => (el.onclick = () => { selRun = +el.dataset.start; renderRuns(); }));
   // last run: shown at once, heart-rate trace added when it arrives
   lastRun($("lastRun"), sel, null);
-  if (sel) { const my = ++runToken; (async () => { let hr = []; try { hr = DEMO ? demoRunHr(sel) : await loadRunHr(sel); } catch (e) { } if (my === runToken) lastRun($("lastRun"), sel, hr); })(); }
+  if (sel) { const my = ++runToken; (async () => { let hr = []; try { hr = sel.hr?.length ? sel.hr : DEMO ? demoRunHr(sel) : await loadRunHr(sel); } catch (e) { } if (my === runToken) lastRun($("lastRun"), sel, hr); })(); }
   // run form: change in metres per heartbeat vs the start, and vs 1, 3 and 6 months ago
   const pr = A.runProgress(rf), fmtP = v => (v == null ? `<span></span><span>—</span>` : `<span>${v >= 0 ? "+" : "−"}</span><span>${n3(Math.abs(v))}%</span>`);
   const prow = (l, v, hint) => `<div class="row" style="grid-template-columns:1fr auto;padding:7px 0"><span>${l}</span><span class="num chg ${v != null ? red("runChange", v) : ""}" style="font-size:20px;font-weight:600;grid-template-columns:.8em 6ch">${fmtP(v)}</span></div>`;

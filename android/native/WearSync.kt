@@ -59,6 +59,7 @@ object WearSync {
             val json = try { DataMapItem.fromDataItem(item).dataMap.getString("json") } catch (e: Exception) { null }
             when {
                 path.startsWith("/gym/add/") && json != null -> { push(ctx, JSONObject().put("op", "add").put("entry", JSONObject(json))); got = true }
+                path.startsWith("/run/add/") && json != null -> { push(ctx, JSONObject().put("op", "run").put("run", JSONObject(json))); got = true }   // a finished run from the watch
                 path.startsWith("/gym/del/") -> { push(ctx, JSONObject().put("op", "del").put("id", path.substringAfterLast('/').toLongOrNull() ?: continue)); got = true }
                 else -> continue
             }

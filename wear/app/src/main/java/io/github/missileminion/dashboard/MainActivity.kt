@@ -218,7 +218,8 @@ private fun RunCard() {
                             Spacer(Modifier.width(5.dp))
                             BasicText("/km", Modifier.padding(bottom = 2.dp), style = TextStyle(color = TX3, fontSize = 11.sp, fontFamily = MONO))
                         }
-                        Spacer(Modifier.height(14.dp))
+                        if (Store.paceTarget > 0) BasicText("target ${clock(Store.paceTarget.toLong())}${if (Run.cue.isNotEmpty()) " · " + Run.cue else ""}", style = TextStyle(color = if (Run.cue == "speed up" || Run.cue == "ease off") TX else TX3, fontSize = 10.sp, fontFamily = MONO))
+                        Spacer(Modifier.height(if (Store.paceTarget > 0) 8.dp else 14.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(22.dp), verticalAlignment = Alignment.Bottom) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) { DotText(clock(sec), 18.dp, TX); Spacer(Modifier.height(3.dp)); BasicText("time", style = TextStyle(color = TX3, fontSize = 9.5.sp, fontFamily = MONO)) }
                             Column(horizontalAlignment = Alignment.CenterHorizontally) { DotText("%.2f".format(Run.distanceM / 1000), 18.dp, TX); Spacer(Modifier.height(3.dp)); BasicText("km", style = TextStyle(color = TX3, fontSize = 9.5.sp, fontFamily = MONO)) }
@@ -244,7 +245,8 @@ private fun RunCard() {
                     }
                     else -> {
                         DotText("RUN", 34.dp, TX)
-                        Spacer(Modifier.height(22.dp))
+                        if (Store.paceTarget > 0) { Spacer(Modifier.height(10.dp)); BasicText("target ${clock(Store.paceTarget.toLong())} /km", style = TextStyle(color = TX2, fontSize = 12.sp, fontFamily = MONO)) }
+                        Spacer(Modifier.height(if (Store.paceTarget > 0) 14.dp else 22.dp))
                         Box(Modifier.size(64.dp).clip(CircleShape).background(TX).combinedClickable(onClick = {
                             view.hap(Hap.TAP)
                             perms.launch(arrayOf(HR_PERM, Manifest.permission.ACTIVITY_RECOGNITION, Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))

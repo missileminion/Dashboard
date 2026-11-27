@@ -2,6 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-feature android:name="android.hardware.type.watch" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.VIBRATE" />   <!-- pace coach -->
     <!-- the Run card: heart rate, steps/cadence and GPS through Health Services -->
     <uses-permission android:name="android.permission.BODY_SENSORS" android:maxSdkVersion="35" />
     <uses-permission android:name="android.permission.health.READ_HEART_RATE" />   <!-- Wear OS 6 (Galaxy Watch 8) replaces BODY_SENSORS with this -->

@@ -86,6 +86,17 @@ export function weakLink(el, dims) {
 }
 
 // ---------- Last run: distance, effort and heart data for one run ----------
+// the GPS route of a run (from the watch), drawn in dots: north up, scaled to fit, start hollow, finish filled
+export function routeDots(route, { w = 560, h = 220, dot = 2.2 } = {}) {
+  const lat0 = route.reduce((a, p) => a + p[0], 0) / route.length, kx = Math.cos(lat0 * Math.PI / 180);
+  const xs = route.map(p => p[1] * kx), ys = route.map(p => -p[0]), x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const s = Math.min((w - 20) / ((x1 - x0) || 1e-9), (h - 20) / ((y1 - y0) || 1e-9)), ox = (w - (x1 - x0) * s) / 2, oy = (h - (y1 - y0) * s) / 2;
+  const P = i => [ox + (xs[i] - x0) * s, oy + (ys[i] - y0) * s];
+  let d = "", lx = -99, ly = -99;   // one dot every few pixels along the path
+  for (let i = 0; i < route.length; i++) { const [x, y] = P(i); if (Math.hypot(x - lx, y - ly) >= dot * 2.6) { d += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${dot}"/>`; lx = x; ly = y; } }
+  const [sx, sy] = P(0), [ex, ey] = P(route.length - 1);
+  return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;margin:6px 0 10px" role="img" aria-label="Route of the run"><g fill="var(--ink, var(--tx))" opacity=".85">${d}</g><circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="${dot * 2.4}" fill="none" stroke="var(--ink, var(--tx))" stroke-width="1.5"/><circle cx="${ex.toFixed(1)}" cy="${ey.toFixed(1)}" r="${dot * 2.4}" fill="var(--ink, var(--tx))"/></svg>`;
+}
 export function lastRun(el, run, hr, { gym = false } = {}) {
   if (!run) { el.innerHTML = `<div class="basis" style="padding:var(--s4) 0">${gym ? "No gym sessions yet." : "No runs yet."}</div>`; return; }
   const zs = run.zones ? [["Light", run.zones.lightTime], ["Moderate", run.zones.moderateTime], ["Vigorous", run.zones.vigorousTime], ["Peak", run.zones.peakTime]].map(([n, v]) => [n, parseInt(v, 10) || 0]) : null;
@@ -113,6 +124,7 @@ export function lastRun(el, run, hr, { gym = false } = {}) {
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:var(--s3);margin:var(--s3) 0">${stat("Avg heart rate", run.avgHr ? run.avgHr + " bpm" : "—")}${stat("Calories", run.kcal ? Math.round(run.kcal) + " kcal" : "—")}${stat("Active zone min", run.azm != null ? Math.round(run.azm) : "—")}${stat("Recovery, 1 min", hrr ? "−" + Math.round(hrr.drop) + " bpm" : "—", hrr ? red("hrr", hrr.drop) : "")}</div>`
       : `<div class="basis" style="margin-top:var(--s3)">Distance</div><div class="num" style="font-size:38px;font-weight:600;letter-spacing:-.02em">${run.distanceM == null ? "—" : (run.distanceM / 1000).toFixed(2).padStart(5, "0")}<small style="font-size:14px;color:var(--tx2);margin-left:6px">km</small></div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:var(--s3);margin:var(--s3) 0">${stat("Pace", run.paceSecPerKm ? mmss(run.paceSecPerKm) + " /km" : "—")}${stat("Time", run.seconds ? mmss(run.seconds) : "—")}${stat("Avg heart rate", run.avgHr ? run.avgHr + " bpm" : "—")}${stat("Recovery, 1 min", hrr ? "−" + Math.round(hrr.drop) + " bpm" : "—", hrr ? red("hrr", hrr.drop) : "")}</div>`}
+    ${run.route?.length > 3 ? `<div class="basis">Route</div>${routeDots(run.route)}` : ""}
     <div class="basis">Heart rate</div>${trace}
     ${zs ? `<div class="basis" style="margin-top:var(--s3)">Heart-rate zones${run.kcal ? ` · ${run.kcal} kcal` : ""}</div><div class="zbars">${zs.map(([n, v]) => `<div><i style="height:${Math.max(3, v / zmax * 46)}px"></i><span>${n}</span><b class="num">${Math.round(v / 60)}m</b></div>`).join("")}</div>` : ``}`;
 }

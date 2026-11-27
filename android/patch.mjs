@@ -54,10 +54,11 @@ edit("app/src/main/AndroidManifest.xml", s => {
 // 4b. the haptic language plays shaped vibrations (Haptics.kt), which needs the ordinary vibrate permission
 edit("app/src/main/AndroidManifest.xml", s => s.includes("android.permission.VIBRATE") ? s : s.replace(/<application/, `<uses-permission android:name="android.permission.VIBRATE" />\n\n    <application`));
 // 5. the Galaxy Watch link: a background listener for sets logged on the watch (WearSync.kt)
-edit("app/src/main/AndroidManifest.xml", s => s.includes(".WearListener") ? s : s.replace(/<\/application>/, `    <service android:name=".WearListener" android:exported="true">
+edit("app/src/main/AndroidManifest.xml", s => s.includes(".WearListener") ? (s.includes('pathPrefix="/run/"') ? s : s.replace('android:pathPrefix="/gym/" />', 'android:pathPrefix="/gym/" />\n                <data android:scheme="wear" android:host="*" android:pathPrefix="/run/" />')) : s.replace(/<\/application>/, `    <service android:name=".WearListener" android:exported="true">
             <intent-filter>
                 <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
                 <data android:scheme="wear" android:host="*" android:pathPrefix="/gym/" />
+                <data android:scheme="wear" android:host="*" android:pathPrefix="/run/" />
             </intent-filter>
         </service>
     </application>`));

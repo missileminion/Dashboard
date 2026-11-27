@@ -2,6 +2,7 @@
 // the same browser copy (gymlog.mirror) and the same GitHub file (gym-log.json, {version, entries, deleted}). Two copies merge as a union minus deletions,
 // so the full dashboard and this page can both be used. Demo mode keeps everything in memory and never writes.
 import { haptic, detent } from "./haptic.js";
+import { runlog } from "./runlog.js";
 import { PROGRAM } from "./gymlog.js";
 import { gh, ghRead, ghWrite, ghMessage } from "./ghstore.js";
 import { syncwarn } from "./syncwarn.js";
@@ -61,7 +62,8 @@ export function initLiteGym(root, { demo = false, toast = () => {}, onChange = (
     wearT = setTimeout(() => {
       const latest = {}; for (const e of entries) { const l = latest[e.exercise]; if (!l || e.date > l.date || (e.date === l.date && e.id > l.id)) latest[e.exercise] = e; }
       const out = new Map(Object.values(latest).map(e => [e.id, e])); entries.filter(e => e.date === today()).forEach(e => out.set(e.id, e));
-      wcall("wearState", { json: JSON.stringify({ v: 1, unit, step, week: WEEK, program: PROGRAM, entries: [...out.values()] }) }).catch(() => {});
+      let paceTarget = 0; try { paceTarget = +localStorage.getItem("run.paceTarget") || 0; } catch {}   // seconds per km, 0 = off (set on the Body tab)
+      wcall("wearState", { json: JSON.stringify({ v: 1, unit, step, week: WEEK, program: PROGRAM, entries: [...out.values()], paceTarget }) }).catch(() => {});
     }, 400);
   }
   async function wearDrain() {
@@ -71,6 +73,7 @@ export function initLiteGym(root, { demo = false, toast = () => {}, onChange = (
     for (const o of ops) {
       if (o.op === "add" && o.entry && !deleted.has(o.entry.id) && !entries.some(e => e.id === o.entry.id)) { entries.push(o.entry); n++; }
       else if (o.op === "del" && entries.some(e => e.id === o.id)) { entries = entries.filter(e => e.id !== o.id); deleted.add(o.id); n++; }
+      else if (o.op === "run" && o.run) { if (runlog.add([o.run])) { toast(`Run from your watch: ${(o.run.distanceM / 1000).toFixed(2)} km`); dispatchEvent(new Event("runs:changed")); } }
     }
     if (n) { toast(`${n} ${n === 1 ? "change" : "changes"} from your watch`); changed(); }
   }

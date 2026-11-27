@@ -59,7 +59,8 @@ object Store {
     var phoneEntries by mutableStateOf(listOf<Entry>()); private set
     var mine by mutableStateOf(listOf<Entry>()); private set        // made on this watch
     var deleted by mutableStateOf(setOf<Long>()); private set
-    var synced by mutableStateOf(0L); private set                   // when the phone last published
+    var synced by mutableStateOf(0L); private set
+    var paceTarget by mutableStateOf(0); private set                // s/km from the phone (Body → Run), 0 = off                   // when the phone last published
 
     val all: List<Entry> get() { val m = LinkedHashMap<Long, Entry>(); phoneEntries.forEach { m[it.id] = it }; mine.forEach { m[it.id] = it }; return m.values.filter { it.id !in deleted } }
     fun today() = LocalDate.now().toString()
@@ -119,6 +120,7 @@ object Store {
         o.optJSONArray("week")?.let { a -> if (a.length() == 7) week = (0 until 7).map { if (a.isNull(it)) null else a.getString(it) } }
         unit = o.optString("unit", unit).takeIf { it == "kg" || it == "lb" } ?: unit
         if (o.has("step")) { step = o.optDouble("step", step) }
+        if (o.has("paceTarget")) paceTarget = o.optInt("paceTarget", 0)
         o.optJSONArray("entries")?.let { a -> phoneEntries = (0 until a.length()).mapNotNull { runCatching { Entry.of(a.getJSONObject(it)) }.getOrNull() } }
         synced = System.currentTimeMillis()
         if (save) { app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("state", o.toString()).apply(); this.save() }
@@ -131,6 +133,8 @@ object Store {
         Tiles.refresh(app)
         return e
     }
+
+    fun sendRun(json: String) { send("/run/add/${org.json.JSONObject(json).getLong("id")}", json) }
 
     fun undo(id: Long) {
         mine = mine.filter { it.id != id }; deleted = deleted + id; save()
