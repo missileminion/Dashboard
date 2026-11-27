@@ -111,10 +111,10 @@
       <Image resource="core_markers_aod" />
       <Variant mode="AMBIENT" target="alpha" value="255" />
     </PartImage>
-    <!-- the event ring and bed-by crescent: an image the Gym app draws from the phone's calendar (it has no tap action; the hub, drawn above it, takes taps in the middle) -->
+    <!-- the event ring with the event names along it, the bed-by crescent and today's readiness: an image the Gym app draws from the phone's calendar (it has no tap action; the hub, drawn above it, takes taps in the middle) -->
     <ComplicationSlot slotId="0" x="0" y="0" width="450" height="450" supportedTypes="SMALL_IMAGE" isCustomizable="TRUE">
       <DefaultProviderPolicy defaultSystemProvider="EMPTY" defaultSystemProviderType="SMALL_IMAGE" primaryProvider="io.github.missileminion.dashboard/io.github.missileminion.dashboard.RingSource" primaryProviderType="SMALL_IMAGE" />
-      <BoundingArc centerX="225" centerY="225" width="450" height="450" startAngle="-90" endAngle="269.9" thickness="38" isRoundEdge="FALSE" />
+      <BoundingArc centerX="225" centerY="225" width="450" height="450" startAngle="-90" endAngle="269.9" thickness="68" isRoundEdge="FALSE" />
       <Complication type="SMALL_IMAGE">
         <PartImage x="0" y="0" width="450" height="450">
           <Image resource="[COMPLICATION.SMALL_IMAGE]" />
@@ -122,29 +122,13 @@
         </PartImage>
       </Complication>
     </ComplicationSlot>
-    <!-- the hub: time and the next event; tap to cycle readiness, bed-by, weather (the Gym app) -->
-    <ComplicationSlot slotId="1" x="113" y="188" width="225" height="75" supportedTypes="SHORT_TEXT" isCustomizable="TRUE">
-      <DefaultProviderPolicy defaultSystemProvider="EMPTY" defaultSystemProviderType="SHORT_TEXT" primaryProvider="io.github.missileminion.dashboard/io.github.missileminion.dashboard.HubSource" primaryProviderType="SHORT_TEXT" />
-      <BoundingOval x="0" y="0" width="225" height="75" />
-      <Complication type="SHORT_TEXT">
-        <PartText x="0" y="25" width="225" height="19">
-          <Text align="CENTER" ellipsis="FALSE">
-            <BitmapFont family="micro_big" size="18" color="#FFFFFFFF">
-              <Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template>
-            </BitmapFont>
-          </Text>
-          <Variant mode="AMBIENT" target="alpha" value="150" />
-        </PartText>
-        <PartText x="0" y="46" width="225" height="15">
-          <Text align="CENTER" ellipsis="FALSE">
-            <BitmapFont family="micro_small" size="15" color="#FFFFFFFF">
-              <Template>%s<Parameter expression="[COMPLICATION.TITLE]" /></Template>
-            </BitmapFont>
-          </Text>
-          <Variant mode="AMBIENT" target="alpha" value="130" />
-        </PartText>
-      </Complication>
-    </ComplicationSlot>
+    <!-- the hub: the time in the 3×5 micro type, drawn by the face itself (nothing here is tappable, so nothing flashes) -->
+    <DigitalClock x="113" y="217" width="225" height="18">
+      <TimeText format="hh:mm" align="CENTER" x="0" y="0" width="225" height="18">
+        <BitmapFont family="micro_big" size="18" color="#FFFFFFFF" />
+      </TimeText>
+      <Variant mode="AMBIENT" target="alpha" value="150" />
+    </DigitalClock>
     <!-- the hands: grid dots swollen along the hand, one frame per position (generated); always-on keeps hour and minute, dimmed -->
     <Group name="hour" x="0" y="0" width="450" height="450">
       <Variant mode="AMBIENT" target="alpha" value="150" />

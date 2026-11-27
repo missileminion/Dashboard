@@ -133,10 +133,10 @@ ${bitmapFont("micro_small", fonts.small)}
       <Image resource="core_markers_aod" />
       <Variant mode="AMBIENT" target="alpha" value="255" />
     </PartImage>
-    <!-- the event ring and bed-by crescent: an image the Gym app draws from the phone's calendar (it has no tap action; the hub, drawn above it, takes taps in the middle) -->
+    <!-- the event ring with the event names along it, the bed-by crescent and today's readiness: an image the Gym app draws from the phone's calendar (it has no tap action; the hub, drawn above it, takes taps in the middle) -->
     <ComplicationSlot slotId="0" x="0" y="0" width="${S}" height="${S}" supportedTypes="SMALL_IMAGE" isCustomizable="TRUE">
       <DefaultProviderPolicy defaultSystemProvider="EMPTY" defaultSystemProviderType="SMALL_IMAGE" primaryProvider="io.github.missileminion.dashboard/io.github.missileminion.dashboard.RingSource" primaryProviderType="SMALL_IMAGE" />
-      <BoundingArc centerX="${S / 2}" centerY="${S / 2}" width="${S}" height="${S}" startAngle="-90" endAngle="269.9" thickness="${q(40)}" isRoundEdge="FALSE" />
+      <BoundingArc centerX="${S / 2}" centerY="${S / 2}" width="${S}" height="${S}" startAngle="-90" endAngle="269.9" thickness="${q(72)}" isRoundEdge="FALSE" />
       <Complication type="SMALL_IMAGE">
         <PartImage x="0" y="0" width="${S}" height="${S}">
           <Image resource="[COMPLICATION.SMALL_IMAGE]" />
@@ -144,29 +144,13 @@ ${bitmapFont("micro_small", fonts.small)}
         </PartImage>
       </Complication>
     </ComplicationSlot>
-    <!-- the hub: time and the next event; tap to cycle readiness, bed-by, weather (the Gym app) -->
-    <ComplicationSlot slotId="1" x="${hub.x}" y="${q(C - 40)}" width="${hub.w}" height="${q(80)}" supportedTypes="SHORT_TEXT" isCustomizable="TRUE">
-      <DefaultProviderPolicy defaultSystemProvider="EMPTY" defaultSystemProviderType="SHORT_TEXT" primaryProvider="io.github.missileminion.dashboard/io.github.missileminion.dashboard.HubSource" primaryProviderType="SHORT_TEXT" />
-      <BoundingOval x="0" y="0" width="${hub.w}" height="${q(80)}" />
-      <Complication type="SHORT_TEXT">
-        <PartText x="0" y="${q(27)}" width="${hub.w}" height="${q(20)}">
-          <Text align="CENTER" ellipsis="FALSE">
-            <BitmapFont family="micro_big" size="${fonts.big[0].h}" color="#FFFFFFFF">
-              <Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template>
-            </BitmapFont>
-          </Text>
-          <Variant mode="AMBIENT" target="alpha" value="150" />
-        </PartText>
-        <PartText x="0" y="${q(49)}" width="${hub.w}" height="${q(16)}">
-          <Text align="CENTER" ellipsis="FALSE">
-            <BitmapFont family="micro_small" size="${fonts.small[0].h}" color="#FFFFFFFF">
-              <Template>%s<Parameter expression="[COMPLICATION.TITLE]" /></Template>
-            </BitmapFont>
-          </Text>
-          <Variant mode="AMBIENT" target="alpha" value="130" />
-        </PartText>
-      </Complication>
-    </ComplicationSlot>
+    <!-- the hub: the time in the 3×5 micro type, drawn by the face itself (nothing here is tappable, so nothing flashes) -->
+    <DigitalClock x="${hub.x}" y="${q(C - 9)}" width="${hub.w}" height="${fonts.big[0].h}">
+      <TimeText format="hh:mm" align="CENTER" x="0" y="0" width="${hub.w}" height="${fonts.big[0].h}">
+        <BitmapFont family="micro_big" size="${fonts.big[0].h}" color="#FFFFFFFF" />
+      </TimeText>
+      <Variant mode="AMBIENT" target="alpha" value="150" />
+    </DigitalClock>
     <!-- the hands: grid dots swollen along the hand, one frame per position (generated); always-on keeps hour and minute, dimmed -->
 ${hands("hour", hourFrames, "floor(([HOUR_0_11] * 60 + [MINUTE]) / 6)", 150)}
 ${hands("minute", minFrames, "[MINUTE]", 150)}
