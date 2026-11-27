@@ -1,0 +1,12 @@
+plugins { id "com.android.application" }
+android {
+    namespace "io.github.missileminion.dashboard.face"
+    compileSdk 36
+    defaultConfig {
+        applicationId "io.github.missileminion.dashboard.face"
+        minSdk 33            // Watch Face Format needs Wear OS 4+
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+}

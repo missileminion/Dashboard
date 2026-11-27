@@ -28,7 +28,7 @@ dependencies {
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1"
     implementation "androidx.health:health-services-client:1.1.0-alpha05"   // run tracking: heart rate, distance, pace, GPS
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.8.1"
-    implementation "androidx.wear.watchface:watchface:1.2.1"          // CORE · INSTRUMENT watch face
+    implementation "androidx.wear.watchface:watchface-complications-data-source-ktx:1.2.1"   // its hub and event ring, as complications
     implementation "androidx.wear.tiles:tiles:1.4.1"                 // the Today and Run tiles
     implementation "androidx.wear.protolayout:protolayout:1.2.1"
     implementation "androidx.wear.protolayout:protolayout-expression:1.2.1"

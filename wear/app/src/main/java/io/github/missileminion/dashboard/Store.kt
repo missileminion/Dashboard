@@ -151,7 +151,7 @@ object Store {
     fun onData(events: DataEventBuffer) {
         for (ev in events) if (ev.type == DataEvent.TYPE_CHANGED) when (ev.dataItem.uri.path) {
             "/gym/state" -> runCatching { DataMapItem.fromDataItem(ev.dataItem).dataMap.getString("json")?.let { applyState(JSONObject(it)) } }
-            "/face/state" -> runCatching { DataMapItem.fromDataItem(ev.dataItem).dataMap.getString("json")?.let { FaceData.apply(app, it) } }
+            "/face/state" -> runCatching { DataMapItem.fromDataItem(ev.dataItem).dataMap.getString("json")?.let { FaceData.apply(app, it); FaceSources.refresh(app) } }
         }
     }
 }

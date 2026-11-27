@@ -5,7 +5,7 @@ import org.json.JSONObject
 
 // What the watch face shows, as the phone last sent it (/face/state): today's call, readiness, bed-by time, wake goal, weather and
 // its place, sunrise/sunset, and the events of the next day or so (start and end as epoch ms). Kept in preferences, so the face has
-// it at once after a restart; the face reads it on every frame, so a new copy shows without any reload.
+// it at once after a restart. The face's hub and event ring (FaceSources.kt) are redrawn whenever a new copy arrives.
 object FaceData {
     data class Ev(val start: Long, val end: Long, val title: String)
     @Volatile var call = ""; @Volatile var readiness = ""; @Volatile var bedBy = ""; @Volatile var wake = "06:30"
