@@ -1,7 +1,5 @@
 package io.github.missileminion.dashboard
 
-import android.graphics.Paint
-import android.graphics.Typeface
 import android.os.Build
 import android.os.Bundle
 import android.view.HapticFeedbackConstants as H
@@ -31,7 +29,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.rotary.onRotaryScrollEvent
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
@@ -157,7 +154,7 @@ fun LogScreen(st: LogState, onPick: () -> Unit, onToday: () -> Unit) {
         val u = maxWidth.value / 192f   // layout unit: 1 on a 192dp screen, larger on the 44mm watch
         fun d(v: Float): Dp = (v * u).dp
         Ruler(shown.toDouble(), active = st.focus == 0)
-        Column(Modifier.fillMaxSize().padding(top = d(34f)), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(Modifier.fillMaxSize().padding(top = d(30f)), horizontalAlignment = Alignment.CenterHorizontally) {
             // exercise (tap to change)
             BasicText(st.ex.ifEmpty { "Pick an exercise" } + "  ›", Modifier.width(d(132f)).clip(RoundedCornerShape(8.dp)).combinedClickable(onClick = { view.hap(Hap.TAP); onPick() }).padding(vertical = d(2f)),
                 style = TextStyle(color = TX, fontSize = (13 * u).sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center), maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -165,29 +162,29 @@ fun LogScreen(st: LogState, onPick: () -> Unit, onToday: () -> Unit) {
             BasicText(buildString { append(if (todayN > 0) "$todayN today" else st.day); if (last != null) append(" · last ${fmt(Store.toDisp(last.weight))}×${last.reps}") },
                 Modifier.clip(RoundedCornerShape(8.dp)).combinedClickable(onClick = { view.hap(Hap.TAP); onToday() }).padding(horizontal = d(6f), vertical = d(1f)),
                 style = TextStyle(color = TX3, fontSize = (10.5f * u).sp, fontFamily = MONO), maxLines = 1)
-            Spacer(Modifier.height(d(8f)))
+            Spacer(Modifier.height(d(3f)))
             // the weight: tap gives the bezel back to it, hold to change the step (.25 / 1 / 5)
             Box(Modifier.clip(RoundedCornerShape(12.dp)).combinedClickable(
                 onClick = { if (st.focus != 0) { st.focus = 0; view.hap(Hap.TOGGLE) } },
                 onLongClick = { Store.step = when (Store.step) { 0.25 -> 1.0; 1.0 -> 5.0; else -> 0.25 }; Store.saveStep(); view.hap(Hap.TOGGLE) }
-            ).padding(horizontal = d(8f), vertical = d(4f)), contentAlignment = Alignment.Center) {
-                DotText(fmt(disp), d(40f), if (st.focus == 0) TX else TX2)
+            ).padding(horizontal = d(8f), vertical = d(3f)), contentAlignment = Alignment.Center) {
+                DotText(fmt(disp), d(fit(fmt(disp), 34f, 128f)), if (st.focus == 0) TX else TX2)   // long weights (152.75) shrink to stay inside the circle
             }
             BasicText("${Store.unit} · ±${fmt(Store.step)}${if (exToday > 0) " · set ${exToday + 1}" else ""}", style = TextStyle(color = TX3, fontSize = (10f * u).sp, fontFamily = MONO))
-            Spacer(Modifier.height(d(8f)))
+            Spacer(Modifier.height(d(6f)))
             Row(horizontalArrangement = Arrangement.spacedBy(d(6f))) {
                 Chip("${st.reps}", "reps", st.focus == 1, u) { st.focus = if (st.focus == 1) 0 else 1; view.hap(Hap.TOGGLE) }
                 Chip("${st.sets}", "sets", st.focus == 2, u) { st.focus = if (st.focus == 2) 0 else 2; view.hap(Hap.TOGGLE) }
             }
-            Spacer(Modifier.height(d(8f)))
-            Box(Modifier.width(d(92f)).height(d(34f)).clip(CircleShape).background(TX).combinedClickable(onClick = {
-                if (st.ex.isEmpty()) { view.hap(Hap.REJECT); return@combinedClickable }
-                Store.log(st.day, st.ex, st.weightLb, st.reps, st.sets); st.focus = 0; flash = true; view.hap(Hap.CONFIRM)
-            }), contentAlignment = Alignment.Center) {
-                BasicText("LOG", style = TextStyle(color = BG, fontSize = (13 * u).sp, fontWeight = FontWeight.Bold, fontFamily = MONO, letterSpacing = (1.5 * u).sp))
-            }
         }
-        if (flash) Box(Modifier.fillMaxSize().background(BG.copy(alpha = .88f)), contentAlignment = Alignment.Center) {
+        // LOG sits at the bottom, inside the round screen
+        Box(Modifier.align(Alignment.BottomCenter).padding(bottom = d(9f)).width(d(78f)).height(d(30f)).clip(CircleShape).background(TX).combinedClickable(onClick = {
+            if (st.ex.isEmpty()) { view.hap(Hap.REJECT); return@combinedClickable }
+            Store.log(st.day, st.ex, st.weightLb, st.reps, st.sets); st.focus = 0; flash = true; view.hap(Hap.CONFIRM)
+        }), contentAlignment = Alignment.Center) {
+            BasicText("LOG", style = TextStyle(color = BG, fontSize = (13 * u).sp, fontWeight = FontWeight.Bold, fontFamily = MONO, letterSpacing = (1.5 * u).sp))
+        }
+        if (flash) Box(Modifier.fillMaxSize().background(BG), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 DotText("OK", d(30f), TX)
                 Spacer(Modifier.height(d(8f)))
@@ -201,23 +198,21 @@ fun LogScreen(st: LogState, onPick: () -> Unit, onToday: () -> Unit) {
 @Composable
 private fun Chip(value: String, label: String, on: Boolean, u: Float, onClick: () -> Unit) {
     Row(Modifier.clip(RoundedCornerShape(14.dp)).background(PANEL).border(1.dp, if (on) TX else LINE, RoundedCornerShape(14.dp))
-        .combinedClickable(onClick = onClick).padding(horizontal = (10 * u).dp, vertical = (5 * u).dp), verticalAlignment = Alignment.Bottom) {
-        BasicText(value, style = TextStyle(color = TX, fontSize = (15 * u).sp, fontWeight = FontWeight.SemiBold, fontFamily = MONO))
+        .combinedClickable(onClick = onClick).padding(horizontal = (10 * u).dp, vertical = (4 * u).dp), verticalAlignment = Alignment.Bottom) {
+        BasicText(value, style = TextStyle(color = TX, fontSize = (14 * u).sp, fontWeight = FontWeight.SemiBold, fontFamily = MONO))
         Spacer(Modifier.width((4 * u).dp))
         BasicText(label, Modifier.padding(bottom = (1.5f * u).dp), style = TextStyle(color = if (on) TX2 else TX3, fontSize = (10 * u).sp, fontFamily = MONO))
     }
 }
 
 // The scale around the top of the bezel, turning with the weight under a fixed pointer at 12 o'clock: a mark every quarter,
-// whole numbers longer, every 5 longer still with a number every 10. It fades out towards both ends, like the phone's ruler.
+// whole numbers longer, every 5 longer still. It fades out towards both ends, like the phone's ruler.
 @Composable
 private fun Ruler(value: Double, active: Boolean) {
-    val paint = remember { Paint(Paint.ANTI_ALIAS_FLAG).apply { textAlign = Paint.Align.CENTER; typeface = Typeface.MONOSPACE } }
     Canvas(Modifier.fillMaxSize()) {
         val r = size.minDimension / 2f; val c = Offset(size.width / 2f, size.height / 2f)
         val degPerUnit = 12f; val span = 72f
         val lo = Math.floor((value - span / degPerUnit) * 4).toInt(); val hi = Math.ceil((value + span / degPerUnit) * 4).toInt()
-        paint.textSize = r * .085f
         for (q in lo..hi) {
             val v = q / 4.0; if (v < 0) continue
             val a = ((v - value) * degPerUnit).toFloat(); if (abs(a) > span) continue
@@ -226,10 +221,6 @@ private fun Ruler(value: Double, active: Boolean) {
             val len = r * when { five -> .11f; whole -> .075f; else -> .04f }
             val col = (if (whole) TX2 else TX3).copy(alpha = fade * (if (active) 1f else .55f))
             radial(c, r - r * .03f, len, a, col, if (whole) r * .012f else r * .008f)
-            if (five && (q / 4) % 10 == 0) {
-                paint.color = android.graphics.Color.argb((fade * (if (active) 200 else 110)).toInt(), 163, 168, 178)
-                drawContext.canvas.nativeCanvas.apply { save(); rotate(a, c.x, c.y); drawText(fmt(v), c.x, c.y - r + r * .24f, paint); restore() }
-            }
         }
         radial(c, r - r * .015f, r * .15f, 0f, if (active) TX else TX2, r * .02f)   // the pointer
     }
@@ -238,6 +229,9 @@ private fun DrawScope.radial(c: Offset, outer: Float, len: Float, deg: Float, co
     val t = Math.toRadians((deg - 90).toDouble()); val dx = cos(t).toFloat(); val dy = sin(t).toFloat()
     drawLine(col, Offset(c.x + dx * outer, c.y + dy * outer), Offset(c.x + dx * (outer - len), c.y + dy * (outer - len)), strokeWidth = w, cap = StrokeCap.Round)
 }
+
+// the height that keeps a dot-matrix string within maxW (both in layout units)
+private fun fit(text: String, h: Float, maxW: Float): Float { val cols = text.sumOf { (GLYPH[it]?.get(0)?.length ?: 3) + 1 } - 1; return minOf(h, maxW / cols * 7f) }
 
 // 5×7 dot-matrix face, the same glyphs as the phone (app/js/dotfont.js)
 private val GLYPH = mapOf(
@@ -270,7 +264,7 @@ fun ExerciseScreen(st: LogState, done: () -> Unit) {
     var day by remember { mutableStateOf(st.day) }
     val list = Store.program[day].orEmpty()
     val todays = Store.todays().map { it.exercise }.toSet()
-    ScalingLazyColumn(Modifier.fillMaxSize(), state = rememberScalingLazyListState(initialCenterItemIndex = 0), contentPadding = PaddingValues(horizontal = 10.dp, vertical = 28.dp)) {
+    ScalingLazyColumn(Modifier.fillMaxSize(), state = rememberScalingLazyListState(initialCenterItemIndex = 1 + list.indexOfFirst { it.first == st.ex }.coerceAtLeast(0)) /* opens on the current exercise */, contentPadding = PaddingValues(horizontal = 10.dp, vertical = 28.dp)) {
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 Store.program.keys.forEach { k ->
