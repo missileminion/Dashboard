@@ -33,6 +33,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.rotary.onRotaryScrollEvent
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalView
@@ -50,7 +51,6 @@ import androidx.wear.compose.foundation.lazy.items
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.foundation.pager.HorizontalPager
 import androidx.wear.compose.foundation.pager.rememberPagerState
-import androidx.wear.compose.material3.HorizontalPageIndicator
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.navigation.SwipeDismissableNavHost
 import androidx.wear.compose.navigation.composable
@@ -107,7 +107,7 @@ class LogState {
     var focus by mutableStateOf(0)   // what the bezel moves: 0 weight, 1 reps, 2 sets
     fun pick(d: String, name: String) {
         day = d; ex = name; focus = 0
-        Store.lastOf(name)?.let { weightLb = it.weight; reps = it.reps.takeIf { r -> r > 0 } ?: reps; sets = it.sets.coerceAtLeast(1) }
+        Store.lastOf(name)?.let { weightLb = Store.lbFor(name, round(Store.dispFor(name, it.weight) * 4) / 4); reps = it.reps.takeIf { r -> r > 0 } ?: reps; sets = it.sets.coerceAtLeast(1) }
     }
 }
 
@@ -137,7 +137,6 @@ fun Home(onExercise: (String, String) -> Unit, onToday: () -> Unit) {
         HorizontalPager(state = pager, modifier = Modifier.fillMaxSize()) { page ->
             if (page == 0) RunCard() else DayCard(ds[page - 1], onExercise, onToday)
         }
-        HorizontalPageIndicator(pagerState = pager, modifier = Modifier.align(Alignment.BottomCenter))
     }
 }
 
@@ -173,7 +172,7 @@ private fun DayCard(day: String, onExercise: (String, String) -> Unit, onToday: 
                     BasicText(name, Modifier.weight(1f), style = TextStyle(color = TX, fontSize = 13.sp, fontWeight = FontWeight.SemiBold), maxLines = 2, overflow = TextOverflow.Ellipsis)
                     if (name in doneNames) Box(Modifier.padding(start = 6.dp).size(6.dp).clip(CircleShape).background(TX))
                 }
-                BasicText(target + (last?.let { " · ${fmt(Store.toDisp(it.weight))} ${Store.unit}" } ?: ""), style = TextStyle(color = TX3, fontSize = 10.5.sp, fontFamily = MONO), maxLines = 1)
+                BasicText(target + (last?.let { " · ${fmt(Store.dispFor(name, it.weight))} ${Store.unitFor(name)}" } ?: ""), style = TextStyle(color = TX3, fontSize = 10.5.sp, fontFamily = MONO), maxLines = 1)
             }
         }
     }
@@ -274,21 +273,24 @@ private fun Pill(text: String, filled: Boolean, onClick: () -> Unit) {
     }
 }
 
-// ---------- the weight: bezel sets it, tap the number to log ----------
+// ---------- the weight (the Dial): bezel turns the scale, tap the number to log ----------
+// Just the number in the middle. The scale runs round the top of the bezel with its numbers turning on it, and fades out
+// before the bottom. The line under the number is reps and sets: tap it to give the bezel to reps, again for sets, again back.
+// Hidden: hold the unit to switch lb / kg for this exercise (remembered); hold the number to change the step (.25 / 1 / 5).
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun WeightScreen(st: LogState) {
     val view = LocalView.current
     val fr = remember { FocusRequester() }
     var acc by remember { mutableFloatStateOf(0f) }
-    var logged by remember { mutableIntStateOf(0) }          // bumps on every log: shows the confirmation for a moment
+    var logged by remember { mutableIntStateOf(0) }
     var showLogged by remember { mutableStateOf(false) }
-    val disp = Store.toDisp(st.weightLb)
-    val maxDisp = Store.toDisp(600.0)
-    val shown by animateFloatAsState(disp.toFloat(), spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = 900f), label = "ruler")
+    val unit = Store.unitFor(st.ex)
+    val disp = Store.dispFor(st.ex, st.weightLb)
+    val maxDisp = Store.dispFor(st.ex, 600.0)
+    val shown by animateFloatAsState(disp.toFloat(), spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = 900f), label = "dial")
     val pulse by animateFloatAsState(if (showLogged) .35f else 1f, spring(stiffness = 600f), label = "pulse")
     val exToday = Store.todays().count { it.exercise == st.ex }
-    val last = Store.lastOf(st.ex)
 
     fun turn(n: Int) {
         when (st.focus) {
@@ -296,7 +298,7 @@ fun WeightScreen(st: LogState) {
                 val step = Store.step
                 val v = (round((disp + n * step) / step) * step).coerceIn(0.0, maxDisp)
                 if (v == disp) { view.hap(Hap.REJECT); return }
-                st.weightLb = Store.toLb(v); view.hap(detent(v))
+                st.weightLb = Store.lbFor(st.ex, v); view.hap(detent(v))
             }
             1 -> { val r = (st.reps + n).coerceIn(0, 100); if (r != st.reps) { st.reps = r; view.hap(Hap.MAJOR) } else view.hap(Hap.REJECT) }
             else -> { val s = (st.sets + n).coerceIn(1, 20); if (s != st.sets) { st.sets = s; view.hap(Hap.MAJOR) } else view.hap(Hap.REJECT) }
@@ -316,61 +318,63 @@ fun WeightScreen(st: LogState) {
     ) {
         val u = maxWidth.value / 192f   // layout unit: 1 on a 192dp screen, larger on the 44mm watch
         fun d(v: Float): Dp = (v * u).dp
-        Ruler(shown.toDouble(), active = st.focus == 0)
-        Column(Modifier.fillMaxSize().padding(top = d(32f)), horizontalAlignment = Alignment.CenterHorizontally) {
-            BasicText(st.ex, Modifier.width(d(128f)), style = TextStyle(color = TX, fontSize = (13 * u).sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            BasicText(last?.let { "last ${fmt(Store.toDisp(it.weight))}×${it.reps} · ${if (it.date == Store.today()) "today" else it.date.substring(5).replace('-', '/')}" } ?: "first time",
-                style = TextStyle(color = TX3, fontSize = (10.5f * u).sp, fontFamily = MONO), maxLines = 1)
-            Spacer(Modifier.height(d(6f)))
-            // the number: tap logs the set, hold changes the step (.25 / 1 / 5)
-            Box(Modifier.clip(RoundedCornerShape(14.dp)).combinedClickable(
+        Dial(shown.toDouble(), active = st.focus == 0)
+        Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+            BasicText(st.ex, Modifier.width(d(110f)), style = TextStyle(color = TX, fontSize = (10.5f * u).sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.height(d(4f)))
+            // the number: tap logs the set, hold changes the step
+            Box(Modifier.clip(RoundedCornerShape(12.dp)).combinedClickable(
                 onClick = {
                     if (st.ex.isEmpty()) { view.hap(Hap.REJECT); return@combinedClickable }
                     Store.log(st.day, st.ex, st.weightLb, st.reps, st.sets); st.focus = 0; logged++; view.hap(Hap.CONFIRM)
                 },
                 onLongClick = { Store.step = when (Store.step) { 0.25 -> 1.0; 1.0 -> 5.0; else -> 0.25 }; Store.saveStep(); view.hap(Hap.TOGGLE) }
-            ).padding(horizontal = d(8f), vertical = d(4f)).alpha(pulse), contentAlignment = Alignment.Center) {
-                DotText(fmt(disp), d(fit(fmt(disp), 40f, 132f)), if (st.focus == 0) TX else TX2)   // long weights (152.75) shrink to stay inside the circle
+            ).padding(horizontal = d(6f), vertical = d(3f)).alpha(pulse), contentAlignment = Alignment.Center) {
+                DotText(fmt(disp), d(fit(fmt(disp), 26f, 100f)), if (st.focus == 0) TX else TX2)
             }
-            BasicText(if (showLogged) "logged · set ${exToday}" else "${Store.unit} · ±${fmt(Store.step)} · tap to log",
-                style = TextStyle(color = if (showLogged) TX else TX3, fontSize = (10f * u).sp, fontFamily = MONO))
-        }
-        Row(Modifier.align(Alignment.BottomCenter).padding(bottom = d(22f)), horizontalArrangement = Arrangement.spacedBy(d(6f))) {
-            Chip("${st.reps}", "reps", st.focus == 1, u) { st.focus = if (st.focus == 1) 0 else 1; view.hap(Hap.TOGGLE) }
-            Chip("${st.sets}", "sets", st.focus == 2, u) { st.focus = if (st.focus == 2) 0 else 2; view.hap(Hap.TOGGLE) }
+            // the unit: hold to switch lb / kg for this exercise
+            BasicText(unit, Modifier.clip(RoundedCornerShape(8.dp)).combinedClickable(onClick = {}, onLongClick = { Store.toggleUnit(st.ex); st.weightLb = Store.lbFor(st.ex, round(Store.dispFor(st.ex, st.weightLb) * 4) / 4); st.focus = 0; view.hap(Hap.TOGGLE) }   /* lands on the nearest quarter of the new unit */).padding(horizontal = d(10f), vertical = d(3f)),
+                style = TextStyle(color = TX3, fontSize = (9f * u).sp, fontFamily = MONO))
+            Spacer(Modifier.height(d(4f)))
+            // reps and sets: tap to move the bezel to reps, then sets, then back to the weight
+            Row(Modifier.clip(RoundedCornerShape(10.dp)).combinedClickable(onClick = { st.focus = (st.focus + 1) % 3; view.hap(Hap.TOGGLE) }).padding(horizontal = d(8f), vertical = d(4f)), verticalAlignment = Alignment.CenterVertically) {
+                if (showLogged) BasicText("logged · set $exToday", style = TextStyle(color = TX, fontSize = (10f * u).sp, fontFamily = MONO))
+                else {
+                    val on = { f: Int -> if (st.focus == f) TX else TX2 }
+                    BasicText("${st.reps} reps", style = TextStyle(color = on(1), fontSize = (10f * u).sp, fontFamily = MONO, fontWeight = if (st.focus == 1) FontWeight.Bold else FontWeight.Normal))
+                    BasicText("  ·  ", style = TextStyle(color = TX3, fontSize = (10f * u).sp, fontFamily = MONO))
+                    BasicText("${st.sets} sets", style = TextStyle(color = on(2), fontSize = (10f * u).sp, fontFamily = MONO, fontWeight = if (st.focus == 2) FontWeight.Bold else FontWeight.Normal))
+                }
+            }
         }
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
+// The dial: a mark every quarter round the top of the bezel (whole numbers longer, every 5 longer still and numbered),
+// turning with the weight under a fixed pointer at 12 o'clock. The numbers turn with their marks. Everything fades out well
+// before the bottom, so there is no ring, only the part you are using.
 @Composable
-private fun Chip(value: String, label: String, on: Boolean, u: Float, onClick: () -> Unit) {
-    Row(Modifier.clip(RoundedCornerShape(16.dp)).background(PANEL).border(1.dp, if (on) TX else LINE, RoundedCornerShape(16.dp))
-        .combinedClickable(onClick = onClick).padding(horizontal = (11 * u).dp, vertical = (6 * u).dp), verticalAlignment = Alignment.Bottom) {
-        BasicText(value, style = TextStyle(color = TX, fontSize = (15 * u).sp, fontWeight = FontWeight.SemiBold, fontFamily = MONO))
-        Spacer(Modifier.width((4 * u).dp))
-        BasicText(label, Modifier.padding(bottom = (1.5f * u).dp), style = TextStyle(color = if (on) TX2 else TX3, fontSize = (10 * u).sp, fontFamily = MONO))
-    }
-}
-
-// The scale around the top of the bezel, turning with the weight under a fixed pointer at 12 o'clock: a mark every quarter,
-// whole numbers longer, every 5 longer still. It fades out towards both ends, like the phone's ruler.
-@Composable
-private fun Ruler(value: Double, active: Boolean) {
+private fun Dial(value: Double, active: Boolean) {
+    val paint = remember { android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { textAlign = android.graphics.Paint.Align.CENTER; typeface = android.graphics.Typeface.MONOSPACE } }
     Canvas(Modifier.fillMaxSize()) {
         val r = size.minDimension / 2f; val c = Offset(size.width / 2f, size.height / 2f)
-        val degPerUnit = 12f; val span = 72f
+        val degPerUnit = 9f; val span = 112f   // 9° per whole unit (a quarter every 2.25°); visible to ±112°, fading to nothing
         val lo = Math.floor((value - span / degPerUnit) * 4).toInt(); val hi = Math.ceil((value + span / degPerUnit) * 4).toInt()
+        paint.textSize = r * .075f
         for (q in lo..hi) {
             val v = q / 4.0; if (v < 0) continue
             val a = ((v - value) * degPerUnit).toFloat(); if (abs(a) > span) continue
-            val fade = 1f - (abs(a) / span).let { it * it }
+            val t = abs(a) / span; val fade = (1f - t * t).let { it * it }   // soft at both ends
             val whole = q % 4 == 0; val five = whole && (q / 4) % 5 == 0
-            val len = r * when { five -> .11f; whole -> .075f; else -> .04f }
-            val col = (if (whole) TX2 else TX3).copy(alpha = fade * (if (active) 1f else .55f))
-            radial(c, r - r * .03f, len, a, col, if (whole) r * .012f else r * .008f)
+            val len = r * when { five -> .085f; whole -> .055f; else -> .03f }
+            val col = (if (whole) TX2 else TX3).copy(alpha = fade * (if (active) 1f else .5f))
+            radial(c, r - r * .025f, len, a, col, if (whole) r * .011f else r * .007f)
+            if (five && abs(a) > 7f) {   // the number turns with its mark (not the one under the pointer: the big number says it)
+                paint.color = android.graphics.Color.argb((fade * (if (active) 210 else 110)).toInt(), 163, 168, 178)
+                drawContext.canvas.nativeCanvas.apply { save(); rotate(a, c.x, c.y); drawText(fmt(v), c.x, c.y - r + r * .19f, paint); restore() }
+            }
         }
-        radial(c, r - r * .015f, r * .15f, 0f, if (active) TX else TX2, r * .02f)   // the pointer
+        radial(c, r - r * .012f, r * .12f, 0f, if (active) TX else TX2, r * .018f)   // the pointer
     }
 }
 private fun DrawScope.radial(c: Offset, outer: Float, len: Float, deg: Float, col: Color, w: Float) {
@@ -392,7 +396,7 @@ fun TodayScreen() {
             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(PANEL).padding(start = 14.dp, end = 6.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     BasicText(e.exercise, style = TextStyle(color = TX, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    BasicText("${fmt(Store.toDisp(e.weight))} ${Store.unit} × ${e.reps} × ${e.sets}", style = TextStyle(color = TX3, fontSize = 10.5.sp, fontFamily = MONO))
+                    BasicText("${fmt(Store.dispFor(e.exercise, e.weight))} ${Store.unitFor(e.exercise)} × ${e.reps} × ${e.sets}", style = TextStyle(color = TX3, fontSize = 10.5.sp, fontFamily = MONO))
                 }
                 val on = armed == e.id
                 Box(Modifier.clip(RoundedCornerShape(12.dp)).background(if (on) TX else BG).combinedClickable(onClick = {

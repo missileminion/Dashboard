@@ -69,6 +69,13 @@ object Store {
     fun toDisp(lb: Double) = if (unit == "kg") lb * KG else lb
     fun toLb(v: Double) = if (unit == "kg") Math.round(v / KG * 100) / 100.0 else v
 
+    // lb or kg per exercise (a hidden switch on the weight screen: hold the unit). Unset = the phone's unit. Weights stay stored in lb.
+    var units by mutableStateOf(mapOf<String, String>()); private set
+    fun unitFor(ex: String) = units[ex] ?: unit
+    fun dispFor(ex: String, lb: Double) = if (unitFor(ex) == "kg") lb * KG else lb
+    fun lbFor(ex: String, v: Double) = if (unitFor(ex) == "kg") Math.round(v / KG * 100) / 100.0 else v
+    fun toggleUnit(ex: String) { units = units + (ex to if (unitFor(ex) == "kg") "lb" else "kg"); save() }
+
     fun init(ctx: Context) {
         if (::app.isInitialized) return; app = ctx.applicationContext
         val p = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -76,6 +83,7 @@ object Store {
         mine = runCatching { JSONArray(p.getString("mine", "[]")).let { a -> (0 until a.length()).map { Entry.of(a.getJSONObject(it)) } } }.getOrDefault(emptyList())
         deleted = runCatching { JSONArray(p.getString("deleted", "[]")).let { a -> (0 until a.length()).map { a.getLong(it) }.toSet() } }.getOrDefault(emptySet())
         if (p.contains("step")) step = p.getFloat("step", 1f).toDouble()
+        units = runCatching { JSONObject(p.getString("units", "{}")).let { o -> o.keys().asSequence().associateWith { o.getString(it) } } }.getOrDefault(emptyMap())
         scope.launch {   // whatever the phone published while the app was closed
             runCatching { Wearable.getDataClient(app).dataItems.await().use { buf -> buf.forEach { if (it.uri.path == "/gym/state") DataMapItem.fromDataItem(it).dataMap.getString("json")?.let { j -> applyState(JSONObject(j)) } } } }
         }
@@ -87,7 +95,8 @@ object Store {
         app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putString("mine", JSONArray(mine.map { it.json() }).toString())
             .putString("deleted", JSONArray(deleted.toList().takeLast(200)).toString())
-            .putFloat("step", step.toFloat()).apply()
+            .putFloat("step", step.toFloat())
+            .putString("units", JSONObject(units).toString()).apply()
     }
     fun saveStep() = save()
 
