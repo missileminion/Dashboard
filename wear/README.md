@@ -14,13 +14,22 @@ Full-screen cards, swiped sideways: **Run, Legs, Push, Pull**. It opens on today
 
 ## Install on the watch (once)
 
-1. On the watch: Settings → About watch → Software → tap "Software version" 5 times (developer options on).
-2. Settings → Developer options → turn on ADB debugging and Wireless debugging. Tap Wireless debugging → "Pair new device" and note the IP, port and code.
-3. On the Mac (same Wi-Fi):
+1. Watch on the same Wi-Fi as the Mac, with Wi-Fi set to **On** (not Auto: a Galaxy Watch drops Wi-Fi while it is on Bluetooth to the phone).
+2. Settings → About watch → Software information → tap "Software version" 5 times (developer options on).
+3. Settings → Developer options → turn on ADB debugging and Wireless debugging. Tap Wireless debugging → "Pair new device" and keep that screen open.
+4. In **Terminal** (it must be Terminal: macOS's Local Network privacy blocks the adb background program when another app started it):
 
-       ~/.dashboard-toolchain/sdk/platform-tools/adb pair IP:PAIR_PORT CODE
-       ~/.dashboard-toolchain/sdk/platform-tools/adb connect IP:PORT
-       ~/.dashboard-toolchain/sdk/platform-tools/adb -s IP:PORT install -r wear/app/build/outputs/apk/debug/app-debug.apk
+       ~/.dashboard-toolchain/sdk/platform-tools/adb kill-server
+       ~/.dashboard-toolchain/sdk/platform-tools/adb pair 192.168.1.43:PORT      # the address on the pairing screen, then its 6-digit code
+
+   The watch then connects by itself; `adb devices` lists it as `adb-…._adb-tls-connect._tcp`.
+
+## Update the app
+
+    ~/.dashboard-toolchain/sdk/platform-tools/adb devices
+    ~/.dashboard-toolchain/sdk/platform-tools/adb -s <the adb-… name> install -r DashboardWatch.apk
+
+If the watch is not listed, turn Wireless debugging back on (it switches off when the watch changes network or restarts).
 
 ## How it talks to the phone
 
