@@ -32,7 +32,7 @@ import kotlin.math.sin
 
 // The live parts of the CORE · INSTRUMENT watch face (wear-face/), supplied by this app as complications:
 //   RingSource — a transparent image of the event ring (the next 12 hours of calendar events; the one in progress filled up to now)
-//                with the event names, the bed-by crescent and today's readiness written along it in the micro type, drawn on exactly the same dot grid as the face, so the dots land on the face's dots.
+//                and the bed-by crescent, drawn on exactly the same dot grid as the face, so the dots land on the face's dots.
 // Both refresh when the phone sends new data (FaceSources.refresh) and every 5 minutes.
 object FaceSources {
     fun refresh(ctx: Context) = runCatching {
@@ -62,14 +62,13 @@ class HubSource : SuspendingComplicationDataSourceService() {
         if (request.complicationType != ComplicationType.SHORT_TEXT) return null
         FaceData.load(this)
         val call = FaceSources.clean(FaceData.call)
-        val (big, small) = when (FaceSources.hubMode(this)) {
+        val (big, small) = when (0) {   // the concept's hub: time and the current or next event (no tap: nothing to cycle)
             0 -> TimeFormatComplicationText.Builder("HH:mm").build() to (FaceSources.next()?.let { FaceSources.clean(it.title) } ?: call.ifEmpty { "CLEAR" })
             1 -> plain(FaceSources.clean(FaceData.readiness.ifEmpty { "-" })) to call.ifEmpty { "READY · SD" }
             2 -> plain(FaceData.bedBy.ifEmpty { "-" }) to "BED BY"
             else -> plain(FaceSources.clean(FaceData.weather.ifEmpty { "-" })) to FaceSources.clean(FaceData.place).ifEmpty { "WEATHER" }
         }
-        val tap = PendingIntent.getBroadcast(this, 1, Intent(this, HubTap::class.java), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        return ShortTextComplicationData.Builder(big, plain("Core hub")).setTitle(plain(small)).setTapAction(tap).build()
+        return ShortTextComplicationData.Builder(big, plain("Core hub")).setTitle(plain(small)).build()
     }
     override fun getPreviewData(type: ComplicationType): ComplicationData? =
         if (type != ComplicationType.SHORT_TEXT) null
@@ -105,21 +104,6 @@ private object Ring {
         out
     }
 
-    // the concept's 3×5 micro type, curved along a circle: upright in the top half (baseline inside), and in the bottom half
-    // read the other way round so it is never upside down
-    private val MICRO: Map<Char, List<String>> = mapOf('A' to listOf(".#.", "#.#", "###", "#.#", "#.#"), 'B' to listOf("##.", "#.#", "##.", "#.#", "##."), 'C' to listOf(".##", "#..", "#..", "#..", ".##"), 'D' to listOf("##.", "#.#", "#.#", "#.#", "##."), 'E' to listOf("###", "#..", "##.", "#..", "###"), 'F' to listOf("###", "#..", "##.", "#..", "#.."), 'G' to listOf(".##", "#..", "#.#", "#.#", ".##"), 'H' to listOf("#.#", "#.#", "###", "#.#", "#.#"), 'I' to listOf("###", ".#.", ".#.", ".#.", "###"), 'J' to listOf("..#", "..#", "..#", "#.#", ".#."), 'K' to listOf("#.#", "#.#", "##.", "#.#", "#.#"), 'L' to listOf("#..", "#..", "#..", "#..", "###"), 'M' to listOf("#.#", "###", "###", "#.#", "#.#"), 'N' to listOf("##.", "#.#", "#.#", "#.#", "#.#"), 'O' to listOf(".#.", "#.#", "#.#", "#.#", ".#."), 'P' to listOf("##.", "#.#", "##.", "#..", "#.."), 'Q' to listOf(".#.", "#.#", "#.#", "##.", ".##"), 'R' to listOf("##.", "#.#", "##.", "#.#", "#.#"), 'S' to listOf(".##", "#..", ".#.", "..#", "##."), 'T' to listOf("###", ".#.", ".#.", ".#.", ".#."), 'U' to listOf("#.#", "#.#", "#.#", "#.#", "###"), 'V' to listOf("#.#", "#.#", "#.#", "#.#", ".#."), 'W' to listOf("#.#", "#.#", "###", "###", "#.#"), 'X' to listOf("#.#", "#.#", ".#.", "#.#", "#.#"), 'Y' to listOf("#.#", "#.#", ".#.", ".#.", ".#."), 'Z' to listOf("###", "..#", ".#.", "#..", "###"), '0' to listOf("###", "#.#", "#.#", "#.#", "###"), '1' to listOf(".#.", "##.", ".#.", ".#.", "###"), '2' to listOf("##.", "..#", ".#.", "#..", "###"), '3' to listOf("##.", "..#", ".#.", "..#", "##."), '4' to listOf("#.#", "#.#", "###", "..#", "..#"), '5' to listOf("###", "#..", "##.", "..#", "##."), '6' to listOf(".##", "#..", "###", "#.#", "###"), '7' to listOf("###", "..#", ".#.", ".#.", ".#."), '8' to listOf("###", "#.#", "###", "#.#", "###"), '9' to listOf("###", "#.#", "###", "..#", "##."), ':' to listOf(".", "#", ".", "#", "."), '·' to listOf(".", ".", "#", ".", "."), '-' to listOf("...", "...", "###", "...", "..."), '+' to listOf("...", ".#.", "###", ".#.", "..."), '.' to listOf(".", ".", ".", ".", "#"), '°' to listOf("##", "##", "..", "..", ".."), ' ' to listOf("..", "..", "..", "..", ".."))   // the same glyphs as the face (wear-face/tools/gen.mjs)
-    private fun cellsOf(s: String, p: Float): Pair<List<FloatArray>, Float> {
-        val cells = ArrayList<FloatArray>(); var col = 0
-        for (ch in s) { val g = MICRO[ch] ?: MICRO[' ']!!; g.forEachIndexed { ry, row -> row.forEachIndexed { rx, v -> if (v == '#') cells.add(floatArrayOf((col + rx) * p, ry.toFloat())) } }; col += g[0].length + 1 }
-        return cells to (col - 2) * p
-    }
-    private fun arcText(c: Canvas, paint: Paint, s: String, theta: Float, p: Float, rin: Float, rout: Float, dot: Float, alpha: Float) {
-        val (cells, w) = cellsOf(s, p); val up = sin(theta) < 0; val r0 = if (up) rin else rout
-        paint.alpha = (alpha * 255).roundToInt()
-        for (cell in cells) { val sd = cell[0] - w / 2; val a = if (up) theta + sd / r0 else theta - sd / r0; val r = if (up) r0 + (4 - cell[1]) * p else r0 - (4 - cell[1]) * p
-            c.drawCircle(C + r * cos(a), C + r * sin(a), dot, paint) }
-    }
-
     fun icon(z: ZonedDateTime, preview: Boolean = false): Icon {
         val bmp = Bitmap.createBitmap(S, S, Bitmap.Config.ARGB_8888); val c = Canvas(bmp); c.scale(K, K)
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFF4F3EF.toInt() }
@@ -141,27 +125,12 @@ private object Ring {
             val r = .58f + ev * .95f + p.tick * .9f; val a = min(1f, .13f + evA * .55f + p.tick * .45f)
             paint.alpha = (a * 255).roundToInt(); c.drawCircle(p.x, p.y, r, paint)
         }
-        // names along the ring in the 3×5 micro type, curved like the concept's microArc: the event in progress (or next) beside its
-        // arc, the one after it dimmer; then today's readiness · call · temperature at the bottom if nothing is written there
-        val labels = ArrayList<Float>()
-        fun label(s0: String, cmMid: Float, a: Float) {
-            val s = FaceSources.clean(s0, 14); if (s.isEmpty()) return
-            val theta = (cmMid % 720) / 720 * TAU - (PI / 2).toFloat()
-            arcText(c, paint, s, theta, 2.7f, 182f, 190f, .92f, a); labels.add(theta)
-        }
-        evs.take(2).forEachIndexed { i, v -> label(v.third, (maxOf(v.first, now) + v.second) / 2, if (i == 0) .82f else .45f) }
-        val bottom = (PI / 2).toFloat()
-        if (labels.none { abs(((it - bottom + 3 * PI) % (2 * PI) - PI).toFloat()) < .6f })
-            label(listOf(FaceData.readiness, FaceData.call, FaceData.weather).filter { it.isNotBlank() }.joinToString(" · "), 360f, .55f)
-
         // bed-by: a crescent on the ring at its clock position, when it is within 12 hours
         val bed = runCatching { val (h, m) = FaceData.bedBy.split(":").map { it.toInt() }; h * 60 + m }.getOrNull() ?: if (preview) 23 * 60 + 40 else null
         if (bed != null) { var b = bed.toFloat(); if (b < now) b += 1440
             if (b - now < 720) { val ang = (b % 720) / 720 * TAU - (PI / 2).toFloat(); val x = C + 207.6f * cos(ang); val y = C + 207.6f * sin(ang)
                 val cres = Path().apply { addCircle(x, y, 4f, Path.Direction.CW) }; cres.op(Path().apply { addCircle(x + 2, y - 1.5f, 3.5f, Path.Direction.CW) }, Path.Op.DIFFERENCE)
-                paint.alpha = (.85f * 255).roundToInt(); c.drawPath(cres, paint)
-                val near = labels.any { abs(((it - ang + 3 * PI) % (2 * PI) - PI).toFloat()) < .35f }
-                if (!near) arcText(c, paint, "BED " + FaceData.bedBy.ifEmpty { "23:40" }, ang, 2.7f, 182f, 190f, .92f, .55f) } }
+                paint.alpha = (.85f * 255).roundToInt(); c.drawPath(cres, paint) } }
         return Icon.createWithBitmap(bmp)   // a plain bitmap: the system can't pass on compressed image bytes
     }
 }
