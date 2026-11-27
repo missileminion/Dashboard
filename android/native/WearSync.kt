@@ -2,6 +2,8 @@ package io.github.missileminion.dashboard
 
 import android.content.Context
 import android.net.Uri
+import com.google.android.gms.tasks.Tasks
+import com.google.android.gms.wearable.CapabilityClient
 import com.google.android.gms.wearable.DataEvent
 import com.google.android.gms.wearable.DataEventBuffer
 import com.google.android.gms.wearable.DataMapItem
@@ -32,7 +34,19 @@ object WearSync {
         val a = JSONArray(p.getString(INBOX, "[]")); p.edit().putString(INBOX, "[]").apply(); a
     }
 
+    // For the Connections sheet: the paired watch, whether our watch app is on it, and when each side last heard from the other.
+    // Blocking calls: run off the main thread. The watch app advertises the "dashboard_gym" capability (wear/…/values/wear.xml).
+    fun status(ctx: Context): JSONObject {
+        val p = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val out = JSONObject().put("lastIn", p.getLong("lastIn", 0)).put("lastOut", p.getLong("lastOut", 0))
+        val nodes = Tasks.await(Wearable.getNodeClient(ctx).connectedNodes)
+        val app = Tasks.await(Wearable.getCapabilityClient(ctx).getCapability("dashboard_gym", CapabilityClient.FILTER_REACHABLE)).nodes.map { it.id }.toSet()
+        out.put("watches", JSONArray(nodes.map { JSONObject().put("name", it.displayName).put("nearby", it.isNearby).put("app", it.id in app) }))
+        return out
+    }
+
     fun publishState(ctx: Context, json: String) {
+        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putLong("lastOut", System.currentTimeMillis()).apply()
         val req = PutDataMapRequest.create("/gym/state").apply { dataMap.putString("json", json); dataMap.putLong("at", System.currentTimeMillis()) }
         Wearable.getDataClient(ctx).putDataItem(req.asPutDataRequest().setUrgent())
     }
@@ -50,7 +64,7 @@ object WearSync {
             }
             Wearable.getDataClient(ctx).deleteDataItems(Uri.Builder().scheme("wear").authority(item.uri.host).path(path).build())   // handled: free it
         }
-        if (got) HealthConnectPlugin.instance?.wearPing()
+        if (got) { ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putLong("lastIn", System.currentTimeMillis()).apply(); HealthConnectPlugin.instance?.wearPing() }
     }
 }
 

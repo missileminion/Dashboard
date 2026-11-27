@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- lets the phone app see that this app is installed on the watch (Connections → Galaxy Watch) -->
+<resources>
+    <string-array name="android_wear_capabilities" translatable="false">
+        <item>dashboard_gym</item>
+    </string-array>
+</resources>

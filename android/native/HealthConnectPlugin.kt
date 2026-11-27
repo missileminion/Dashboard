@@ -72,6 +72,13 @@ class HealthConnectPlugin : Plugin() {
     @PluginMethod
     fun wearDrain(call: PluginCall) { call.resolve(JSObject().put("ops", JSArray(WearSync.drain(context).toString()))) }
     @PluginMethod
+    fun wearStatus(call: PluginCall) {
+        scope.launch {
+            try { call.resolve(JSObject(WearSync.status(context).toString())) }
+            catch (e: Exception) { call.reject(e.message ?: "watch link unavailable") }   // no Google Play services / Wear OS app on this phone
+        }
+    }
+    @PluginMethod
     fun wearState(call: PluginCall) {
         val json = call.getString("json") ?: return call.reject("no state")
         try { WearSync.publishState(context, json); call.resolve() } catch (e: Exception) { call.reject(e.message ?: "watch link unavailable") }

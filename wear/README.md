@@ -1,7 +1,12 @@
-# Galaxy Watch app (gym log)
+# Galaxy Watch app
 
-The gym log on the watch: turn the bezel to set the weight, tap reps or sets to move them with the bezel instead, tap LOG.
-Tap the exercise name to pick another; tap the line under it for today's sets (undo takes two taps). Hold the weight to change the step (.25 / 1 / 5).
+Full-screen cards, swiped sideways: **Run, Legs, Push, Pull**. It opens on today's card (Wednesday, the run day, opens on Run).
+
+- A day card scrolls down (bezel or finger) into its exercises. Tap one: turn the bezel to set the weight (a tick per marker:
+  whole numbers firm, quarters light), **tap the number to log the set**. Tap reps or sets to move them with the bezel instead.
+  Hold the number to change the step (.25 / 1 / 5). "N sets today" on the card opens today's sets (undo takes two taps).
+- The Run card starts a run tracked by the watch's Health Services: time, heart rate and zone, distance, pace, calories, GPS.
+  Scroll down for Pause and End run. Closing the app does not stop the run; reopening it picks it back up.
 
 ## Build
 

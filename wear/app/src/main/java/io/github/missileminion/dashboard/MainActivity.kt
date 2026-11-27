@@ -1,19 +1,22 @@
 package io.github.missileminion.dashboard
 
+import android.Manifest
 import android.os.Build
 import android.os.Bundle
 import android.view.HapticFeedbackConstants as H
 import android.view.View
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -22,6 +25,7 @@ import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -30,6 +34,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.input.rotary.onRotaryScrollEvent
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -39,13 +44,20 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.wear.compose.foundation.lazy.AutoCenteringParams
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.foundation.lazy.items
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
+import androidx.wear.compose.foundation.pager.HorizontalPager
+import androidx.wear.compose.foundation.pager.rememberPagerState
+import androidx.wear.compose.material3.HorizontalPageIndicator
+import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.navigation.SwipeDismissableNavHost
 import androidx.wear.compose.navigation.composable
 import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
 import kotlinx.coroutines.delay
+import java.time.Instant
+import java.time.LocalDate
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.cos
@@ -53,17 +65,18 @@ import kotlin.math.round
 import kotlin.math.sign
 import kotlin.math.sin
 
-// Galaxy Watch gym log. One screen does the work: turn the bezel to set the weight (a tick per marker: whole numbers firm,
-// quarters light), tap reps or sets to give the bezel to them, tap LOG. Tap the exercise name to pick another; tap the line
-// under it for today's sets (with undo). Nothing-style: black, white, grey, dot-matrix numbers.
+// Galaxy Watch app. Full-screen cards, swiped sideways: Run, Legs, Push, Pull (it opens on today's: Wednesday is the run day).
+// A day card scrolls down (bezel or finger) into its exercises; tap one for the weight, turn the bezel to set it (a tick per
+// marker: whole numbers firm, quarters light), tap the number to log the set. Tap reps or sets to give the bezel to them.
+// The Run card starts a tracked run: time, heart rate and zone, distance, pace, calories. Nothing-style: black, white, grey, dot matrix.
 private val BG = Color(0xFF000000); private val TX = Color(0xFFF2F3F5); private val TX2 = Color(0xFFA3A8B2); private val TX3 = Color(0xFF6B707A); private val LINE = Color(0xFF26282E); private val PANEL = Color(0xFF111216)
 private val MONO = FontFamily.Monospace
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        Store.init(this)
-        setContent { App() }
+        Store.init(this); Run.init(this)
+        setContent { MaterialTheme { App() } }
     }
 }
 
@@ -82,10 +95,11 @@ fun View.hap(k: Hap) {
 }
 private fun detent(v: Double) = if (abs(v - round(v)) < 1e-6) Hap.MAJOR else Hap.MINOR
 private fun fmt(v: Double): String = if (abs(v - round(v)) < 1e-6) round(v).toLong().toString() else "%.2f".format(Locale.US, v).trimEnd('0').trimEnd('.')
+private fun clock(sec: Long) = if (sec >= 3600) "%d:%02d:%02d".format(sec / 3600, sec / 60 % 60, sec % 60) else "%d:%02d".format(sec / 60, sec % 60)
 
-// What the log screen is set to. Lives for the activity, so going to the exercise list and back keeps it.
+// What the weight screen is set to. Lives for the activity, so leaving and coming back keeps it.
 class LogState {
-    var day by mutableStateOf(Store.scheduled())
+    var day by mutableStateOf("")
     var ex by mutableStateOf("")
     var weightLb by mutableStateOf(45.0)
     var reps by mutableStateOf(8)
@@ -95,35 +109,185 @@ class LogState {
         day = d; ex = name; focus = 0
         Store.lastOf(name)?.let { weightLb = it.weight; reps = it.reps.takeIf { r -> r > 0 } ?: reps; sets = it.sets.coerceAtLeast(1) }
     }
-    fun ensure() { val list = Store.program[day]?.map { it.first }.orEmpty(); if (ex !in list) list.firstOrNull()?.let { pick(day, it) } }
 }
+
+// the cards, in your order; any other day the phone sends goes after them
+private fun days(): List<String> = listOf("Legs", "Push", "Pull").filter { it in Store.program } + Store.program.keys.filter { it !in listOf("Legs", "Push", "Pull") }
+private fun todayPage(): Int { val w = Store.week[LocalDate.now().dayOfWeek.value % 7] ?: return 0; return days().indexOf(w).let { if (it < 0) 0 else it + 1 } }
 
 @Composable
 fun App() {
     val nav = rememberSwipeDismissableNavController()
     val st = remember { LogState() }
-    LaunchedEffect(Store.program) { st.ensure() }
     Box(Modifier.fillMaxSize().background(BG)) {
-        SwipeDismissableNavHost(navController = nav, startDestination = "log") {
-            composable("log") { LogScreen(st, onPick = { nav.navigate("ex") }, onToday = { nav.navigate("today") }) }
-            composable("ex") { ExerciseScreen(st) { nav.popBackStack() } }
+        SwipeDismissableNavHost(navController = nav, startDestination = "home") {
+            composable("home") { Home(onExercise = { d, n -> st.pick(d, n); nav.navigate("weight") }, onToday = { nav.navigate("today") }) }
+            composable("weight") { WeightScreen(st) }
             composable("today") { TodayScreen() }
         }
     }
 }
 
-// ---------- the log screen ----------
+// ---------- the cards ----------
+@Composable
+fun Home(onExercise: (String, String) -> Unit, onToday: () -> Unit) {
+    val ds = days()
+    val pager = rememberPagerState(initialPage = todayPage()) { ds.size + 1 }
+    Box(Modifier.fillMaxSize()) {
+        HorizontalPager(state = pager, modifier = Modifier.fillMaxSize()) { page ->
+            if (page == 0) RunCard() else DayCard(ds[page - 1], onExercise, onToday)
+        }
+        HorizontalPageIndicator(pagerState = pager, modifier = Modifier.align(Alignment.BottomCenter))
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun LogScreen(st: LogState, onPick: () -> Unit, onToday: () -> Unit) {
+private fun DayCard(day: String, onExercise: (String, String) -> Unit, onToday: () -> Unit) {
+    val view = LocalView.current
+    val screen = LocalConfiguration.current.screenHeightDp
+    val list = Store.program[day].orEmpty()
+    val todays = Store.todays()
+    val doneToday = todays.filter { it.day == day || list.any { (n) -> n == it.exercise } }
+    val doneNames = doneToday.map { it.exercise }.toSet()
+    ScalingLazyColumn(Modifier.fillMaxSize(), state = rememberScalingLazyListState(initialCenterItemIndex = 0), autoCentering = AutoCenteringParams(itemIndex = 0),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 24.dp)) {
+        // the card itself: fills the screen; scroll down for its exercises
+        item {
+            Column(Modifier.fillMaxWidth().height((screen - 30).dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                DotText(day.uppercase(), 34.dp, TX)
+                Spacer(Modifier.height(12.dp))
+                BasicText("${list.size} exercises", style = TextStyle(color = TX2, fontSize = 12.sp, fontFamily = MONO))
+                Spacer(Modifier.height(4.dp))
+                BasicText(if (doneToday.isEmpty()) "nothing logged today" else "${doneToday.size} ${if (doneToday.size == 1) "set" else "sets"} today  ›", Modifier.clip(RoundedCornerShape(8.dp))
+                    .combinedClickable(enabled = doneToday.isNotEmpty(), onClick = { view.hap(Hap.TAP); onToday() }).padding(horizontal = 6.dp, vertical = 2.dp),
+                    style = TextStyle(color = if (doneToday.isEmpty()) TX3 else TX, fontSize = 12.sp, fontFamily = MONO))
+                Spacer(Modifier.height(18.dp))
+                BasicText("⌄", style = TextStyle(color = TX3, fontSize = 16.sp))
+            }
+        }
+        items(list) { (name, target) ->
+            val last = Store.lastOf(name)
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(PANEL).combinedClickable(onClick = { view.hap(Hap.TAP); onExercise(day, name) }).padding(horizontal = 14.dp, vertical = 9.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    BasicText(name, Modifier.weight(1f), style = TextStyle(color = TX, fontSize = 13.sp, fontWeight = FontWeight.SemiBold), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    if (name in doneNames) Box(Modifier.padding(start = 6.dp).size(6.dp).clip(CircleShape).background(TX))
+                }
+                BasicText(target + (last?.let { " · ${fmt(Store.toDisp(it.weight))} ${Store.unit}" } ?: ""), style = TextStyle(color = TX3, fontSize = 10.5.sp, fontFamily = MONO), maxLines = 1)
+            }
+        }
+    }
+}
+
+// ---------- run ----------
+// heart rate: Wear OS 6 (API 36, the Galaxy Watch 8) uses the health permission; older watches the body-sensor one
+private val HR_PERM = if (Build.VERSION.SDK_INT >= 36) "android.permission.health.READ_HEART_RATE" else Manifest.permission.BODY_SENSORS
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun RunCard() {
+    val view = LocalView.current
+    val screen = LocalConfiguration.current.screenHeightDp
+    val perms = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { got ->
+        if (got[HR_PERM] == true) { view.hap(Hap.CONFIRM); Run.start() } else { Run.error = "Allow heart rate to start a run"; view.hap(Hap.REJECT) }
+    }
+    var now by remember { mutableStateOf(Instant.now()) }
+    LaunchedEffect(Run.state) { while (Run.state == Run.S.ACTIVE) { now = Instant.now(); delay(1000) } }
+    var armEnd by remember { mutableStateOf(false) }
+    LaunchedEffect(armEnd) { if (armEnd) { delay(3000); armEnd = false } }
+    val running = Run.state == Run.S.ACTIVE || Run.state == Run.S.PAUSED || Run.state == Run.S.STARTING
+
+    ScalingLazyColumn(Modifier.fillMaxSize(), state = rememberScalingLazyListState(initialCenterItemIndex = 0), autoCentering = AutoCenteringParams(itemIndex = 0),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 24.dp)) {
+        item {
+            Column(Modifier.fillMaxWidth().height((screen - 30).dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                when {
+                    running -> {   // live: time, heart rate (zone as dots), distance and pace, calories
+                        val sec = Run.activeSeconds(now)
+                        BasicText(if (Run.state == Run.S.PAUSED) "PAUSED" else if (Run.state == Run.S.STARTING) "STARTING" else "RUN", style = TextStyle(color = if (Run.state == Run.S.PAUSED) TX else TX3, fontSize = 10.sp, fontFamily = MONO, letterSpacing = 2.sp))
+                        Spacer(Modifier.height(4.dp))
+                        DotText(clock(sec), 26.dp, TX)
+                        Spacer(Modifier.height(10.dp))
+                        Row(verticalAlignment = Alignment.Bottom) {
+                            DotText(Run.hr?.let { "%.0f".format(it) } ?: "—", 20.dp, TX)
+                            Spacer(Modifier.width(5.dp))
+                            BasicText("bpm", Modifier.padding(bottom = 1.dp), style = TextStyle(color = TX3, fontSize = 10.sp, fontFamily = MONO))
+                        }
+                        Spacer(Modifier.height(5.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) { val z = Run.zone(Run.hr); for (i in 1..5) Box(Modifier.size(width = 14.dp, height = 4.dp).clip(RoundedCornerShape(2.dp)).background(if (i <= z) TX else LINE)) }
+                        Spacer(Modifier.height(10.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                            Stat("%.2f".format(Run.distanceM / 1000), "km")
+                            Stat(Run.paceSecPerKm()?.let { clock(it) } ?: "—", "/km")
+                            Stat("%.0f".format(Run.calories), "kcal")
+                        }
+                    }
+                    Run.state == Run.S.ENDED -> {   // the summary
+                        BasicText("DONE", style = TextStyle(color = TX3, fontSize = 10.sp, fontFamily = MONO, letterSpacing = 2.sp))
+                        Spacer(Modifier.height(6.dp))
+                        DotText("%.2f".format(Run.distanceM / 1000), 26.dp, TX)
+                        BasicText("km", style = TextStyle(color = TX3, fontSize = 10.sp, fontFamily = MONO))
+                        Spacer(Modifier.height(10.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                            Stat(clock(Run.activeSeconds()), "time")
+                            Stat(Run.hrAvg?.let { "%.0f".format(it) } ?: "—", "avg bpm")
+                            Stat("%.0f".format(Run.calories), "kcal")
+                        }
+                    }
+                    else -> {
+                        DotText("RUN", 34.dp, TX)
+                        Spacer(Modifier.height(10.dp))
+                        BasicText("heart rate · pace · GPS", style = TextStyle(color = TX3, fontSize = 11.sp, fontFamily = MONO))
+                        Spacer(Modifier.height(16.dp))
+                        Box(Modifier.size(64.dp).clip(CircleShape).background(TX).combinedClickable(onClick = {
+                            view.hap(Hap.TAP)
+                            perms.launch(arrayOf(HR_PERM, Manifest.permission.ACTIVITY_RECOGNITION, Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+                        }), contentAlignment = Alignment.Center) {
+                            BasicText("START", style = TextStyle(color = BG, fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = MONO, letterSpacing = 1.sp))
+                        }
+                        Run.error?.let { Spacer(Modifier.height(8.dp)); BasicText(it, style = TextStyle(color = TX2, fontSize = 10.sp, textAlign = TextAlign.Center)) }
+                    }
+                }
+                if (running || Run.state == Run.S.ENDED) { Spacer(Modifier.height(14.dp)); BasicText("⌄", style = TextStyle(color = TX3, fontSize = 16.sp)) }
+            }
+        }
+        if (running) {
+            item { Pill(if (Run.state == Run.S.PAUSED) "Resume" else "Pause", filled = true) { view.hap(Hap.TOGGLE); if (Run.state == Run.S.PAUSED) Run.resume() else Run.pause() } }
+            item { Pill(if (armEnd) "Tap again to end" else "End run", filled = false) { if (armEnd) { armEnd = false; view.hap(Hap.CONFIRM); Run.end() } else { armEnd = true; view.hap(Hap.REJECT) } } }
+        }
+        if (Run.state == Run.S.ENDED) item { Pill("Done", filled = true) { view.hap(Hap.TAP); Run.reset() } }
+    }
+}
+
+@Composable
+private fun Stat(value: String, label: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        BasicText(value, style = TextStyle(color = TX, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, fontFamily = MONO))
+        BasicText(label, style = TextStyle(color = TX3, fontSize = 9.5.sp, fontFamily = MONO))
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun Pill(text: String, filled: Boolean, onClick: () -> Unit) {
+    Box(Modifier.fillMaxWidth().height(46.dp).clip(RoundedCornerShape(23.dp)).background(if (filled) TX else PANEL).border(1.dp, if (filled) TX else LINE, RoundedCornerShape(23.dp))
+        .combinedClickable(onClick = onClick), contentAlignment = Alignment.Center) {
+        BasicText(text, style = TextStyle(color = if (filled) BG else TX, fontSize = 13.sp, fontWeight = FontWeight.SemiBold))
+    }
+}
+
+// ---------- the weight: bezel sets it, tap the number to log ----------
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun WeightScreen(st: LogState) {
     val view = LocalView.current
     val fr = remember { FocusRequester() }
     var acc by remember { mutableFloatStateOf(0f) }
-    var flash by remember { mutableStateOf(false) }
+    var logged by remember { mutableIntStateOf(0) }          // bumps on every log: shows the confirmation for a moment
+    var showLogged by remember { mutableStateOf(false) }
     val disp = Store.toDisp(st.weightLb)
     val maxDisp = Store.toDisp(600.0)
     val shown by animateFloatAsState(disp.toFloat(), spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = 900f), label = "ruler")
-    val todayN = Store.todays().size
+    val pulse by animateFloatAsState(if (showLogged) .35f else 1f, spring(stiffness = 600f), label = "pulse")
     val exToday = Store.todays().count { it.exercise == st.ex }
     val last = Store.lastOf(st.ex)
 
@@ -140,7 +304,7 @@ fun LogScreen(st: LogState, onPick: () -> Unit, onToday: () -> Unit) {
         }
     }
     LaunchedEffect(Unit) { fr.requestFocus() }
-    LaunchedEffect(flash) { if (flash) { delay(1100); flash = false } }
+    LaunchedEffect(logged) { if (logged > 0) { showLogged = true; delay(1400); showLogged = false } }
 
     BoxWithConstraints(
         Modifier.fillMaxSize()
@@ -154,42 +318,27 @@ fun LogScreen(st: LogState, onPick: () -> Unit, onToday: () -> Unit) {
         val u = maxWidth.value / 192f   // layout unit: 1 on a 192dp screen, larger on the 44mm watch
         fun d(v: Float): Dp = (v * u).dp
         Ruler(shown.toDouble(), active = st.focus == 0)
-        Column(Modifier.fillMaxSize().padding(top = d(30f)), horizontalAlignment = Alignment.CenterHorizontally) {
-            // exercise (tap to change)
-            BasicText(st.ex.ifEmpty { "Pick an exercise" } + "  ›", Modifier.width(d(132f)).clip(RoundedCornerShape(8.dp)).combinedClickable(onClick = { view.hap(Hap.TAP); onPick() }).padding(vertical = d(2f)),
-                style = TextStyle(color = TX, fontSize = (13 * u).sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            // today's count and the last set (tap for today's list)
-            BasicText(buildString { append(if (todayN > 0) "$todayN today" else st.day); if (last != null) append(" · last ${fmt(Store.toDisp(last.weight))}×${last.reps}") },
-                Modifier.clip(RoundedCornerShape(8.dp)).combinedClickable(onClick = { view.hap(Hap.TAP); onToday() }).padding(horizontal = d(6f), vertical = d(1f)),
+        Column(Modifier.fillMaxSize().padding(top = d(32f)), horizontalAlignment = Alignment.CenterHorizontally) {
+            BasicText(st.ex, Modifier.width(d(128f)), style = TextStyle(color = TX, fontSize = (13 * u).sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            BasicText(last?.let { "last ${fmt(Store.toDisp(it.weight))}×${it.reps} · ${if (it.date == Store.today()) "today" else it.date.substring(5).replace('-', '/')}" } ?: "first time",
                 style = TextStyle(color = TX3, fontSize = (10.5f * u).sp, fontFamily = MONO), maxLines = 1)
-            Spacer(Modifier.height(d(3f)))
-            // the weight: tap gives the bezel back to it, hold to change the step (.25 / 1 / 5)
-            Box(Modifier.clip(RoundedCornerShape(12.dp)).combinedClickable(
-                onClick = { if (st.focus != 0) { st.focus = 0; view.hap(Hap.TOGGLE) } },
-                onLongClick = { Store.step = when (Store.step) { 0.25 -> 1.0; 1.0 -> 5.0; else -> 0.25 }; Store.saveStep(); view.hap(Hap.TOGGLE) }
-            ).padding(horizontal = d(8f), vertical = d(3f)), contentAlignment = Alignment.Center) {
-                DotText(fmt(disp), d(fit(fmt(disp), 34f, 128f)), if (st.focus == 0) TX else TX2)   // long weights (152.75) shrink to stay inside the circle
-            }
-            BasicText("${Store.unit} · ±${fmt(Store.step)}${if (exToday > 0) " · set ${exToday + 1}" else ""}", style = TextStyle(color = TX3, fontSize = (10f * u).sp, fontFamily = MONO))
             Spacer(Modifier.height(d(6f)))
-            Row(horizontalArrangement = Arrangement.spacedBy(d(6f))) {
-                Chip("${st.reps}", "reps", st.focus == 1, u) { st.focus = if (st.focus == 1) 0 else 1; view.hap(Hap.TOGGLE) }
-                Chip("${st.sets}", "sets", st.focus == 2, u) { st.focus = if (st.focus == 2) 0 else 2; view.hap(Hap.TOGGLE) }
+            // the number: tap logs the set, hold changes the step (.25 / 1 / 5)
+            Box(Modifier.clip(RoundedCornerShape(14.dp)).combinedClickable(
+                onClick = {
+                    if (st.ex.isEmpty()) { view.hap(Hap.REJECT); return@combinedClickable }
+                    Store.log(st.day, st.ex, st.weightLb, st.reps, st.sets); st.focus = 0; logged++; view.hap(Hap.CONFIRM)
+                },
+                onLongClick = { Store.step = when (Store.step) { 0.25 -> 1.0; 1.0 -> 5.0; else -> 0.25 }; Store.saveStep(); view.hap(Hap.TOGGLE) }
+            ).padding(horizontal = d(8f), vertical = d(4f)).alpha(pulse), contentAlignment = Alignment.Center) {
+                DotText(fmt(disp), d(fit(fmt(disp), 40f, 132f)), if (st.focus == 0) TX else TX2)   // long weights (152.75) shrink to stay inside the circle
             }
+            BasicText(if (showLogged) "logged · set ${exToday}" else "${Store.unit} · ±${fmt(Store.step)} · tap to log",
+                style = TextStyle(color = if (showLogged) TX else TX3, fontSize = (10f * u).sp, fontFamily = MONO))
         }
-        // LOG sits at the bottom, inside the round screen
-        Box(Modifier.align(Alignment.BottomCenter).padding(bottom = d(9f)).width(d(78f)).height(d(30f)).clip(CircleShape).background(TX).combinedClickable(onClick = {
-            if (st.ex.isEmpty()) { view.hap(Hap.REJECT); return@combinedClickable }
-            Store.log(st.day, st.ex, st.weightLb, st.reps, st.sets); st.focus = 0; flash = true; view.hap(Hap.CONFIRM)
-        }), contentAlignment = Alignment.Center) {
-            BasicText("LOG", style = TextStyle(color = BG, fontSize = (13 * u).sp, fontWeight = FontWeight.Bold, fontFamily = MONO, letterSpacing = (1.5 * u).sp))
-        }
-        if (flash) Box(Modifier.fillMaxSize().background(BG), contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                DotText("OK", d(30f), TX)
-                Spacer(Modifier.height(d(8f)))
-                BasicText("${fmt(disp)} ${Store.unit} × ${st.reps} × ${st.sets}", style = TextStyle(color = TX2, fontSize = (11 * u).sp, fontFamily = MONO))
-            }
+        Row(Modifier.align(Alignment.BottomCenter).padding(bottom = d(22f)), horizontalArrangement = Arrangement.spacedBy(d(6f))) {
+            Chip("${st.reps}", "reps", st.focus == 1, u) { st.focus = if (st.focus == 1) 0 else 1; view.hap(Hap.TOGGLE) }
+            Chip("${st.sets}", "sets", st.focus == 2, u) { st.focus = if (st.focus == 2) 0 else 2; view.hap(Hap.TOGGLE) }
         }
     }
 }
@@ -197,9 +346,9 @@ fun LogScreen(st: LogState, onPick: () -> Unit, onToday: () -> Unit) {
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun Chip(value: String, label: String, on: Boolean, u: Float, onClick: () -> Unit) {
-    Row(Modifier.clip(RoundedCornerShape(14.dp)).background(PANEL).border(1.dp, if (on) TX else LINE, RoundedCornerShape(14.dp))
-        .combinedClickable(onClick = onClick).padding(horizontal = (10 * u).dp, vertical = (4 * u).dp), verticalAlignment = Alignment.Bottom) {
-        BasicText(value, style = TextStyle(color = TX, fontSize = (14 * u).sp, fontWeight = FontWeight.SemiBold, fontFamily = MONO))
+    Row(Modifier.clip(RoundedCornerShape(16.dp)).background(PANEL).border(1.dp, if (on) TX else LINE, RoundedCornerShape(16.dp))
+        .combinedClickable(onClick = onClick).padding(horizontal = (11 * u).dp, vertical = (6 * u).dp), verticalAlignment = Alignment.Bottom) {
+        BasicText(value, style = TextStyle(color = TX, fontSize = (15 * u).sp, fontWeight = FontWeight.SemiBold, fontFamily = MONO))
         Spacer(Modifier.width((4 * u).dp))
         BasicText(label, Modifier.padding(bottom = (1.5f * u).dp), style = TextStyle(color = if (on) TX2 else TX3, fontSize = (10 * u).sp, fontFamily = MONO))
     }
@@ -230,64 +379,6 @@ private fun DrawScope.radial(c: Offset, outer: Float, len: Float, deg: Float, co
     drawLine(col, Offset(c.x + dx * outer, c.y + dy * outer), Offset(c.x + dx * (outer - len), c.y + dy * (outer - len)), strokeWidth = w, cap = StrokeCap.Round)
 }
 
-// the height that keeps a dot-matrix string within maxW (both in layout units)
-private fun fit(text: String, h: Float, maxW: Float): Float { val cols = text.sumOf { (GLYPH[it]?.get(0)?.length ?: 3) + 1 } - 1; return minOf(h, maxW / cols * 7f) }
-
-// 5×7 dot-matrix face, the same glyphs as the phone (app/js/dotfont.js)
-private val GLYPH = mapOf(
-    '0' to listOf(".###.", "#...#", "#..##", "#.#.#", "##..#", "#...#", ".###."), '1' to listOf("..#..", ".##..", "..#..", "..#..", "..#..", "..#..", ".###."),
-    '2' to listOf(".###.", "#...#", "....#", "...#.", "..#..", ".#...", "#####"), '3' to listOf("#####", "...#.", "..#..", "...#.", "....#", "#...#", ".###."),
-    '4' to listOf("...#.", "..##.", ".#.#.", "#..#.", "#####", "...#.", "...#."), '5' to listOf("#####", "#....", "####.", "....#", "....#", "#...#", ".###."),
-    '6' to listOf("..##.", ".#...", "#....", "####.", "#...#", "#...#", ".###."), '7' to listOf("#####", "....#", "...#.", "..#..", ".#...", ".#...", ".#..."),
-    '8' to listOf(".###.", "#...#", "#...#", ".###.", "#...#", "#...#", ".###."), '9' to listOf(".###.", "#...#", "#...#", ".####", "....#", "...#.", ".##.."),
-    '.' to listOf(".", ".", ".", ".", ".", ".", "#"), 'O' to listOf(".###.", "#...#", "#...#", "#...#", "#...#", "#...#", ".###."), 'K' to listOf("#...#", "#..#.", "#.#..", "##...", "#.#..", "#..#.", "#...#"),
-)
-@Composable
-fun DotText(text: String, height: Dp, color: Color) {
-    val cols = text.sumOf { (GLYPH[it]?.get(0)?.length ?: 3) + 1 } - 1
-    val gap = height / 7
-    Canvas(Modifier.size(gap * cols, height)) {
-        val g = size.height / 7f; val rad = g * .36f; var x0 = 0f
-        for (ch in text) {
-            val rows = GLYPH[ch] ?: List(7) { "..." }
-            rows.forEachIndexed { y, row -> row.forEachIndexed { x, p -> if (p == '#') drawCircle(color, rad, Offset(x0 + x * g + g / 2, y * g + g / 2)) } }
-            x0 += (rows[0].length + 1) * g
-        }
-    }
-}
-
-// ---------- pick an exercise ----------
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-fun ExerciseScreen(st: LogState, done: () -> Unit) {
-    val view = LocalView.current
-    var day by remember { mutableStateOf(st.day) }
-    val list = Store.program[day].orEmpty()
-    val todays = Store.todays().map { it.exercise }.toSet()
-    ScalingLazyColumn(Modifier.fillMaxSize(), state = rememberScalingLazyListState(initialCenterItemIndex = 1 + list.indexOfFirst { it.first == st.ex }.coerceAtLeast(0)) /* opens on the current exercise */, contentPadding = PaddingValues(horizontal = 10.dp, vertical = 28.dp)) {
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                Store.program.keys.forEach { k ->
-                    val on = k == day
-                    Box(Modifier.clip(RoundedCornerShape(12.dp)).background(if (on) TX else PANEL).combinedClickable(onClick = { day = k; view.hap(Hap.TOGGLE) }).padding(horizontal = 9.dp, vertical = 6.dp)) {
-                        BasicText(k, style = TextStyle(color = if (on) BG else TX2, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, fontFamily = MONO))
-                    }
-                }
-            }
-        }
-        items(list) { (name, target) ->
-            val last = Store.lastOf(name)
-            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(PANEL).combinedClickable(onClick = { st.pick(day, name); view.hap(Hap.TAP); done() }).padding(horizontal = 14.dp, vertical = 8.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    BasicText(name, Modifier.weight(1f), style = TextStyle(color = TX, fontSize = 13.sp, fontWeight = FontWeight.SemiBold), maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    if (name in todays) Box(Modifier.padding(start = 6.dp).size(6.dp).clip(CircleShape).background(TX))
-                }
-                BasicText(target + (last?.let { " · ${fmt(Store.toDisp(it.weight))} ${Store.unit}" } ?: ""), style = TextStyle(color = TX3, fontSize = 10.5.sp, fontFamily = MONO), maxLines = 1)
-            }
-        }
-    }
-}
-
 // ---------- today's sets, newest first; undo takes two taps ----------
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -315,3 +406,33 @@ fun TodayScreen() {
     }
 }
 
+// ---------- 5×7 dot-matrix face, the same glyphs as the phone (app/js/dotfont.js) ----------
+// the height that keeps a dot-matrix string within maxW (both in layout units)
+private fun fit(text: String, h: Float, maxW: Float): Float { val cols = text.sumOf { (GLYPH[it]?.get(0)?.length ?: 3) + 1 } - 1; return minOf(h, maxW / cols * 7f) }
+private val GLYPH = mapOf(
+    '0' to listOf(".###.", "#...#", "#..##", "#.#.#", "##..#", "#...#", ".###."), '1' to listOf("..#..", ".##..", "..#..", "..#..", "..#..", "..#..", ".###."),
+    '2' to listOf(".###.", "#...#", "....#", "...#.", "..#..", ".#...", "#####"), '3' to listOf("#####", "...#.", "..#..", "...#.", "....#", "#...#", ".###."),
+    '4' to listOf("...#.", "..##.", ".#.#.", "#..#.", "#####", "...#.", "...#."), '5' to listOf("#####", "#....", "####.", "....#", "....#", "#...#", ".###."),
+    '6' to listOf("..##.", ".#...", "#....", "####.", "#...#", "#...#", ".###."), '7' to listOf("#####", "....#", "...#.", "..#..", ".#...", ".#...", ".#..."),
+    '8' to listOf(".###.", "#...#", "#...#", ".###.", "#...#", "#...#", ".###."), '9' to listOf(".###.", "#...#", "#...#", ".####", "....#", "...#.", ".##.."),
+    '.' to listOf(".", ".", ".", ".", ".", ".", "#"), ':' to listOf(".", ".", "#", ".", "#", ".", "."), '—' to listOf("....", "....", "....", "####", "....", "....", "...."),
+    'A' to listOf(".###.", "#...#", "#...#", "#####", "#...#", "#...#", "#...#"), 'E' to listOf("#####", "#....", "#....", "####.", "#....", "#....", "#####"),
+    'G' to listOf(".###.", "#...#", "#....", "#.###", "#...#", "#...#", ".###."), 'H' to listOf("#...#", "#...#", "#...#", "#####", "#...#", "#...#", "#...#"),
+    'L' to listOf("#....", "#....", "#....", "#....", "#....", "#....", "#####"), 'N' to listOf("#...#", "#...#", "##..#", "#.#.#", "#..##", "#...#", "#...#"),
+    'O' to listOf(".###.", "#...#", "#...#", "#...#", "#...#", "#...#", ".###."), 'P' to listOf("####.", "#...#", "#...#", "####.", "#....", "#....", "#...."),
+    'R' to listOf("####.", "#...#", "#...#", "####.", "#.#..", "#..#.", "#...#"), 'S' to listOf(".####", "#....", "#....", ".###.", "....#", "....#", "####."),
+    'U' to listOf("#...#", "#...#", "#...#", "#...#", "#...#", "#...#", ".###."), 'K' to listOf("#...#", "#..#.", "#.#..", "##...", "#.#..", "#..#.", "#...#"),
+)
+@Composable
+fun DotText(text: String, height: Dp, color: Color) {
+    val cols = text.sumOf { (GLYPH[it]?.get(0)?.length ?: 3) + 1 } - 1
+    val gap = height / 7
+    Canvas(Modifier.size(gap * cols, height)) {
+        val g = size.height / 7f; val rad = g * .36f; var x0 = 0f
+        for (ch in text) {
+            val rows = GLYPH[ch] ?: List(7) { "..." }
+            rows.forEachIndexed { y, row -> row.forEachIndexed { x, p -> if (p == '#') drawCircle(color, rad, Offset(x0 + x * g + g / 2, y * g + g / 2)) } }
+            x0 += (rows[0].length + 1) * g
+        }
+    }
+}

@@ -75,6 +75,7 @@ export function initLiteGym(root, { demo = false, toast = () => {}, onChange = (
     if (n) { toast(`${n} ${n === 1 ? "change" : "changes"} from your watch`); changed(); }
   }
   if (W) { try { (W.Plugins?.HealthConnect?.addListener?.("wear", wearDrain)); } catch {} }
+  addEventListener("wear:push", () => wearState());   // Connections → Galaxy Watch → Send to watch
 
   // ---- view ----
   function pickEx() { const list = PROGRAM[day].map(x => x[0]); if (!list.includes(ex)) ex = list[0]; const l = lastOf(ex); if (l) { weight = l.weight; reps = l.reps || reps; sets = l.sets || sets; } }

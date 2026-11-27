@@ -12,13 +12,24 @@ const TOKEN_URL = "https://github.com/settings/personal-access-tokens/new?name=D
 
 export function initSettings({ sheet, body, demo, native, health, onChange, toast }) {
   let page = "main";
-  const status = { gh: null, notes: null, cal: null };
+  const status = { gh: null, notes: null, cal: null, watch: null };
+  let watch = null;   // what the phone knows about the Galaxy Watch link (Android app only): { watches: [{name, nearby, app}], lastIn, lastOut } or { error }
+  const ago = t => { if (!t) return "never"; const m = Math.round((Date.now() - t) / 6e4); return m < 1 ? "just now" : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`; };
+  async function checkWatch() {
+    if (!native || demo) return;
+    const C = window.Capacitor, P = C.Plugins?.HealthConnect;
+    try { watch = await (P?.wearStatus ? P.wearStatus() : C.nativePromise("HealthConnect", "wearStatus", {})); } catch (e) { watch = { error: e.message || "Watch link unavailable" }; }
+    const w = watch.watches?.[0];
+    status.watch = watch.error ? false : !w ? null : w.app ? true : false;   // red only when something is wrong: no link, or a watch without the app
+  }
+  const watchLine = () => { if (!watch) return "Checking…"; if (watch.error) return "Link unavailable"; const w = watch.watches?.[0]; return !w ? "No watch connected" : !w.app ? `${w.name}: app not installed` : `${w.name} · ${ago(watch.lastIn)}`; };
   const dot = s => `<span class="dot ${s === true ? "ok" : s === false ? "err" : ""}"></span>`;
   const row = (id, title, sub, s) => `<button class="row" type="button" data-go="${id}">${dot(s)}<span class="k"><b>${title}</b></span><span class="note" style="margin:0 4px 0 0;max-width:46%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(sub)}</span><span class="chev">›</span></button>`;
   const head = (t, back = true) => `<h2>${back ? `<button class="back" type="button" data-go="main" aria-label="Back">‹</button>` : ""}${t}</h2>`;
 
   async function check() {
     if (demo) { status.gh = status.notes = status.cal = true; return; }
+    checkWatch().then(() => { if (!sheet.hidden && (page === "main" || page === "watch")) render(); });
     status.gh = gh.on ? await ghCheck().then(() => true, () => false) : null;
     status.notes = notesCfg.remote ? await fetch(`https://api.github.com/repos/${notesCfg.repo}`, { headers: { Authorization: `Bearer ${notesCfg.token}` } }).then(r => r.ok, () => false) : null;
     status.cal = jget("cal.cfg")?.url ? true : null;
@@ -32,6 +43,7 @@ export function initSettings({ sheet, body, demo, native, health, onChange, toas
         ${row("notes", "Notes", notesCfg.remote ? notesCfg.repo : "Only on this phone", status.notes)}
         ${row("calendar", "Calendar", cal?.url ? "Connected" : "Not connected", status.cal)}
         ${row("weather", "Weather", city?.name || "No city", city ? true : null)}
+        ${native && !demo ? row("watch", "Galaxy Watch", watchLine(), status.watch) : ""}
       </div>
       <a class="row card tap" href="index.html?full${demo ? "&demo" : ""}"><span class="k"><b>Full dashboard</b><span class="note" style="margin-left:6px">Home · Console · everything</span></span><span class="chev">›</span></a>`;
     if (page === "github") body.innerHTML = head("Sync with web") + (gh.on ? `
@@ -58,6 +70,15 @@ export function initSettings({ sheet, body, demo, native, health, onChange, toas
       <label class="field"><span>City</span><input id="wQ" type="search" placeholder="${esc(city?.label || "Search a city")}" autocomplete="off" spellcheck="false"></label>
       <div class="list" id="wRes" hidden></div>
       <div class="seg" id="wUnit" style="margin-top:4px">${["C", "F"].map(u => `<button type="button" data-u="${u}" class="${(jget("weather.unit") || "C") === u ? "on" : ""}">°${u}</button>`).join("")}</div>`;
+    if (page === "watch") { const w = watch?.watches?.[0];
+      body.innerHTML = head("Galaxy Watch") + `<p class="lead">The watch logs sets and sends them here over Bluetooth. They join the gym log the next time this app is open, then sync to the web.</p>
+      <div class="list">
+        <div class="row">${dot(watch?.error ? false : w ? true : null)}<span class="k">Watch</span><span class="v ${watch?.error ? "bad" : ""}">${esc(watch?.error ? watch.error : w ? w.name + (w.nearby ? "" : " (via cloud)") : watch ? "Not connected" : "Checking…")}</span></div>
+        <div class="row">${dot(w ? w.app : null)}<span class="k">Watch app</span><span class="v ${w && !w.app ? "bad" : ""}">${w ? (w.app ? "Installed" : "Not installed") : "—"}</span></div>
+        <div class="row"><span class="k">Last set from the watch</span><span class="v">${esc(ago(watch?.lastIn))}</span></div>
+        <div class="row"><span class="k">Last update to the watch</span><span class="v">${esc(ago(watch?.lastOut))}</span></div>
+      </div>
+      <div class="btns"><button class="btn ghost" type="button" data-act="wCheck">Check again</button><button class="btn" type="button" data-act="wPush">Send to watch</button></div>`; }
     if (page === "health") body.innerHTML = head(native ? "Health Connect" : "Health data") + health.html();
   }
   const msg = (t, bad = false) => { const m = body.querySelector("#sMsg"); if (m) { m.textContent = t; m.classList.toggle("bad", bad); } };
@@ -91,6 +112,8 @@ export function initSettings({ sheet, body, demo, native, health, onChange, toas
       }
       if (a === "ghOff") { gh.clear(); status.gh = null; page = "main"; render(); onChange("github"); }
       if (a === "syncNow") { onChange("sync"); toast("Syncing"); }
+      if (a === "wCheck") { watch = null; render(); await checkWatch(); render(); }
+      if (a === "wPush") { dispatchEvent(new Event("wear:push")); toast("Sent the program and last weights"); setTimeout(async () => { await checkWatch(); if (page === "watch") render(); }, 800); }
       if (a === "nSame") { ls.set("notes.token", gh.token); }
       if (a === "nOn" || a === "nSame") {
         const repo = val("nRepo") || "missileminion/Notes", tok = val("nTok") || ls.get("notes.token"); if (!tok) return msg("Paste a token.", true);
