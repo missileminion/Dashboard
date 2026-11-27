@@ -65,7 +65,20 @@ class HealthConnectPlugin : Plugin() {
     // READ_HEALTH_DATA_HISTORY lets the first read go back further than 30 days before permission was granted.
     private val perms: Set<String> get() = types.values.map { HealthPermission.getReadPermission(it) }.toSet() + HealthPermission.PERMISSION_READ_HEALTH_DATA_HISTORY
 
+    companion object { @Volatile var instance: HealthConnectPlugin? = null }
+    fun wearPing() = notifyListeners("wear", JSObject())
+
+    // Galaxy Watch link (see WearSync.kt): sets logged on the watch wait in an inbox until the page takes them
+    @PluginMethod
+    fun wearDrain(call: PluginCall) { call.resolve(JSObject().put("ops", JSArray(WearSync.drain(context).toString()))) }
+    @PluginMethod
+    fun wearState(call: PluginCall) {
+        val json = call.getString("json") ?: return call.reject("no state")
+        try { WearSync.publishState(context, json); call.resolve() } catch (e: Exception) { call.reject(e.message ?: "watch link unavailable") }
+    }
+
     override fun load() {
+        instance = this
         // Registered while the activity is being created, which is when Capacitor loads plugins.
         launcher = try { activity.registerForActivityResult(PermissionController.createRequestPermissionResultContract()) { granted ->
             pending?.resolve(JSObject().put("granted", JSArray(granted.toList())).put("all", granted.containsAll(perms)))

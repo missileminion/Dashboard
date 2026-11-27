@@ -48,7 +48,33 @@ export function initLiteGym(root, { demo = false, toast = () => {}, onChange = (
     try { const r = await ghRead(GHPATH); sha = r?.sha ?? null; const rem = r ? parse(r.text) : { entries: [], deleted: [] }; if (merge(rem)) { persist(); changed(false); } if (behind(rem)) push(); else setStatus("Synced"); }
     catch (e) { setStatus(ghMessage(e), true); }
   }
-  function changed(save = true) { if (save) { persist(); clearTimeout(timer); timer = setTimeout(push, 700); } onChange(entries); draw(); }
+  function changed(save = true) { if (save) { persist(); clearTimeout(timer); timer = setTimeout(push, 700); } onChange(entries); draw(); wearState(); }
+
+  // ---- Galaxy Watch link (Android app only; see android/native/WearSync.kt) ----
+  // Sets logged on the watch wait in a native inbox until this page takes them; the watch gets the program, unit, step,
+  // the latest set of every exercise and today's sets after every change here.
+  const W = !demo && window.Capacitor?.isNativePlatform?.() ? window.Capacitor : null;
+  const wcall = (m, o = {}) => (W.Plugins?.HealthConnect?.[m] ? W.Plugins.HealthConnect[m](o) : W.nativePromise("HealthConnect", m, o));
+  let wearT = 0;
+  function wearState() {
+    if (!W) return; clearTimeout(wearT);
+    wearT = setTimeout(() => {
+      const latest = {}; for (const e of entries) { const l = latest[e.exercise]; if (!l || e.date > l.date || (e.date === l.date && e.id > l.id)) latest[e.exercise] = e; }
+      const out = new Map(Object.values(latest).map(e => [e.id, e])); entries.filter(e => e.date === today()).forEach(e => out.set(e.id, e));
+      wcall("wearState", { json: JSON.stringify({ v: 1, unit, step, week: WEEK, program: PROGRAM, entries: [...out.values()] }) }).catch(() => {});
+    }, 400);
+  }
+  async function wearDrain() {
+    if (!W) return; let ops = [];
+    try { ops = (await wcall("wearDrain")).ops || []; } catch { return; }
+    let n = 0;
+    for (const o of ops) {
+      if (o.op === "add" && o.entry && !deleted.has(o.entry.id) && !entries.some(e => e.id === o.entry.id)) { entries.push(o.entry); n++; }
+      else if (o.op === "del" && entries.some(e => e.id === o.id)) { entries = entries.filter(e => e.id !== o.id); deleted.add(o.id); n++; }
+    }
+    if (n) { toast(`${n} ${n === 1 ? "change" : "changes"} from your watch`); changed(); }
+  }
+  if (W) { try { (W.Plugins?.HealthConnect?.addListener?.("wear", wearDrain)); } catch {} }
 
   // ---- view ----
   function pickEx() { const list = PROGRAM[day].map(x => x[0]); if (!list.includes(ex)) ex = list[0]; const l = lastOf(ex); if (l) { weight = l.weight; reps = l.reps || reps; sets = l.sets || sets; } }
@@ -106,8 +132,8 @@ export function initLiteGym(root, { demo = false, toast = () => {}, onChange = (
   root.addEventListener("click", e => {
     const t = e.target.closest("button"); if (!t) return;
     if (t.dataset.d && !t.dataset.k) { day = t.dataset.d; try { localStorage.setItem("gymlog.day", day); } catch {} ex = null; pickEx(); armed = null; draw(); }
-    else if (t.dataset.s) { step = +t.dataset.s; try { localStorage.setItem("lite.step", step); } catch {} draw(); }
-    else if (t.dataset.u) { unit = t.dataset.u; try { localStorage.setItem("gymlog.unit", unit); } catch {} draw(); }
+    else if (t.dataset.s) { step = +t.dataset.s; try { localStorage.setItem("lite.step", step); } catch {} draw(); wearState(); }
+    else if (t.dataset.u) { unit = t.dataset.u; try { localStorage.setItem("gymlog.unit", unit); } catch {} draw(); wearState(); }
     else if (t.dataset.k) { const d = +t.dataset.d; if (t.dataset.k === "reps") reps = Math.max(0, reps + d); else sets = Math.max(1, sets + d); t.parentNode.querySelector(".n").textContent = t.dataset.k === "reps" ? reps : sets; haptic("major"); }
     else if (t.id === "gLog") { entries.push({ id: Date.now() + Math.floor(Math.random() * 1000), date: today(), day, exercise: ex, weight, reps, sets }); armed = null; haptic("confirm"); toast(`Logged ${ex.split(" (")[0]}`); changed(); }
     else if (t.dataset.x) { const id = +t.dataset.x; if (armed === id) { entries = entries.filter(x => x.id !== id); deleted.add(id); armed = null; changed(); } else { armed = id; draw(); setTimeout(() => { if (armed === id) { armed = null; draw(); } }, 3000); } }
@@ -117,8 +143,8 @@ export function initLiteGym(root, { demo = false, toast = () => {}, onChange = (
   // ---- start ----
   if (demo) entries = demoEntries();
   else { try { const m = JSON.parse(localStorage.getItem(KEY) || "null"); if (Array.isArray(m)) entries = m; else if (m) { entries = m.entries || []; (m.deleted || []).forEach(id => deleted.add(id)); } } catch {} entries = entries.filter(e => !deleted.has(e.id)); }
-  pickEx(); onChange(entries); draw(); pull();
-  document.addEventListener("visibilitychange", () => { if (document.hidden) return; if (ymd(new Date()) !== shownOn) { shownOn = ymd(new Date()); day = scheduled(); ex = null; pickEx(); draw(); } pull(); });   // a new day: back to that day's workout
+  pickEx(); onChange(entries); draw(); pull(); wearDrain(); wearState();
+  document.addEventListener("visibilitychange", () => { if (document.hidden) return; wearDrain(); if (ymd(new Date()) !== shownOn) { shownOn = ymd(new Date()); day = scheduled(); ex = null; pickEx(); draw(); } pull(); });   // a new day: back to that day's workout
   return { get entries() { return entries; }, pull, shown: () => rulerTo() };
 }
 

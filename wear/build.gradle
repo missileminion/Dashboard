@@ -1,0 +1,7 @@
+// The Galaxy Watch app: the gym log only. Separate from the phone project (android/) but the same application id and the same
+// debug signing key, which the Wear OS Data Layer requires before the two will talk. Build: sh wear/build.sh
+plugins {
+    id "com.android.application" version "8.9.1" apply false
+    id "org.jetbrains.kotlin.android" version "2.0.21" apply false
+    id "org.jetbrains.kotlin.plugin.compose" version "2.0.21" apply false
+}

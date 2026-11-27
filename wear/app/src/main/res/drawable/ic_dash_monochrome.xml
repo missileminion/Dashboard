@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#ffffff" android:fillAlpha="0.1" android:pathData="M29.55,57.30a1.35,1.35 0 1,0 2.7,0a1.35,1.35 0 1,0 -2.7,0M75.75,57.30a1.35,1.35 0 1,0 2.7,0a1.35,1.35 0 1,0 -2.7,0"/>
+    <path android:fillColor="#ffffff" android:fillAlpha="0.4" android:pathData="M32.85,57.30a1.35,1.35 0 1,0 2.7,0a1.35,1.35 0 1,0 -2.7,0M72.45,57.30a1.35,1.35 0 1,0 2.7,0a1.35,1.35 0 1,0 -2.7,0"/>
+    <path android:fillColor="#ffffff" android:fillAlpha="0.6" android:pathData="M65.85,67.20a1.35,1.35 0 1,0 2.7,0a1.35,1.35 0 1,0 -2.7,0"/>
+    <path android:fillColor="#ffffff" android:fillAlpha="0.7" android:pathData="M69.15,60.60a1.35,1.35 0 1,0 2.7,0a1.35,1.35 0 1,0 -2.7,0"/>
+    <path android:fillColor="#ffffff" android:fillAlpha="0.8" android:pathData="M36.15,57.30a1.35,1.35 0 1,0 2.7,0a1.35,1.35 0 1,0 -2.7,0M65.85,63.90a1.35,1.35 0 1,0 2.7,0a1.35,1.35 0 1,0 -2.7,0M69.15,57.30a1.35,1.35 0 1,0 2.7,0a1.35,1.35 0 1,0 -2.7,0"/>
+    <path android:fillColor="#ffffff" android:fillAlpha="0.9" android:pathData="M59.00,40.80a1.6,1.6 0 1,0 3.2,0a1.6,1.6 0 1,0 -3.2,0M65.85,60.60a1.35,1.35 0 1,0 2.7,0a1.35,1.35 0 1,0 -2.7,0"/>
+    <path android:fillColor="#ffffff" android:pathData="M39.45,57.30a1.35,1.35 0 1,0 2.7,0a1.35,1.35 0 1,0 -2.7,0M42.75,54.00a1.35,1.35 0 1,0 2.7,0a1.35,1.35 0 1,0 -2.7,0M46.05,54.00a1.35,1.35 0 1,0 2.7,0a1.35,1.35 0 1,0 -2.7,0M49.35,57.30a1.35,1.35 0 1,0 2.7,0a1.35,1.35 0 1,0 -2.7,0M52.65,54.00a1.35,1.35 0 1,0 2.7,0a1.35,1.35 0 1,0 -2.7,0M52.65,57.30a1.35,1.35 0 1,0 2.7,0a1.35,1.35 0 1,0 -2.7,0M55.95,47.40a1.35,1.35 0 1,0 2.7,0a1.35,1.35 0 1,0 -2.7,0M55.95,50.70a1.35,1.35 0 1,0 2.7,0a1.35,1.35 0 1,0 -2.7,0M59.25,44.10a1.35,1.35 0 1,0 2.7,0a1.35,1.35 0 1,0 -2.7,0M62.55,47.40a1.35,1.35 0 1,0 2.7,0a1.35,1.35 0 1,0 -2.7,0M62.55,50.70a1.35,1.35 0 1,0 2.7,0a1.35,1.35 0 1,0 -2.7,0M62.55,54.00a1.35,1.35 0 1,0 2.7,0a1.35,1.35 0 1,0 -2.7,0M62.55,57.30a1.35,1.35 0 1,0 2.7,0a1.35,1.35 0 1,0 -2.7,0"/>
+</vector>

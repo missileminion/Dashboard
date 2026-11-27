@@ -12,7 +12,7 @@ if (!fs.existsSync(A)) { console.error("android/android is missing: run `npx cap
 
 // 1. our native code
 fs.mkdirSync(SRC, { recursive: true });
-for (const f of ["HealthConnectPlugin.kt", "PrivacyActivity.kt", "MainActivity.java"]) fs.copyFileSync(path.join(here, "native", f), path.join(SRC, f));
+for (const f of ["HealthConnectPlugin.kt", "PrivacyActivity.kt", "MainActivity.java", "WearSync.kt"]) fs.copyFileSync(path.join(here, "native", f), path.join(SRC, f));
 console.log("copied native sources");
 // the app icon (drawn by icon.mjs): copied over the default Capacitor icon
 fs.cpSync(path.join(here, "native/res"), path.join(A, "app/src/main/res"), { recursive: true });
@@ -23,6 +23,7 @@ edit("build.gradle", s => s.includes("kotlin-gradle-plugin") ? s : s.replace(/(b
 edit("app/build.gradle", s => {
   if (!s.includes("kotlin-android")) s = s.replace("apply plugin: 'com.android.application'", "apply plugin: 'com.android.application'\napply plugin: 'kotlin-android'");
   if (!s.includes("connect-client")) s = s.replace(/dependencies\s*\{/, `dependencies {\n    implementation "androidx.health.connect:connect-client:1.1.0"\n    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1"`);
+  if (!s.includes("play-services-wearable")) s = s.replace(/dependencies\s*\{/, `dependencies {\n    implementation "com.google.android.gms:play-services-wearable:19.0.0"`);   // the Galaxy Watch link
   return s;
 });
 edit("gradle.properties", s => s.includes("kotlin.jvm.target.validation.mode") ? s : s + "\nkotlin.jvm.target.validation.mode=warning\n");
@@ -50,4 +51,12 @@ edit("app/src/main/AndroidManifest.xml", s => {
   s = s.replace(/(<activity[^>]*\.MainActivity"[^>]*?)(android:windowSoftInputMode="[^"]*")?/, (m, a) => (m.includes("windowSoftInputMode") ? m : a + ' android:windowSoftInputMode="adjustResize" android:screenOrientation="portrait"'));
   return s;
 });
+// 5. the Galaxy Watch link: a background listener for sets logged on the watch (WearSync.kt)
+edit("app/src/main/AndroidManifest.xml", s => s.includes(".WearListener") ? s : s.replace(/<\/application>/, `    <service android:name=".WearListener" android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
+                <data android:scheme="wear" android:host="*" android:pathPrefix="/gym/" />
+            </intent-filter>
+        </service>
+    </application>`));
 console.log("Health Connect is wired in.");
