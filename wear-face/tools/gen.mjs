@@ -65,9 +65,10 @@ function frame(name, field, size, alpha) {
   png(out, name); return { name, x: x0, y: y0, w: out.w, h: out.h };
 }
 const ang = f => f * TAU - Math.PI / 2;
-const hourFrames = [...Array(120)].map((_, k) => frame(`core_h${k}`, (x, y) => handField(x, y, ang(k / 120), 10.5, 128, .45, 66), 2.75, .85));
-const minFrames = [...Array(60)].map((_, k) => frame(`core_m${k}`, (x, y) => handField(x, y, ang(k / 60), 6.6, 200, .4, 66), 2.75, .85));
-const secFrames = [...Array(60)].map((_, k) => frame(`core_s${k}`, (x, y) => Math.max(handField(x, y, ang(k / 60), 2.1, 218, 0, 66), handField(x, y, ang(k / 60) + Math.PI, 3.2, 96, 0, 66)), 1.5, .8));
+const NF = 180;   // positions per hand (every 2°); the face crossfades between neighbours
+const hourFrames = [...Array(NF)].map((_, k) => frame(`core_h${k}`, (x, y) => handField(x, y, ang(k / NF), 10.5, 128, .45, 66), 2.75, .85));
+const minFrames = [...Array(NF)].map((_, k) => frame(`core_m${k}`, (x, y) => handField(x, y, ang(k / NF), 6.6, 200, .4, 66), 2.75, .85));
+const secFrames = [...Array(NF)].map((_, k) => frame(`core_s${k}`, (x, y) => Math.max(handField(x, y, ang(k / NF), 2.1, 218, 0, 66), handField(x, y, ang(k / NF) + Math.PI, 3.2, 96, 0, 66)), 1.5, .8));
 
 
 // ---- the 3×5 micro type as bitmap-font glyphs (big: pitch 3.4 / dot 1.15; small: pitch 2.7 / dot .92)
@@ -100,8 +101,8 @@ const bitmapFont = (name, list) => `    <BitmapFont name="${name}">\n${list.map(
 const hub = { x: q(C - 120), w: q(240) };
 // one hand = two layers on the fixed grid: the frame for the current position fading out and the next one fading in, by how far
 // the time has moved between them, so the brightness flows from dot to dot instead of jumping
-const hands = (id, frames, idx, frac, aodAlpha) => {
-  const N = frames.length, next = `((${idx}) + 1 - ${N} * floor(((${idx}) + 1) / ${N}))`;
+const hands = (id, frames, pos, aodAlpha) => {
+  const N = frames.length, idx = `floor(${pos})`, frac = `(${pos} - floor(${pos}))`, next = `((${idx}) + 1 - ${N} * floor(((${idx}) + 1) / ${N}))`;
   const layer = (name, expr, alpha) => `      <Group name="${name}" x="0" y="0" width="${S}" height="${S}">
         <Transform target="alpha" value="${alpha}" />
         <Condition>
@@ -176,9 +177,9 @@ ${bitmapFont("micro_small", fonts.small)}
       </Complication>
     </ComplicationSlot>
     <!-- the hands: the fixed grid's dots brightened along the hand, crossfading between positions; always-on keeps hour and minute, dimmed -->
-${hands("hour", hourFrames, "floor(([HOUR_0_11] * 60 + [MINUTE]) / 6)", "(([HOUR_0_11] * 60 + [MINUTE]) - 6 * floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) + [SECOND] / 60) / 6", 150)}
-${hands("minute", minFrames, "[MINUTE]", "([SECOND] + [MILLISECOND] / 1000) / 60", 150)}
-${hands("second", secFrames, "[SECOND]", "[MILLISECOND] / 1000", 0)}
+${hands("hour", hourFrames, `((([HOUR_0_11] * 60 + [MINUTE]) * 60 + [SECOND]) / 43200 * ${NF})`, 150)}
+${hands("minute", minFrames, `((([MINUTE] * 60 + [SECOND]) * 1000 + [MILLISECOND]) / 3600000 * ${NF})`, 150)}
+${hands("second", secFrames, `(([SECOND] * 1000 + [MILLISECOND]) / 60000 * ${NF})`, 0)}
   </Scene>
 </WatchFace>
 `;
