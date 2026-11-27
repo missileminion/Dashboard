@@ -154,7 +154,7 @@ private fun DayCard(day: String, onExercise: (String, String) -> Unit, onToday: 
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 24.dp)) {
         // the card itself: fills the screen; scroll down for its exercises
         item {
-            Column(Modifier.fillMaxWidth().height((screen - 30).dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+            Column(Modifier.fillMaxWidth().height(screen.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                 DotText(day.uppercase(), 34.dp, TX)
                 Spacer(Modifier.height(12.dp))
                 BasicText("${list.size} exercises", style = TextStyle(color = TX2, fontSize = 12.sp, fontFamily = MONO))
@@ -199,26 +199,27 @@ private fun RunCard() {
     ScalingLazyColumn(Modifier.fillMaxSize(), state = rememberScalingLazyListState(initialCenterItemIndex = 0), autoCentering = AutoCenteringParams(itemIndex = 0),
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 24.dp)) {
         item {
-            Column(Modifier.fillMaxWidth().height((screen - 30).dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+            Column(Modifier.fillMaxWidth().height(screen.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                 when {
-                    running -> {   // live: time, heart rate (zone as dots), distance and pace, calories
+                    running -> {   // live, in order of importance: pace, then time, then distance; heart rate and zone underneath
                         val sec = Run.activeSeconds(now)
-                        BasicText(if (Run.state == Run.S.PAUSED) "PAUSED" else if (Run.state == Run.S.STARTING) "STARTING" else "RUN", style = TextStyle(color = if (Run.state == Run.S.PAUSED) TX else TX3, fontSize = 10.sp, fontFamily = MONO, letterSpacing = 2.sp))
+                        BasicText(if (Run.state == Run.S.PAUSED) "PAUSED" else if (Run.state == Run.S.STARTING) "STARTING" else "PACE", style = TextStyle(color = if (Run.state == Run.S.PAUSED) TX else TX3, fontSize = 10.sp, fontFamily = MONO, letterSpacing = 2.sp))
                         Spacer(Modifier.height(4.dp))
-                        DotText(clock(sec), 26.dp, TX)
-                        Spacer(Modifier.height(10.dp))
                         Row(verticalAlignment = Alignment.Bottom) {
-                            DotText(Run.hr?.let { "%.0f".format(it) } ?: "—", 20.dp, TX)
+                            DotText(Run.paceSecPerKm()?.let { clock(it) } ?: "—", 34.dp, TX)
                             Spacer(Modifier.width(5.dp))
-                            BasicText("bpm", Modifier.padding(bottom = 1.dp), style = TextStyle(color = TX3, fontSize = 10.sp, fontFamily = MONO))
+                            BasicText("/km", Modifier.padding(bottom = 2.dp), style = TextStyle(color = TX3, fontSize = 11.sp, fontFamily = MONO))
                         }
-                        Spacer(Modifier.height(5.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) { val z = Run.zone(Run.hr); for (i in 1..5) Box(Modifier.size(width = 14.dp, height = 4.dp).clip(RoundedCornerShape(2.dp)).background(if (i <= z) TX else LINE)) }
-                        Spacer(Modifier.height(10.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                            Stat("%.2f".format(Run.distanceM / 1000), "km")
-                            Stat(Run.paceSecPerKm()?.let { clock(it) } ?: "—", "/km")
-                            Stat("%.0f".format(Run.calories), "kcal")
+                        Spacer(Modifier.height(14.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(22.dp), verticalAlignment = Alignment.Bottom) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) { DotText(clock(sec), 18.dp, TX); Spacer(Modifier.height(3.dp)); BasicText("time", style = TextStyle(color = TX3, fontSize = 9.5.sp, fontFamily = MONO)) }
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) { DotText("%.2f".format(Run.distanceM / 1000), 18.dp, TX); Spacer(Modifier.height(3.dp)); BasicText("km", style = TextStyle(color = TX3, fontSize = 9.5.sp, fontFamily = MONO)) }
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            BasicText(Run.hr?.let { "%.0f bpm".format(it) } ?: "— bpm", style = TextStyle(color = TX2, fontSize = 11.sp, fontFamily = MONO))
+                            Spacer(Modifier.width(8.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) { val z = Run.zone(Run.hr); for (i in 1..5) Box(Modifier.size(width = 9.dp, height = 4.dp).clip(RoundedCornerShape(2.dp)).background(if (i <= z) TX2 else LINE)) }
                         }
                     }
                     Run.state == Run.S.ENDED -> {   // the summary
@@ -235,9 +236,7 @@ private fun RunCard() {
                     }
                     else -> {
                         DotText("RUN", 34.dp, TX)
-                        Spacer(Modifier.height(10.dp))
-                        BasicText("heart rate · pace · GPS", style = TextStyle(color = TX3, fontSize = 11.sp, fontFamily = MONO))
-                        Spacer(Modifier.height(16.dp))
+                        Spacer(Modifier.height(22.dp))
                         Box(Modifier.size(64.dp).clip(CircleShape).background(TX).combinedClickable(onClick = {
                             view.hap(Hap.TAP)
                             perms.launch(arrayOf(HR_PERM, Manifest.permission.ACTIVITY_RECOGNITION, Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
