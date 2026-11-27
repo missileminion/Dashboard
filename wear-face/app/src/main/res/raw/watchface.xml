@@ -114,7 +114,7 @@
     <!-- the event ring and bed-by crescent: an image the Gym app draws from the phone's calendar (it has no tap action; the hub, drawn above it, takes taps in the middle) -->
     <ComplicationSlot slotId="0" x="0" y="0" width="450" height="450" supportedTypes="SMALL_IMAGE" isCustomizable="TRUE">
       <DefaultProviderPolicy defaultSystemProvider="EMPTY" defaultSystemProviderType="SMALL_IMAGE" primaryProvider="io.github.missileminion.dashboard/io.github.missileminion.dashboard.RingSource" primaryProviderType="SMALL_IMAGE" />
-      <BoundingBox x="0" y="0" width="450" height="450" />
+      <BoundingArc centerX="225" centerY="225" width="450" height="450" startAngle="-90" endAngle="269.9" thickness="38" isRoundEdge="FALSE" />
       <Complication type="SMALL_IMAGE">
         <PartImage x="0" y="0" width="450" height="450">
           <Image resource="[COMPLICATION.SMALL_IMAGE]" />
@@ -145,18 +145,507 @@
         </PartText>
       </Complication>
     </ComplicationSlot>
-    <!-- the hands: dots on the dial's rings, swollen where the hand lies -->
-    <AnalogClock x="0" y="0" width="450" height="450">
-      <HourHand resource="core_hour" x="0" y="0" width="450" height="450" pivotX="0.5" pivotY="0.5">
-        <Variant mode="AMBIENT" target="alpha" value="150" />
-      </HourHand>
-      <MinuteHand resource="core_minute" x="0" y="0" width="450" height="450" pivotX="0.5" pivotY="0.5">
-        <Variant mode="AMBIENT" target="alpha" value="150" />
-      </MinuteHand>
-      <SecondHand resource="core_second" x="0" y="0" width="450" height="450" pivotX="0.5" pivotY="0.5">
-        <Variant mode="AMBIENT" target="alpha" value="0" />
-        <Sweep frequency="15" />
-      </SecondHand>
-    </AnalogClock>
+    <!-- the hands: grid dots swollen along the hand, one frame per position (generated); always-on keeps hour and minute, dimmed -->
+    <Group name="hour" x="0" y="0" width="450" height="450">
+      <Variant mode="AMBIENT" target="alpha" value="150" />
+      <Condition>
+        <Expressions>
+          <Expression name="hour0"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 0]]></Expression>
+          <Expression name="hour1"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 1]]></Expression>
+          <Expression name="hour2"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 2]]></Expression>
+          <Expression name="hour3"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 3]]></Expression>
+          <Expression name="hour4"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 4]]></Expression>
+          <Expression name="hour5"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 5]]></Expression>
+          <Expression name="hour6"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 6]]></Expression>
+          <Expression name="hour7"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 7]]></Expression>
+          <Expression name="hour8"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 8]]></Expression>
+          <Expression name="hour9"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 9]]></Expression>
+          <Expression name="hour10"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 10]]></Expression>
+          <Expression name="hour11"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 11]]></Expression>
+          <Expression name="hour12"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 12]]></Expression>
+          <Expression name="hour13"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 13]]></Expression>
+          <Expression name="hour14"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 14]]></Expression>
+          <Expression name="hour15"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 15]]></Expression>
+          <Expression name="hour16"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 16]]></Expression>
+          <Expression name="hour17"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 17]]></Expression>
+          <Expression name="hour18"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 18]]></Expression>
+          <Expression name="hour19"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 19]]></Expression>
+          <Expression name="hour20"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 20]]></Expression>
+          <Expression name="hour21"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 21]]></Expression>
+          <Expression name="hour22"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 22]]></Expression>
+          <Expression name="hour23"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 23]]></Expression>
+          <Expression name="hour24"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 24]]></Expression>
+          <Expression name="hour25"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 25]]></Expression>
+          <Expression name="hour26"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 26]]></Expression>
+          <Expression name="hour27"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 27]]></Expression>
+          <Expression name="hour28"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 28]]></Expression>
+          <Expression name="hour29"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 29]]></Expression>
+          <Expression name="hour30"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 30]]></Expression>
+          <Expression name="hour31"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 31]]></Expression>
+          <Expression name="hour32"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 32]]></Expression>
+          <Expression name="hour33"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 33]]></Expression>
+          <Expression name="hour34"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 34]]></Expression>
+          <Expression name="hour35"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 35]]></Expression>
+          <Expression name="hour36"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 36]]></Expression>
+          <Expression name="hour37"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 37]]></Expression>
+          <Expression name="hour38"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 38]]></Expression>
+          <Expression name="hour39"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 39]]></Expression>
+          <Expression name="hour40"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 40]]></Expression>
+          <Expression name="hour41"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 41]]></Expression>
+          <Expression name="hour42"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 42]]></Expression>
+          <Expression name="hour43"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 43]]></Expression>
+          <Expression name="hour44"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 44]]></Expression>
+          <Expression name="hour45"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 45]]></Expression>
+          <Expression name="hour46"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 46]]></Expression>
+          <Expression name="hour47"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 47]]></Expression>
+          <Expression name="hour48"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 48]]></Expression>
+          <Expression name="hour49"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 49]]></Expression>
+          <Expression name="hour50"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 50]]></Expression>
+          <Expression name="hour51"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 51]]></Expression>
+          <Expression name="hour52"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 52]]></Expression>
+          <Expression name="hour53"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 53]]></Expression>
+          <Expression name="hour54"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 54]]></Expression>
+          <Expression name="hour55"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 55]]></Expression>
+          <Expression name="hour56"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 56]]></Expression>
+          <Expression name="hour57"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 57]]></Expression>
+          <Expression name="hour58"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 58]]></Expression>
+          <Expression name="hour59"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 59]]></Expression>
+          <Expression name="hour60"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 60]]></Expression>
+          <Expression name="hour61"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 61]]></Expression>
+          <Expression name="hour62"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 62]]></Expression>
+          <Expression name="hour63"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 63]]></Expression>
+          <Expression name="hour64"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 64]]></Expression>
+          <Expression name="hour65"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 65]]></Expression>
+          <Expression name="hour66"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 66]]></Expression>
+          <Expression name="hour67"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 67]]></Expression>
+          <Expression name="hour68"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 68]]></Expression>
+          <Expression name="hour69"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 69]]></Expression>
+          <Expression name="hour70"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 70]]></Expression>
+          <Expression name="hour71"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 71]]></Expression>
+          <Expression name="hour72"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 72]]></Expression>
+          <Expression name="hour73"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 73]]></Expression>
+          <Expression name="hour74"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 74]]></Expression>
+          <Expression name="hour75"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 75]]></Expression>
+          <Expression name="hour76"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 76]]></Expression>
+          <Expression name="hour77"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 77]]></Expression>
+          <Expression name="hour78"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 78]]></Expression>
+          <Expression name="hour79"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 79]]></Expression>
+          <Expression name="hour80"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 80]]></Expression>
+          <Expression name="hour81"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 81]]></Expression>
+          <Expression name="hour82"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 82]]></Expression>
+          <Expression name="hour83"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 83]]></Expression>
+          <Expression name="hour84"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 84]]></Expression>
+          <Expression name="hour85"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 85]]></Expression>
+          <Expression name="hour86"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 86]]></Expression>
+          <Expression name="hour87"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 87]]></Expression>
+          <Expression name="hour88"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 88]]></Expression>
+          <Expression name="hour89"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 89]]></Expression>
+          <Expression name="hour90"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 90]]></Expression>
+          <Expression name="hour91"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 91]]></Expression>
+          <Expression name="hour92"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 92]]></Expression>
+          <Expression name="hour93"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 93]]></Expression>
+          <Expression name="hour94"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 94]]></Expression>
+          <Expression name="hour95"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 95]]></Expression>
+          <Expression name="hour96"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 96]]></Expression>
+          <Expression name="hour97"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 97]]></Expression>
+          <Expression name="hour98"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 98]]></Expression>
+          <Expression name="hour99"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 99]]></Expression>
+          <Expression name="hour100"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 100]]></Expression>
+          <Expression name="hour101"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 101]]></Expression>
+          <Expression name="hour102"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 102]]></Expression>
+          <Expression name="hour103"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 103]]></Expression>
+          <Expression name="hour104"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 104]]></Expression>
+          <Expression name="hour105"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 105]]></Expression>
+          <Expression name="hour106"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 106]]></Expression>
+          <Expression name="hour107"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 107]]></Expression>
+          <Expression name="hour108"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 108]]></Expression>
+          <Expression name="hour109"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 109]]></Expression>
+          <Expression name="hour110"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 110]]></Expression>
+          <Expression name="hour111"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 111]]></Expression>
+          <Expression name="hour112"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 112]]></Expression>
+          <Expression name="hour113"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 113]]></Expression>
+          <Expression name="hour114"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 114]]></Expression>
+          <Expression name="hour115"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 115]]></Expression>
+          <Expression name="hour116"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 116]]></Expression>
+          <Expression name="hour117"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 117]]></Expression>
+          <Expression name="hour118"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 118]]></Expression>
+          <Expression name="hour119"><![CDATA[floor(([HOUR_0_11] * 60 + [MINUTE]) / 6) == 119]]></Expression>
+        </Expressions>
+        <Compare expression="hour0"><PartImage x="207" y="97" width="36" height="74"><Image resource="core_h0" /></PartImage></Compare>
+        <Compare expression="hour1"><PartImage x="208" y="97" width="41" height="74"><Image resource="core_h1" /></PartImage></Compare>
+        <Compare expression="hour2"><PartImage x="214" y="98" width="36" height="75"><Image resource="core_h2" /></PartImage></Compare>
+        <Compare expression="hour3"><PartImage x="215" y="98" width="42" height="75"><Image resource="core_h3" /></PartImage></Compare>
+        <Compare expression="hour4"><PartImage x="221" y="99" width="42" height="77"><Image resource="core_h4" /></PartImage></Compare>
+        <Compare expression="hour5"><PartImage x="222" y="100" width="48" height="76"><Image resource="core_h5" /></PartImage></Compare>
+        <Compare expression="hour6"><PartImage x="229" y="102" width="48" height="77"><Image resource="core_h6" /></PartImage></Compare>
+        <Compare expression="hour7"><PartImage x="229" y="103" width="54" height="77"><Image resource="core_h7" /></PartImage></Compare>
+        <Compare expression="hour8"><PartImage x="235" y="105" width="54" height="75"><Image resource="core_h8" /></PartImage></Compare>
+        <Compare expression="hour9"><PartImage x="236" y="108" width="59" height="76"><Image resource="core_h9" /></PartImage></Compare>
+        <Compare expression="hour10"><PartImage x="236" y="111" width="65" height="73"><Image resource="core_h10" /></PartImage></Compare>
+        <Compare expression="hour11"><PartImage x="243" y="114" width="59" height="75"><Image resource="core_h11" /></PartImage></Compare>
+        <Compare expression="hour12"><PartImage x="243" y="115" width="64" height="74"><Image resource="core_h12" /></PartImage></Compare>
+        <Compare expression="hour13"><PartImage x="249" y="118" width="64" height="76"><Image resource="core_h13" /></PartImage></Compare>
+        <Compare expression="hour14"><PartImage x="249" y="122" width="69" height="73"><Image resource="core_h14" /></PartImage></Compare>
+        <Compare expression="hour15"><PartImage x="255" y="127" width="67" height="69"><Image resource="core_h15" /></PartImage></Compare>
+        <Compare expression="hour16"><PartImage x="255" y="131" width="72" height="70"><Image resource="core_h16" /></PartImage></Compare>
+        <Compare expression="hour17"><PartImage x="256" y="136" width="75" height="66"><Image resource="core_h17" /></PartImage></Compare>
+        <Compare expression="hour18"><PartImage x="261" y="142" width="73" height="65"><Image resource="core_h18" /></PartImage></Compare>
+        <Compare expression="hour19"><PartImage x="261" y="147" width="77" height="62"><Image resource="core_h19" /></PartImage></Compare>
+        <Compare expression="hour20"><PartImage x="266" y="153" width="75" height="61"><Image resource="core_h20" /></PartImage></Compare>
+        <Compare expression="hour21"><PartImage x="266" y="157" width="78" height="59"><Image resource="core_h21" /></PartImage></Compare>
+        <Compare expression="hour22"><PartImage x="270" y="163" width="74" height="53"><Image resource="core_h22" /></PartImage></Compare>
+        <Compare expression="hour23"><PartImage x="270" y="165" width="76" height="58"><Image resource="core_h23" /></PartImage></Compare>
+        <Compare expression="hour24"><PartImage x="271" y="172" width="77" height="51"><Image resource="core_h24" /></PartImage></Compare>
+        <Compare expression="hour25"><PartImage x="274" y="178" width="76" height="52"><Image resource="core_h25" /></PartImage></Compare>
+        <Compare expression="hour26"><PartImage x="274" y="185" width="77" height="45"><Image resource="core_h26" /></PartImage></Compare>
+        <Compare expression="hour27"><PartImage x="277" y="190" width="75" height="47"><Image resource="core_h27" /></PartImage></Compare>
+        <Compare expression="hour28"><PartImage x="277" y="196" width="75" height="41"><Image resource="core_h28" /></PartImage></Compare>
+        <Compare expression="hour29"><PartImage x="279" y="199" width="74" height="45"><Image resource="core_h29" /></PartImage></Compare>
+        <Compare expression="hour30"><PartImage x="279" y="203" width="74" height="41"><Image resource="core_h30" /></PartImage></Compare>
+        <Compare expression="hour31"><PartImage x="279" y="208" width="74" height="43"><Image resource="core_h31" /></PartImage></Compare>
+        <Compare expression="hour32"><PartImage x="277" y="210" width="75" height="45"><Image resource="core_h32" /></PartImage></Compare>
+        <Compare expression="hour33"><PartImage x="277" y="215" width="75" height="45"><Image resource="core_h33" /></PartImage></Compare>
+        <Compare expression="hour34"><PartImage x="274" y="217" width="77" height="48"><Image resource="core_h34" /></PartImage></Compare>
+        <Compare expression="hour35"><PartImage x="274" y="222" width="76" height="49"><Image resource="core_h35" /></PartImage></Compare>
+        <Compare expression="hour36"><PartImage x="271" y="224" width="78" height="51"><Image resource="core_h36" /></PartImage></Compare>
+        <Compare expression="hour37"><PartImage x="270" y="229" width="77" height="53"><Image resource="core_h37" /></PartImage></Compare>
+        <Compare expression="hour38"><PartImage x="270" y="231" width="75" height="57"><Image resource="core_h38" /></PartImage></Compare>
+        <Compare expression="hour39"><PartImage x="266" y="236" width="77" height="58"><Image resource="core_h39" /></PartImage></Compare>
+        <Compare expression="hour40"><PartImage x="266" y="236" width="74" height="64"><Image resource="core_h40" /></PartImage></Compare>
+        <Compare expression="hour41"><PartImage x="261" y="243" width="76" height="62"><Image resource="core_h41" /></PartImage></Compare>
+        <Compare expression="hour42"><PartImage x="261" y="243" width="72" height="68"><Image resource="core_h42" /></PartImage></Compare>
+        <Compare expression="hour43"><PartImage x="256" y="249" width="73" height="67"><Image resource="core_h43" /></PartImage></Compare>
+        <Compare expression="hour44"><PartImage x="255" y="249" width="70" height="68"><Image resource="core_h44" /></PartImage></Compare>
+        <Compare expression="hour45"><PartImage x="255" y="255" width="69" height="66"><Image resource="core_h45" /></PartImage></Compare>
+        <Compare expression="hour46"><PartImage x="249" y="255" width="71" height="71"><Image resource="core_h46" /></PartImage></Compare>
+        <Compare expression="hour47"><PartImage x="249" y="256" width="66" height="74"><Image resource="core_h47" /></PartImage></Compare>
+        <Compare expression="hour48"><PartImage x="243" y="261" width="67" height="73"><Image resource="core_h48" /></PartImage></Compare>
+        <Compare expression="hour49"><PartImage x="243" y="261" width="61" height="76"><Image resource="core_h49" /></PartImage></Compare>
+        <Compare expression="hour50"><PartImage x="236" y="266" width="63" height="74"><Image resource="core_h50" /></PartImage></Compare>
+        <Compare expression="hour51"><PartImage x="236" y="266" width="57" height="77"><Image resource="core_h51" /></PartImage></Compare>
+        <Compare expression="hour52"><PartImage x="232" y="270" width="55" height="75"><Image resource="core_h52" /></PartImage></Compare>
+        <Compare expression="hour53"><PartImage x="229" y="270" width="51" height="77"><Image resource="core_h53" /></PartImage></Compare>
+        <Compare expression="hour54"><PartImage x="225" y="271" width="49" height="77"><Image resource="core_h54" /></PartImage></Compare>
+        <Compare expression="hour55"><PartImage x="222" y="274" width="48" height="76"><Image resource="core_h55" /></PartImage></Compare>
+        <Compare expression="hour56"><PartImage x="218" y="274" width="49" height="77"><Image resource="core_h56" /></PartImage></Compare>
+        <Compare expression="hour57"><PartImage x="215" y="277" width="45" height="75"><Image resource="core_h57" /></PartImage></Compare>
+        <Compare expression="hour58"><PartImage x="211" y="277" width="42" height="76"><Image resource="core_h58" /></PartImage></Compare>
+        <Compare expression="hour59"><PartImage x="208" y="279" width="41" height="74"><Image resource="core_h59" /></PartImage></Compare>
+        <Compare expression="hour60"><PartImage x="204" y="279" width="42" height="74"><Image resource="core_h60" /></PartImage></Compare>
+        <Compare expression="hour61"><PartImage x="201" y="279" width="41" height="74"><Image resource="core_h61" /></PartImage></Compare>
+        <Compare expression="hour62"><PartImage x="197" y="277" width="42" height="76"><Image resource="core_h62" /></PartImage></Compare>
+        <Compare expression="hour63"><PartImage x="190" y="277" width="45" height="75"><Image resource="core_h63" /></PartImage></Compare>
+        <Compare expression="hour64"><PartImage x="183" y="274" width="49" height="77"><Image resource="core_h64" /></PartImage></Compare>
+        <Compare expression="hour65"><PartImage x="180" y="274" width="48" height="76"><Image resource="core_h65" /></PartImage></Compare>
+        <Compare expression="hour66"><PartImage x="176" y="271" width="49" height="77"><Image resource="core_h66" /></PartImage></Compare>
+        <Compare expression="hour67"><PartImage x="170" y="270" width="51" height="77"><Image resource="core_h67" /></PartImage></Compare>
+        <Compare expression="hour68"><PartImage x="163" y="270" width="55" height="75"><Image resource="core_h68" /></PartImage></Compare>
+        <Compare expression="hour69"><PartImage x="157" y="266" width="57" height="77"><Image resource="core_h69" /></PartImage></Compare>
+        <Compare expression="hour70"><PartImage x="151" y="266" width="63" height="74"><Image resource="core_h70" /></PartImage></Compare>
+        <Compare expression="hour71"><PartImage x="146" y="261" width="61" height="76"><Image resource="core_h71" /></PartImage></Compare>
+        <Compare expression="hour72"><PartImage x="140" y="261" width="67" height="73"><Image resource="core_h72" /></PartImage></Compare>
+        <Compare expression="hour73"><PartImage x="135" y="256" width="66" height="74"><Image resource="core_h73" /></PartImage></Compare>
+        <Compare expression="hour74"><PartImage x="130" y="255" width="71" height="71"><Image resource="core_h74" /></PartImage></Compare>
+        <Compare expression="hour75"><PartImage x="126" y="255" width="69" height="66"><Image resource="core_h75" /></PartImage></Compare>
+        <Compare expression="hour76"><PartImage x="125" y="249" width="70" height="68"><Image resource="core_h76" /></PartImage></Compare>
+        <Compare expression="hour77"><PartImage x="121" y="249" width="73" height="67"><Image resource="core_h77" /></PartImage></Compare>
+        <Compare expression="hour78"><PartImage x="117" y="243" width="72" height="68"><Image resource="core_h78" /></PartImage></Compare>
+        <Compare expression="hour79"><PartImage x="113" y="243" width="76" height="62"><Image resource="core_h79" /></PartImage></Compare>
+        <Compare expression="hour80"><PartImage x="110" y="236" width="74" height="64"><Image resource="core_h80" /></PartImage></Compare>
+        <Compare expression="hour81"><PartImage x="107" y="236" width="77" height="58"><Image resource="core_h81" /></PartImage></Compare>
+        <Compare expression="hour82"><PartImage x="105" y="231" width="75" height="57"><Image resource="core_h82" /></PartImage></Compare>
+        <Compare expression="hour83"><PartImage x="103" y="229" width="77" height="53"><Image resource="core_h83" /></PartImage></Compare>
+        <Compare expression="hour84"><PartImage x="101" y="224" width="78" height="51"><Image resource="core_h84" /></PartImage></Compare>
+        <Compare expression="hour85"><PartImage x="100" y="222" width="76" height="49"><Image resource="core_h85" /></PartImage></Compare>
+        <Compare expression="hour86"><PartImage x="99" y="217" width="77" height="48"><Image resource="core_h86" /></PartImage></Compare>
+        <Compare expression="hour87"><PartImage x="98" y="215" width="75" height="45"><Image resource="core_h87" /></PartImage></Compare>
+        <Compare expression="hour88"><PartImage x="98" y="210" width="75" height="45"><Image resource="core_h88" /></PartImage></Compare>
+        <Compare expression="hour89"><PartImage x="97" y="208" width="74" height="43"><Image resource="core_h89" /></PartImage></Compare>
+        <Compare expression="hour90"><PartImage x="97" y="203" width="74" height="41"><Image resource="core_h90" /></PartImage></Compare>
+        <Compare expression="hour91"><PartImage x="97" y="199" width="74" height="45"><Image resource="core_h91" /></PartImage></Compare>
+        <Compare expression="hour92"><PartImage x="98" y="196" width="75" height="41"><Image resource="core_h92" /></PartImage></Compare>
+        <Compare expression="hour93"><PartImage x="98" y="190" width="75" height="47"><Image resource="core_h93" /></PartImage></Compare>
+        <Compare expression="hour94"><PartImage x="99" y="185" width="77" height="45"><Image resource="core_h94" /></PartImage></Compare>
+        <Compare expression="hour95"><PartImage x="100" y="178" width="76" height="52"><Image resource="core_h95" /></PartImage></Compare>
+        <Compare expression="hour96"><PartImage x="102" y="172" width="77" height="51"><Image resource="core_h96" /></PartImage></Compare>
+        <Compare expression="hour97"><PartImage x="104" y="165" width="76" height="58"><Image resource="core_h97" /></PartImage></Compare>
+        <Compare expression="hour98"><PartImage x="106" y="163" width="74" height="53"><Image resource="core_h98" /></PartImage></Compare>
+        <Compare expression="hour99"><PartImage x="106" y="157" width="78" height="59"><Image resource="core_h99" /></PartImage></Compare>
+        <Compare expression="hour100"><PartImage x="109" y="153" width="75" height="61"><Image resource="core_h100" /></PartImage></Compare>
+        <Compare expression="hour101"><PartImage x="112" y="147" width="77" height="62"><Image resource="core_h101" /></PartImage></Compare>
+        <Compare expression="hour102"><PartImage x="116" y="142" width="73" height="65"><Image resource="core_h102" /></PartImage></Compare>
+        <Compare expression="hour103"><PartImage x="119" y="136" width="75" height="66"><Image resource="core_h103" /></PartImage></Compare>
+        <Compare expression="hour104"><PartImage x="123" y="131" width="72" height="70"><Image resource="core_h104" /></PartImage></Compare>
+        <Compare expression="hour105"><PartImage x="128" y="127" width="67" height="69"><Image resource="core_h105" /></PartImage></Compare>
+        <Compare expression="hour106"><PartImage x="132" y="122" width="69" height="73"><Image resource="core_h106" /></PartImage></Compare>
+        <Compare expression="hour107"><PartImage x="137" y="118" width="64" height="76"><Image resource="core_h107" /></PartImage></Compare>
+        <Compare expression="hour108"><PartImage x="143" y="115" width="64" height="74"><Image resource="core_h108" /></PartImage></Compare>
+        <Compare expression="hour109"><PartImage x="148" y="114" width="59" height="75"><Image resource="core_h109" /></PartImage></Compare>
+        <Compare expression="hour110"><PartImage x="149" y="111" width="65" height="73"><Image resource="core_h110" /></PartImage></Compare>
+        <Compare expression="hour111"><PartImage x="155" y="108" width="59" height="76"><Image resource="core_h111" /></PartImage></Compare>
+        <Compare expression="hour112"><PartImage x="161" y="105" width="54" height="75"><Image resource="core_h112" /></PartImage></Compare>
+        <Compare expression="hour113"><PartImage x="167" y="103" width="54" height="77"><Image resource="core_h113" /></PartImage></Compare>
+        <Compare expression="hour114"><PartImage x="173" y="102" width="48" height="77"><Image resource="core_h114" /></PartImage></Compare>
+        <Compare expression="hour115"><PartImage x="180" y="100" width="48" height="76"><Image resource="core_h115" /></PartImage></Compare>
+        <Compare expression="hour116"><PartImage x="187" y="99" width="42" height="77"><Image resource="core_h116" /></PartImage></Compare>
+        <Compare expression="hour117"><PartImage x="193" y="98" width="42" height="75"><Image resource="core_h117" /></PartImage></Compare>
+        <Compare expression="hour118"><PartImage x="200" y="98" width="36" height="75"><Image resource="core_h118" /></PartImage></Compare>
+        <Compare expression="hour119"><PartImage x="201" y="97" width="41" height="74"><Image resource="core_h119" /></PartImage></Compare>
+      </Condition>
+    </Group>
+    <Group name="minute" x="0" y="0" width="450" height="450">
+      <Variant mode="AMBIENT" target="alpha" value="150" />
+      <Condition>
+        <Expressions>
+          <Expression name="minute0"><![CDATA[[MINUTE] == 0]]></Expression>
+          <Expression name="minute1"><![CDATA[[MINUTE] == 1]]></Expression>
+          <Expression name="minute2"><![CDATA[[MINUTE] == 2]]></Expression>
+          <Expression name="minute3"><![CDATA[[MINUTE] == 3]]></Expression>
+          <Expression name="minute4"><![CDATA[[MINUTE] == 4]]></Expression>
+          <Expression name="minute5"><![CDATA[[MINUTE] == 5]]></Expression>
+          <Expression name="minute6"><![CDATA[[MINUTE] == 6]]></Expression>
+          <Expression name="minute7"><![CDATA[[MINUTE] == 7]]></Expression>
+          <Expression name="minute8"><![CDATA[[MINUTE] == 8]]></Expression>
+          <Expression name="minute9"><![CDATA[[MINUTE] == 9]]></Expression>
+          <Expression name="minute10"><![CDATA[[MINUTE] == 10]]></Expression>
+          <Expression name="minute11"><![CDATA[[MINUTE] == 11]]></Expression>
+          <Expression name="minute12"><![CDATA[[MINUTE] == 12]]></Expression>
+          <Expression name="minute13"><![CDATA[[MINUTE] == 13]]></Expression>
+          <Expression name="minute14"><![CDATA[[MINUTE] == 14]]></Expression>
+          <Expression name="minute15"><![CDATA[[MINUTE] == 15]]></Expression>
+          <Expression name="minute16"><![CDATA[[MINUTE] == 16]]></Expression>
+          <Expression name="minute17"><![CDATA[[MINUTE] == 17]]></Expression>
+          <Expression name="minute18"><![CDATA[[MINUTE] == 18]]></Expression>
+          <Expression name="minute19"><![CDATA[[MINUTE] == 19]]></Expression>
+          <Expression name="minute20"><![CDATA[[MINUTE] == 20]]></Expression>
+          <Expression name="minute21"><![CDATA[[MINUTE] == 21]]></Expression>
+          <Expression name="minute22"><![CDATA[[MINUTE] == 22]]></Expression>
+          <Expression name="minute23"><![CDATA[[MINUTE] == 23]]></Expression>
+          <Expression name="minute24"><![CDATA[[MINUTE] == 24]]></Expression>
+          <Expression name="minute25"><![CDATA[[MINUTE] == 25]]></Expression>
+          <Expression name="minute26"><![CDATA[[MINUTE] == 26]]></Expression>
+          <Expression name="minute27"><![CDATA[[MINUTE] == 27]]></Expression>
+          <Expression name="minute28"><![CDATA[[MINUTE] == 28]]></Expression>
+          <Expression name="minute29"><![CDATA[[MINUTE] == 29]]></Expression>
+          <Expression name="minute30"><![CDATA[[MINUTE] == 30]]></Expression>
+          <Expression name="minute31"><![CDATA[[MINUTE] == 31]]></Expression>
+          <Expression name="minute32"><![CDATA[[MINUTE] == 32]]></Expression>
+          <Expression name="minute33"><![CDATA[[MINUTE] == 33]]></Expression>
+          <Expression name="minute34"><![CDATA[[MINUTE] == 34]]></Expression>
+          <Expression name="minute35"><![CDATA[[MINUTE] == 35]]></Expression>
+          <Expression name="minute36"><![CDATA[[MINUTE] == 36]]></Expression>
+          <Expression name="minute37"><![CDATA[[MINUTE] == 37]]></Expression>
+          <Expression name="minute38"><![CDATA[[MINUTE] == 38]]></Expression>
+          <Expression name="minute39"><![CDATA[[MINUTE] == 39]]></Expression>
+          <Expression name="minute40"><![CDATA[[MINUTE] == 40]]></Expression>
+          <Expression name="minute41"><![CDATA[[MINUTE] == 41]]></Expression>
+          <Expression name="minute42"><![CDATA[[MINUTE] == 42]]></Expression>
+          <Expression name="minute43"><![CDATA[[MINUTE] == 43]]></Expression>
+          <Expression name="minute44"><![CDATA[[MINUTE] == 44]]></Expression>
+          <Expression name="minute45"><![CDATA[[MINUTE] == 45]]></Expression>
+          <Expression name="minute46"><![CDATA[[MINUTE] == 46]]></Expression>
+          <Expression name="minute47"><![CDATA[[MINUTE] == 47]]></Expression>
+          <Expression name="minute48"><![CDATA[[MINUTE] == 48]]></Expression>
+          <Expression name="minute49"><![CDATA[[MINUTE] == 49]]></Expression>
+          <Expression name="minute50"><![CDATA[[MINUTE] == 50]]></Expression>
+          <Expression name="minute51"><![CDATA[[MINUTE] == 51]]></Expression>
+          <Expression name="minute52"><![CDATA[[MINUTE] == 52]]></Expression>
+          <Expression name="minute53"><![CDATA[[MINUTE] == 53]]></Expression>
+          <Expression name="minute54"><![CDATA[[MINUTE] == 54]]></Expression>
+          <Expression name="minute55"><![CDATA[[MINUTE] == 55]]></Expression>
+          <Expression name="minute56"><![CDATA[[MINUTE] == 56]]></Expression>
+          <Expression name="minute57"><![CDATA[[MINUTE] == 57]]></Expression>
+          <Expression name="minute58"><![CDATA[[MINUTE] == 58]]></Expression>
+          <Expression name="minute59"><![CDATA[[MINUTE] == 59]]></Expression>
+        </Expressions>
+        <Compare expression="minute0"><PartImage x="208" y="27" width="34" height="144"><Image resource="core_m0" /></PartImage></Compare>
+        <Compare expression="minute1"><PartImage x="215" y="28" width="42" height="143"><Image resource="core_m1" /></PartImage></Compare>
+        <Compare expression="minute2"><PartImage x="222" y="30" width="50" height="143"><Image resource="core_m2" /></PartImage></Compare>
+        <Compare expression="minute3"><PartImage x="229" y="35" width="63" height="141"><Image resource="core_m3" /></PartImage></Compare>
+        <Compare expression="minute4"><PartImage x="236" y="43" width="75" height="136"><Image resource="core_m4" /></PartImage></Compare>
+        <Compare expression="minute5"><PartImage x="243" y="52" width="87" height="132"><Image resource="core_m5" /></PartImage></Compare>
+        <Compare expression="minute6"><PartImage x="249" y="63" width="98" height="126"><Image resource="core_m6" /></PartImage></Compare>
+        <Compare expression="minute7"><PartImage x="255" y="77" width="108" height="113"><Image resource="core_m7" /></PartImage></Compare>
+        <Compare expression="minute8"><PartImage x="260" y="87" width="113" height="108"><Image resource="core_m8" /></PartImage></Compare>
+        <Compare expression="minute9"><PartImage x="261" y="103" width="126" height="98"><Image resource="core_m9" /></PartImage></Compare>
+        <Compare expression="minute10"><PartImage x="266" y="120" width="132" height="87"><Image resource="core_m10" /></PartImage></Compare>
+        <Compare expression="minute11"><PartImage x="271" y="137" width="136" height="77"><Image resource="core_m11" /></PartImage></Compare>
+        <Compare expression="minute12"><PartImage x="274" y="157" width="141" height="64"><Image resource="core_m12" /></PartImage></Compare>
+        <Compare expression="minute13"><PartImage x="277" y="177" width="143" height="51"><Image resource="core_m13" /></PartImage></Compare>
+        <Compare expression="minute14"><PartImage x="279" y="195" width="143" height="38"><Image resource="core_m14" /></PartImage></Compare>
+        <Compare expression="minute15"><PartImage x="279" y="209" width="144" height="32"><Image resource="core_m15" /></PartImage></Compare>
+        <Compare expression="minute16"><PartImage x="279" y="216" width="143" height="39"><Image resource="core_m16" /></PartImage></Compare>
+        <Compare expression="minute17"><PartImage x="277" y="222" width="143" height="54"><Image resource="core_m17" /></PartImage></Compare>
+        <Compare expression="minute18"><PartImage x="274" y="229" width="141" height="64"><Image resource="core_m18" /></PartImage></Compare>
+        <Compare expression="minute19"><PartImage x="271" y="236" width="136" height="75"><Image resource="core_m19" /></PartImage></Compare>
+        <Compare expression="minute20"><PartImage x="266" y="243" width="132" height="87"><Image resource="core_m20" /></PartImage></Compare>
+        <Compare expression="minute21"><PartImage x="261" y="249" width="126" height="98"><Image resource="core_m21" /></PartImage></Compare>
+        <Compare expression="minute22"><PartImage x="260" y="255" width="113" height="108"><Image resource="core_m22" /></PartImage></Compare>
+        <Compare expression="minute23"><PartImage x="255" y="260" width="108" height="113"><Image resource="core_m23" /></PartImage></Compare>
+        <Compare expression="minute24"><PartImage x="249" y="261" width="98" height="126"><Image resource="core_m24" /></PartImage></Compare>
+        <Compare expression="minute25"><PartImage x="243" y="266" width="87" height="132"><Image resource="core_m25" /></PartImage></Compare>
+        <Compare expression="minute26"><PartImage x="236" y="271" width="75" height="136"><Image resource="core_m26" /></PartImage></Compare>
+        <Compare expression="minute27"><PartImage x="229" y="274" width="66" height="141"><Image resource="core_m27" /></PartImage></Compare>
+        <Compare expression="minute28"><PartImage x="222" y="277" width="52" height="143"><Image resource="core_m28" /></PartImage></Compare>
+        <Compare expression="minute29"><PartImage x="218" y="279" width="36" height="143"><Image resource="core_m29" /></PartImage></Compare>
+        <Compare expression="minute30"><PartImage x="211" y="279" width="28" height="144"><Image resource="core_m30" /></PartImage></Compare>
+        <Compare expression="minute31"><PartImage x="196" y="279" width="36" height="143"><Image resource="core_m31" /></PartImage></Compare>
+        <Compare expression="minute32"><PartImage x="176" y="277" width="52" height="143"><Image resource="core_m32" /></PartImage></Compare>
+        <Compare expression="minute33"><PartImage x="155" y="274" width="66" height="141"><Image resource="core_m33" /></PartImage></Compare>
+        <Compare expression="minute34"><PartImage x="139" y="271" width="75" height="136"><Image resource="core_m34" /></PartImage></Compare>
+        <Compare expression="minute35"><PartImage x="120" y="266" width="87" height="132"><Image resource="core_m35" /></PartImage></Compare>
+        <Compare expression="minute36"><PartImage x="103" y="261" width="98" height="126"><Image resource="core_m36" /></PartImage></Compare>
+        <Compare expression="minute37"><PartImage x="87" y="260" width="108" height="113"><Image resource="core_m37" /></PartImage></Compare>
+        <Compare expression="minute38"><PartImage x="77" y="255" width="113" height="108"><Image resource="core_m38" /></PartImage></Compare>
+        <Compare expression="minute39"><PartImage x="63" y="249" width="126" height="98"><Image resource="core_m39" /></PartImage></Compare>
+        <Compare expression="minute40"><PartImage x="52" y="243" width="132" height="87"><Image resource="core_m40" /></PartImage></Compare>
+        <Compare expression="minute41"><PartImage x="43" y="236" width="136" height="75"><Image resource="core_m41" /></PartImage></Compare>
+        <Compare expression="minute42"><PartImage x="35" y="229" width="141" height="64"><Image resource="core_m42" /></PartImage></Compare>
+        <Compare expression="minute43"><PartImage x="30" y="222" width="143" height="54"><Image resource="core_m43" /></PartImage></Compare>
+        <Compare expression="minute44"><PartImage x="28" y="216" width="143" height="39"><Image resource="core_m44" /></PartImage></Compare>
+        <Compare expression="minute45"><PartImage x="27" y="209" width="144" height="32"><Image resource="core_m45" /></PartImage></Compare>
+        <Compare expression="minute46"><PartImage x="28" y="195" width="143" height="38"><Image resource="core_m46" /></PartImage></Compare>
+        <Compare expression="minute47"><PartImage x="30" y="177" width="143" height="51"><Image resource="core_m47" /></PartImage></Compare>
+        <Compare expression="minute48"><PartImage x="35" y="157" width="141" height="64"><Image resource="core_m48" /></PartImage></Compare>
+        <Compare expression="minute49"><PartImage x="43" y="137" width="136" height="77"><Image resource="core_m49" /></PartImage></Compare>
+        <Compare expression="minute50"><PartImage x="52" y="120" width="132" height="87"><Image resource="core_m50" /></PartImage></Compare>
+        <Compare expression="minute51"><PartImage x="63" y="103" width="126" height="98"><Image resource="core_m51" /></PartImage></Compare>
+        <Compare expression="minute52"><PartImage x="77" y="87" width="113" height="108"><Image resource="core_m52" /></PartImage></Compare>
+        <Compare expression="minute53"><PartImage x="87" y="77" width="108" height="113"><Image resource="core_m53" /></PartImage></Compare>
+        <Compare expression="minute54"><PartImage x="103" y="63" width="98" height="126"><Image resource="core_m54" /></PartImage></Compare>
+        <Compare expression="minute55"><PartImage x="120" y="52" width="87" height="132"><Image resource="core_m55" /></PartImage></Compare>
+        <Compare expression="minute56"><PartImage x="139" y="43" width="75" height="136"><Image resource="core_m56" /></PartImage></Compare>
+        <Compare expression="minute57"><PartImage x="158" y="35" width="63" height="141"><Image resource="core_m57" /></PartImage></Compare>
+        <Compare expression="minute58"><PartImage x="178" y="30" width="50" height="143"><Image resource="core_m58" /></PartImage></Compare>
+        <Compare expression="minute59"><PartImage x="193" y="28" width="42" height="143"><Image resource="core_m59" /></PartImage></Compare>
+      </Condition>
+    </Group>
+    <Group name="second" x="0" y="0" width="450" height="450">
+      <Variant mode="AMBIENT" target="alpha" value="0" />
+      <Condition>
+        <Expressions>
+          <Expression name="second0"><![CDATA[[SECOND] == 0]]></Expression>
+          <Expression name="second1"><![CDATA[[SECOND] == 1]]></Expression>
+          <Expression name="second2"><![CDATA[[SECOND] == 2]]></Expression>
+          <Expression name="second3"><![CDATA[[SECOND] == 3]]></Expression>
+          <Expression name="second4"><![CDATA[[SECOND] == 4]]></Expression>
+          <Expression name="second5"><![CDATA[[SECOND] == 5]]></Expression>
+          <Expression name="second6"><![CDATA[[SECOND] == 6]]></Expression>
+          <Expression name="second7"><![CDATA[[SECOND] == 7]]></Expression>
+          <Expression name="second8"><![CDATA[[SECOND] == 8]]></Expression>
+          <Expression name="second9"><![CDATA[[SECOND] == 9]]></Expression>
+          <Expression name="second10"><![CDATA[[SECOND] == 10]]></Expression>
+          <Expression name="second11"><![CDATA[[SECOND] == 11]]></Expression>
+          <Expression name="second12"><![CDATA[[SECOND] == 12]]></Expression>
+          <Expression name="second13"><![CDATA[[SECOND] == 13]]></Expression>
+          <Expression name="second14"><![CDATA[[SECOND] == 14]]></Expression>
+          <Expression name="second15"><![CDATA[[SECOND] == 15]]></Expression>
+          <Expression name="second16"><![CDATA[[SECOND] == 16]]></Expression>
+          <Expression name="second17"><![CDATA[[SECOND] == 17]]></Expression>
+          <Expression name="second18"><![CDATA[[SECOND] == 18]]></Expression>
+          <Expression name="second19"><![CDATA[[SECOND] == 19]]></Expression>
+          <Expression name="second20"><![CDATA[[SECOND] == 20]]></Expression>
+          <Expression name="second21"><![CDATA[[SECOND] == 21]]></Expression>
+          <Expression name="second22"><![CDATA[[SECOND] == 22]]></Expression>
+          <Expression name="second23"><![CDATA[[SECOND] == 23]]></Expression>
+          <Expression name="second24"><![CDATA[[SECOND] == 24]]></Expression>
+          <Expression name="second25"><![CDATA[[SECOND] == 25]]></Expression>
+          <Expression name="second26"><![CDATA[[SECOND] == 26]]></Expression>
+          <Expression name="second27"><![CDATA[[SECOND] == 27]]></Expression>
+          <Expression name="second28"><![CDATA[[SECOND] == 28]]></Expression>
+          <Expression name="second29"><![CDATA[[SECOND] == 29]]></Expression>
+          <Expression name="second30"><![CDATA[[SECOND] == 30]]></Expression>
+          <Expression name="second31"><![CDATA[[SECOND] == 31]]></Expression>
+          <Expression name="second32"><![CDATA[[SECOND] == 32]]></Expression>
+          <Expression name="second33"><![CDATA[[SECOND] == 33]]></Expression>
+          <Expression name="second34"><![CDATA[[SECOND] == 34]]></Expression>
+          <Expression name="second35"><![CDATA[[SECOND] == 35]]></Expression>
+          <Expression name="second36"><![CDATA[[SECOND] == 36]]></Expression>
+          <Expression name="second37"><![CDATA[[SECOND] == 37]]></Expression>
+          <Expression name="second38"><![CDATA[[SECOND] == 38]]></Expression>
+          <Expression name="second39"><![CDATA[[SECOND] == 39]]></Expression>
+          <Expression name="second40"><![CDATA[[SECOND] == 40]]></Expression>
+          <Expression name="second41"><![CDATA[[SECOND] == 41]]></Expression>
+          <Expression name="second42"><![CDATA[[SECOND] == 42]]></Expression>
+          <Expression name="second43"><![CDATA[[SECOND] == 43]]></Expression>
+          <Expression name="second44"><![CDATA[[SECOND] == 44]]></Expression>
+          <Expression name="second45"><![CDATA[[SECOND] == 45]]></Expression>
+          <Expression name="second46"><![CDATA[[SECOND] == 46]]></Expression>
+          <Expression name="second47"><![CDATA[[SECOND] == 47]]></Expression>
+          <Expression name="second48"><![CDATA[[SECOND] == 48]]></Expression>
+          <Expression name="second49"><![CDATA[[SECOND] == 49]]></Expression>
+          <Expression name="second50"><![CDATA[[SECOND] == 50]]></Expression>
+          <Expression name="second51"><![CDATA[[SECOND] == 51]]></Expression>
+          <Expression name="second52"><![CDATA[[SECOND] == 52]]></Expression>
+          <Expression name="second53"><![CDATA[[SECOND] == 53]]></Expression>
+          <Expression name="second54"><![CDATA[[SECOND] == 54]]></Expression>
+          <Expression name="second55"><![CDATA[[SECOND] == 55]]></Expression>
+          <Expression name="second56"><![CDATA[[SECOND] == 56]]></Expression>
+          <Expression name="second57"><![CDATA[[SECOND] == 57]]></Expression>
+          <Expression name="second58"><![CDATA[[SECOND] == 58]]></Expression>
+          <Expression name="second59"><![CDATA[[SECOND] == 59]]></Expression>
+        </Expressions>
+        <Compare expression="second0"><PartImage x="215" y="12" width="20" height="311"><Image resource="core_s0" /></PartImage></Compare>
+        <Compare expression="second1"><PartImage x="208" y="14" width="43" height="309"><Image resource="core_s1" /></PartImage></Compare>
+        <Compare expression="second2"><PartImage x="197" y="17" width="75" height="305"><Image resource="core_s2" /></PartImage></Compare>
+        <Compare expression="second3"><PartImage x="187" y="22" width="105" height="297"><Image resource="core_s3" /></PartImage></Compare>
+        <Compare expression="second4"><PartImage x="180" y="30" width="132" height="287"><Image resource="core_s4" /></PartImage></Compare>
+        <Compare expression="second5"><PartImage x="171" y="40" width="160" height="271"><Image resource="core_s5" /></PartImage></Compare>
+        <Compare expression="second6"><PartImage x="163" y="51" width="191" height="256"><Image resource="core_s6" /></PartImage></Compare>
+        <Compare expression="second7"><PartImage x="157" y="64" width="214" height="238"><Image resource="core_s7" /></PartImage></Compare>
+        <Compare expression="second8"><PartImage x="148" y="79" width="238" height="214"><Image resource="core_s8" /></PartImage></Compare>
+        <Compare expression="second9"><PartImage x="143" y="96" width="256" height="191"><Image resource="core_s9" /></PartImage></Compare>
+        <Compare expression="second10"><PartImage x="139" y="117" width="271" height="159"><Image resource="core_s10" /></PartImage></Compare>
+        <Compare expression="second11"><PartImage x="133" y="136" width="287" height="134"><Image resource="core_s11" /></PartImage></Compare>
+        <Compare expression="second12"><PartImage x="131" y="155" width="297" height="108"><Image resource="core_s12" /></PartImage></Compare>
+        <Compare expression="second13"><PartImage x="128" y="176" width="305" height="75"><Image resource="core_s13" /></PartImage></Compare>
+        <Compare expression="second14"><PartImage x="127" y="197" width="309" height="47"><Image resource="core_s14" /></PartImage></Compare>
+        <Compare expression="second15"><PartImage x="127" y="215" width="311" height="20"><Image resource="core_s15" /></PartImage></Compare>
+        <Compare expression="second16"><PartImage x="127" y="206" width="309" height="47"><Image resource="core_s16" /></PartImage></Compare>
+        <Compare expression="second17"><PartImage x="128" y="199" width="305" height="75"><Image resource="core_s17" /></PartImage></Compare>
+        <Compare expression="second18"><PartImage x="131" y="187" width="297" height="108"><Image resource="core_s18" /></PartImage></Compare>
+        <Compare expression="second19"><PartImage x="133" y="180" width="287" height="134"><Image resource="core_s19" /></PartImage></Compare>
+        <Compare expression="second20"><PartImage x="139" y="173" width="271" height="160"><Image resource="core_s20" /></PartImage></Compare>
+        <Compare expression="second21"><PartImage x="143" y="163" width="256" height="191"><Image resource="core_s21" /></PartImage></Compare>
+        <Compare expression="second22"><PartImage x="148" y="157" width="238" height="214"><Image resource="core_s22" /></PartImage></Compare>
+        <Compare expression="second23"><PartImage x="157" y="148" width="214" height="238"><Image resource="core_s23" /></PartImage></Compare>
+        <Compare expression="second24"><PartImage x="163" y="143" width="191" height="256"><Image resource="core_s24" /></PartImage></Compare>
+        <Compare expression="second25"><PartImage x="174" y="139" width="157" height="271"><Image resource="core_s25" /></PartImage></Compare>
+        <Compare expression="second26"><PartImage x="180" y="133" width="132" height="287"><Image resource="core_s26" /></PartImage></Compare>
+        <Compare expression="second27"><PartImage x="187" y="131" width="105" height="297"><Image resource="core_s27" /></PartImage></Compare>
+        <Compare expression="second28"><PartImage x="200" y="128" width="72" height="305"><Image resource="core_s28" /></PartImage></Compare>
+        <Compare expression="second29"><PartImage x="207" y="127" width="44" height="309"><Image resource="core_s29" /></PartImage></Compare>
+        <Compare expression="second30"><PartImage x="215" y="127" width="20" height="311"><Image resource="core_s30" /></PartImage></Compare>
+        <Compare expression="second31"><PartImage x="199" y="127" width="44" height="309"><Image resource="core_s31" /></PartImage></Compare>
+        <Compare expression="second32"><PartImage x="178" y="128" width="72" height="305"><Image resource="core_s32" /></PartImage></Compare>
+        <Compare expression="second33"><PartImage x="158" y="131" width="105" height="297"><Image resource="core_s33" /></PartImage></Compare>
+        <Compare expression="second34"><PartImage x="138" y="133" width="132" height="287"><Image resource="core_s34" /></PartImage></Compare>
+        <Compare expression="second35"><PartImage x="119" y="139" width="157" height="271"><Image resource="core_s35" /></PartImage></Compare>
+        <Compare expression="second36"><PartImage x="96" y="143" width="191" height="256"><Image resource="core_s36" /></PartImage></Compare>
+        <Compare expression="second37"><PartImage x="79" y="148" width="214" height="238"><Image resource="core_s37" /></PartImage></Compare>
+        <Compare expression="second38"><PartImage x="64" y="157" width="238" height="214"><Image resource="core_s38" /></PartImage></Compare>
+        <Compare expression="second39"><PartImage x="51" y="163" width="256" height="191"><Image resource="core_s39" /></PartImage></Compare>
+        <Compare expression="second40"><PartImage x="40" y="173" width="271" height="160"><Image resource="core_s40" /></PartImage></Compare>
+        <Compare expression="second41"><PartImage x="30" y="180" width="287" height="134"><Image resource="core_s41" /></PartImage></Compare>
+        <Compare expression="second42"><PartImage x="22" y="187" width="297" height="108"><Image resource="core_s42" /></PartImage></Compare>
+        <Compare expression="second43"><PartImage x="17" y="199" width="305" height="75"><Image resource="core_s43" /></PartImage></Compare>
+        <Compare expression="second44"><PartImage x="14" y="206" width="309" height="47"><Image resource="core_s44" /></PartImage></Compare>
+        <Compare expression="second45"><PartImage x="12" y="215" width="311" height="20"><Image resource="core_s45" /></PartImage></Compare>
+        <Compare expression="second46"><PartImage x="14" y="197" width="309" height="47"><Image resource="core_s46" /></PartImage></Compare>
+        <Compare expression="second47"><PartImage x="17" y="176" width="305" height="75"><Image resource="core_s47" /></PartImage></Compare>
+        <Compare expression="second48"><PartImage x="22" y="155" width="297" height="108"><Image resource="core_s48" /></PartImage></Compare>
+        <Compare expression="second49"><PartImage x="30" y="136" width="287" height="134"><Image resource="core_s49" /></PartImage></Compare>
+        <Compare expression="second50"><PartImage x="40" y="117" width="271" height="159"><Image resource="core_s50" /></PartImage></Compare>
+        <Compare expression="second51"><PartImage x="51" y="96" width="256" height="191"><Image resource="core_s51" /></PartImage></Compare>
+        <Compare expression="second52"><PartImage x="64" y="79" width="238" height="214"><Image resource="core_s52" /></PartImage></Compare>
+        <Compare expression="second53"><PartImage x="79" y="64" width="214" height="238"><Image resource="core_s53" /></PartImage></Compare>
+        <Compare expression="second54"><PartImage x="96" y="51" width="191" height="256"><Image resource="core_s54" /></PartImage></Compare>
+        <Compare expression="second55"><PartImage x="119" y="40" width="160" height="271"><Image resource="core_s55" /></PartImage></Compare>
+        <Compare expression="second56"><PartImage x="138" y="30" width="132" height="287"><Image resource="core_s56" /></PartImage></Compare>
+        <Compare expression="second57"><PartImage x="158" y="22" width="105" height="297"><Image resource="core_s57" /></PartImage></Compare>
+        <Compare expression="second58"><PartImage x="178" y="17" width="75" height="305"><Image resource="core_s58" /></PartImage></Compare>
+        <Compare expression="second59"><PartImage x="199" y="14" width="43" height="309"><Image resource="core_s59" /></PartImage></Compare>
+      </Condition>
+    </Group>
   </Scene>
 </WatchFace>

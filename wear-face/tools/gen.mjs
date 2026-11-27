@@ -51,19 +51,24 @@ const marker = (p, rc) => (p.hr >= 0 ? Math.min(1, Math.exp(-((p.r - rc) ** 2) /
 // the light above the glass: a soft highlight (moved by the watch's tilt)
 { const cv = canvas(); for (let j = 0; j < S; j++) for (let i = 0; i < S; i++) { const x = (i + .5) / K, y = (j + .5) / K, d2 = (x - C) ** 2 + (y - C) ** 2; cv.a[j * S + i] = .07 * Math.exp(-d2 / (2 * 115 * 115)) * (d2 < 226 * 226 ? 1 : 0); } png(cv, "core_light"); }
 
-// ---- the hands, pointing to 12, drawn as dots on the dial's own rings (centre column, plus side columns where the field reaches)
-function handImage(name, w, len, taper, start, size, alpha, back = 0, backW = 0) {
-  const cv = canvas();
-  const draw = (wid, from, to, dir) => { for (const r of RINGS) { if (r < from - 4 || r > to + 6) continue; const along = r, we = wid * (1 - taper * clamp(along / to));
-    let f = 1; if (along > to) f *= Math.exp(-((along - to) ** 2) / 30); if (along < from) f *= Math.exp(-((from - along) ** 2) / 30);
-    for (const off of [-15.2, -7.6, 0, 7.6, 15.2]) { const v = f * Math.exp(-(off * off) / (2 * we * we)); if (v < .12) continue;
-      dot(cv, C + off, C - dir * r, .58 + size * v, Math.min(1, .13 + alpha * v)); } } };
-  draw(w, start, len, 1); if (back) draw(backW, start, back, -1);
-  png(cv, name);
+// ---- the hands as the concept draws them: the dial's own grid dots, swollen by a soft field along the hand. One frame per position
+// (hour every 6 minutes, minute and second every step), each cropped to its dots; the face shows the frame for the current time.
+const handField = (x, y, a, w, len, taper, start) => { const dx = x - C, dy = y - C, along = dx * Math.cos(a) + dy * Math.sin(a); if (along < start - 10 || along > len + 12) return 0;
+  const perp = Math.abs(-dx * Math.sin(a) + dy * Math.cos(a)), we = w * (1 - taper * clamp(along / len)); let v = Math.exp(-(perp * perp) / (2 * we * we));
+  if (along > len) v *= Math.exp(-((along - len) ** 2) / 30); if (along < start) v *= Math.exp(-((start - along) ** 2) / 30); return v; };
+function frame(name, field, size, alpha) {
+  const cv = canvas(); let x0 = S, y0 = S, x1 = 0, y1 = 0;
+  for (const p of pts) { if (p.r < 62) continue; const H = field(p.bx, p.by); if (H < .03) continue;
+    dot(cv, p.bx, p.by, .58 + H * size, .13 + H * alpha); const R = (.58 + H * size) * K + 2; x0 = Math.min(x0, p.bx * K - R); y0 = Math.min(y0, p.by * K - R); x1 = Math.max(x1, p.bx * K + R); y1 = Math.max(y1, p.by * K + R); }
+  x0 = Math.max(0, Math.floor(x0)); y0 = Math.max(0, Math.floor(y0)); x1 = Math.min(S, Math.ceil(x1)); y1 = Math.min(S, Math.ceil(y1));
+  const out = canvas(x1 - x0, y1 - y0); for (let j = 0; j < out.h; j++) for (let i = 0; i < out.w; i++) out.a[j * out.w + i] = cv.a[(j + y0) * S + i + x0];
+  png(out, name); return { name, x: x0, y: y0, w: out.w, h: out.h };
 }
-handImage("core_hour", 10.5, 128, .45, 66, 2.75, .85);
-handImage("core_minute", 6.6, 200, .4, 66, 2.75, .85);
-handImage("core_second", 2.1, 218, 0, 66, 1.5, .8, 96, 3.2);
+const ang = f => f * TAU - Math.PI / 2;
+const hourFrames = [...Array(120)].map((_, k) => frame(`core_h${k}`, (x, y) => handField(x, y, ang(k / 120), 10.5, 128, .45, 66), 2.75, .85));
+const minFrames = [...Array(60)].map((_, k) => frame(`core_m${k}`, (x, y) => handField(x, y, ang(k / 60), 6.6, 200, .4, 66), 2.75, .85));
+const secFrames = [...Array(60)].map((_, k) => frame(`core_s${k}`, (x, y) => Math.max(handField(x, y, ang(k / 60), 2.1, 218, 0, 66), handField(x, y, ang(k / 60) + Math.PI, 3.2, 96, 0, 66)), 1.5, .8));
+
 
 // ---- the 3×5 micro type as bitmap-font glyphs (big: pitch 3.4 / dot 1.15; small: pitch 2.7 / dot .92)
 const MICRO = { A: [".#.", "#.#", "###", "#.#", "#.#"], B: ["##.", "#.#", "##.", "#.#", "##."], C: [".##", "#..", "#..", "#..", ".##"], D: ["##.", "#.#", "#.#", "#.#", "##."], E: ["###", "#..", "##.", "#..", "###"], F: ["###", "#..", "##.", "#..", "#.."], G: [".##", "#..", "#.#", "#.#", ".##"], H: ["#.#", "#.#", "###", "#.#", "#.#"], I: ["###", ".#.", ".#.", ".#.", "###"], J: ["..#", "..#", "..#", "#.#", ".#."], K: ["#.#", "#.#", "##.", "#.#", "#.#"], L: ["#..", "#..", "#..", "#..", "###"], M: ["#.#", "###", "###", "#.#", "#.#"], N: ["##.", "#.#", "#.#", "#.#", "#.#"], O: [".#.", "#.#", "#.#", "#.#", ".#."], P: ["##.", "#.#", "##.", "#..", "#.."], Q: [".#.", "#.#", "#.#", "##.", ".##"], R: ["##.", "#.#", "##.", "#.#", "#.#"], S: [".##", "#..", ".#.", "..#", "##."], T: ["###", ".#.", ".#.", ".#.", ".#."], U: ["#.#", "#.#", "#.#", "#.#", "###"], V: ["#.#", "#.#", "#.#", "#.#", ".#."], W: ["#.#", "#.#", "###", "###", "#.#"], X: ["#.#", "#.#", ".#.", "#.#", "#.#"], Y: ["#.#", "#.#", ".#.", ".#.", ".#."], Z: ["###", "..#", ".#.", "#..", "###"], "0": ["###", "#.#", "#.#", "#.#", "###"], "1": [".#.", "##.", ".#.", ".#.", "###"], "2": ["##.", "..#", ".#.", "#..", "###"], "3": ["##.", "..#", ".#.", "..#", "##."], "4": ["#.#", "#.#", "###", "..#", "..#"], "5": ["###", "#..", "##.", "..#", "##."], "6": [".##", "#..", "###", "#.#", "###"], "7": ["###", "..#", ".#.", ".#.", ".#."], "8": ["###", "#.#", "###", "#.#", "###"], "9": ["###", "#.#", "###", "..#", "##."], ":": [".", "#", ".", "#", "."], "·": [".", ".", "#", ".", "."], "-": ["...", "...", "###", "...", "..."], "+": ["...", ".#.", "###", ".#.", "..."], ".": [".", ".", ".", ".", "#"], "°": ["##", "##", "..", "..", ".."], " ": ["..", "..", "..", "..", ".."] };
@@ -93,6 +98,16 @@ for (const [font, p, rr, al] of [["big", 3.4, 1.15, .97], ["small", 2.7, .92, .8
 const q = v => Math.round(v * K);   // positions are whole pixels in the format
 const bitmapFont = (name, list) => `    <BitmapFont name="${name}">\n${list.map(g => `      <Character name="${g.ch === " " ? "&#32;" : g.ch}" resource="${g.res}" width="${g.w}" height="${g.h}" />`).join("\n")}\n    </BitmapFont>`;
 const hub = { x: q(C - 120), w: q(240) };
+// one Group per hand: a Condition shows the frame whose index matches the time
+const hands = (id, frames, expr, aodAlpha) => `    <Group name="${id}" x="0" y="0" width="${S}" height="${S}">
+      <Variant mode="AMBIENT" target="alpha" value="${aodAlpha}" />
+      <Condition>
+        <Expressions>
+${frames.map((f, k) => `          <Expression name="${id}${k}"><![CDATA[${expr} == ${k}]]></Expression>`).join("\n")}
+        </Expressions>
+${frames.map((f, k) => `        <Compare expression="${id}${k}"><PartImage x="${f.x}" y="${f.y}" width="${f.w}" height="${f.h}"><Image resource="${f.name}" /></PartImage></Compare>`).join("\n")}
+      </Condition>
+    </Group>`;
 const xml = `<?xml version="1.0" encoding="utf-8"?>
 <!-- CORE · INSTRUMENT. Generated by wear-face/tools/gen.mjs: edit that, not this. -->
 <WatchFace width="${S}" height="${S}">
@@ -121,7 +136,7 @@ ${bitmapFont("micro_small", fonts.small)}
     <!-- the event ring and bed-by crescent: an image the Gym app draws from the phone's calendar (it has no tap action; the hub, drawn above it, takes taps in the middle) -->
     <ComplicationSlot slotId="0" x="0" y="0" width="${S}" height="${S}" supportedTypes="SMALL_IMAGE" isCustomizable="TRUE">
       <DefaultProviderPolicy defaultSystemProvider="EMPTY" defaultSystemProviderType="SMALL_IMAGE" primaryProvider="io.github.missileminion.dashboard/io.github.missileminion.dashboard.RingSource" primaryProviderType="SMALL_IMAGE" />
-      <BoundingBox x="0" y="0" width="${S}" height="${S}" />
+      <BoundingArc centerX="${S / 2}" centerY="${S / 2}" width="${S}" height="${S}" startAngle="-90" endAngle="269.9" thickness="${q(40)}" isRoundEdge="FALSE" />
       <Complication type="SMALL_IMAGE">
         <PartImage x="0" y="0" width="${S}" height="${S}">
           <Image resource="[COMPLICATION.SMALL_IMAGE]" />
@@ -152,19 +167,10 @@ ${bitmapFont("micro_small", fonts.small)}
         </PartText>
       </Complication>
     </ComplicationSlot>
-    <!-- the hands: dots on the dial's rings, swollen where the hand lies -->
-    <AnalogClock x="0" y="0" width="${S}" height="${S}">
-      <HourHand resource="core_hour" x="0" y="0" width="${S}" height="${S}" pivotX="0.5" pivotY="0.5">
-        <Variant mode="AMBIENT" target="alpha" value="150" />
-      </HourHand>
-      <MinuteHand resource="core_minute" x="0" y="0" width="${S}" height="${S}" pivotX="0.5" pivotY="0.5">
-        <Variant mode="AMBIENT" target="alpha" value="150" />
-      </MinuteHand>
-      <SecondHand resource="core_second" x="0" y="0" width="${S}" height="${S}" pivotX="0.5" pivotY="0.5">
-        <Variant mode="AMBIENT" target="alpha" value="0" />
-        <Sweep frequency="15" />
-      </SecondHand>
-    </AnalogClock>
+    <!-- the hands: grid dots swollen along the hand, one frame per position (generated); always-on keeps hour and minute, dimmed -->
+${hands("hour", hourFrames, "floor(([HOUR_0_11] * 60 + [MINUTE]) / 6)", 150)}
+${hands("minute", minFrames, "[MINUTE]", 150)}
+${hands("second", secFrames, "[SECOND]", 0)}
   </Scene>
 </WatchFace>
 `;
