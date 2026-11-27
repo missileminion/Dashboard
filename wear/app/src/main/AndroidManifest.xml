@@ -20,6 +20,16 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <!-- the watch face: CORE · INSTRUMENT (CoreFace.kt) -->
+        <service android:name=".CoreFaceService" android:label="Core · Instrument" android:exported="true" android:permission="android.permission.BIND_WALLPAPER">
+            <intent-filter>
+                <action android:name="android.service.wallpaper.WallpaperService" />
+                <category android:name="com.google.android.wearable.watchface.category.WATCH_FACE" />
+            </intent-filter>
+            <meta-data android:name="com.google.android.wearable.watchface.preview" android:resource="@drawable/face_preview" />
+            <meta-data android:name="com.google.android.wearable.watchface.preview_circular" android:resource="@drawable/face_preview" />
+            <meta-data android:name="android.service.wallpaper" android:resource="@xml/watch_face" />
+        </service>
         <!-- tiles: swipe sideways from the watch face -->
         <service android:name=".TodayTile" android:label="Gym today" android:exported="true" android:permission="com.google.android.wearable.permission.BIND_TILE_PROVIDER">
             <intent-filter><action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" /></intent-filter>
@@ -33,6 +43,7 @@
             <intent-filter>
                 <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
                 <data android:scheme="wear" android:host="*" android:path="/gym/state" />
+                <data android:scheme="wear" android:host="*" android:path="/face/state" />
             </intent-filter>
         </service>
     </application>

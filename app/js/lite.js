@@ -18,6 +18,7 @@ import { line, vital } from "./charts.js";
 import { gh } from "./ghstore.js";
 import { initLiteGym } from "./litegym.js";
 import { initNotes } from "./litenotes.js";
+import { alt as sunAlt, place as sunPlace } from "./agenda.js";
 import { initPlan, agenda, evRow } from "./liteplan.js";
 import { initTempo } from "./litetempo.js";
 import { initSettings } from "./litesettings.js";
@@ -59,6 +60,7 @@ function model() {
 
 // =============================== Today: only what you act on today ===============================
 function renderToday() {
+  faceState();
   const m = M, el = pane("today"), now = new Date(); if (!m) return;
   const c = m.call, rz = m.rd?.z, mon = monday(today), wk = [...Array(7)].map((_, i) => addDays(mon, i)), done = wk.filter(d => A.gymLog.days.has(d)).length;
   const sick = m.signs.composite != null && bad("illnessScore", m.signs.composite);
@@ -86,6 +88,20 @@ function renderToday() {
 
 const WMO = c => c === 0 ? "Clear" : c <= 2 ? "Partly cloudy" : c === 3 ? "Overcast" : c === 45 || c === 48 ? "Fog" : c <= 57 ? "Drizzle" : c <= 67 ? "Rain" : c <= 77 ? "Snow" : c <= 82 ? "Showers" : c <= 86 ? "Snow showers" : "Thunderstorm";
 const jget = k => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
+// The watch face (CORE · INSTRUMENT, on the Galaxy Watch) shows today's call, readiness, bed-by time, the weather, sunrise and
+// sunset and the next 12 hours of events. Sent after anything here changes; the watch keeps the last copy.
+let faceT = 0;
+function faceState() {
+  if (!isNative || DEMO) return; clearTimeout(faceT);
+  faceT = setTimeout(() => { try {
+    const m = M || {}, c = m.call?.call, rz = m.rd?.z, bed = m.bed?.minutes, w = jget("lite.wx"), loc = sunPlace();
+    let rise = null, set = null; for (let k = 0; k < 1440; k += 5) { const a = sunAlt(today, k, loc), b = sunAlt(today, k + 5, loc); if (a < 0 && b >= 0 && rise == null) rise = k + 5; if (a >= 0 && b < 0) set = k + 5; }
+    const now = new Date(), evs = [...agenda.on(today), ...agenda.on(addDays(today, 1))].filter(e => !e.allDay && !e.done && e.e > now).slice(0, 12).map(e => ({ s: +e.s, e: +e.e, t: e.title }));
+    const json = JSON.stringify({ v: 1, at: Date.now(), call: c ? c.toUpperCase() : "", readiness: rz == null ? "" : sigma(rz).replace("−", "-"), bedBy: bed == null ? "" : clock(bed), wake: "06:30",
+      weather: w?.d?.now == null ? "" : Math.round(w.d.now) + "°", place: (w?.name || "").toUpperCase(), sunrise: rise == null ? "" : clock(rise), sunset: set == null ? "" : clock(set), events: evs });
+    const C = window.Capacitor, P = C.Plugins?.HealthConnect; (P?.wearPut ? P.wearPut({ path: "/face/state", json }) : C.nativePromise("HealthConnect", "wearPut", { path: "/face/state", json })).catch(() => {});
+  } catch (e) { console.warn("watch face data", e); } }, 600);
+}
 // tiny line icons for the forecast strip (currentColor, so the theme colours them)
 const WXI = c => { const sun = `<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4"/>`, cloud = `<path d="M7 18h10a4 4 0 0 0 0-8 5.5 5.5 0 0 0-10.6 1.5A3.3 3.3 0 0 0 7 18z"/>`;
   const g = c === 0 || c === 1 ? sun : c === 2 ? `<circle cx="8" cy="8" r="3"/><path d="M8 2.5v1M2.5 8h1M4.2 4.2l.7.7"/><path d="M9 19h8a3.5 3.5 0 0 0 0-7 4.6 4.6 0 0 0-8.7 1.3A2.9 2.9 0 0 0 9 19z"/>` : c === 3 || c === 45 || c === 48 ? cloud
@@ -108,7 +124,7 @@ async function drawWeather() {
     const j = await (await fetch(u)).json(), D = k => j.daily[k][0];
     w = { at: Date.now(), name: city.name, d: { now: j.current.temperature_2m, code: j.current.weather_code, hi: D("temperature_2m_max"), lo: D("temperature_2m_min"), feel: D("apparent_temperature_max"), rain: D("precipitation_probability_max"), uv: D("uv_index_max"), wind: D("wind_speed_10m_max") },
       days: j.daily.time.slice(1).map((date, i) => ({ date, code: j.daily.weather_code[i + 1], hi: j.daily.temperature_2m_max[i + 1], lo: j.daily.temperature_2m_min[i + 1], rain: j.daily.precipitation_probability_max[i + 1] })) };
-    localStorage.setItem("lite.wx", JSON.stringify(w)); paintW();
+    localStorage.setItem("lite.wx", JSON.stringify(w)); paintW(); faceState();
   } catch { if (!w && $("wx")) $("wx").innerHTML = `<div class="empty">Weather unavailable offline.</div>`; }
 }
 
@@ -361,7 +377,7 @@ window.__back = () => {
 // ---- start: paint from the cache at once, then sync in the background ----
 { const q = new URLSearchParams(location.search), saved = localStorage.getItem("lite.tab"); if (q.get("h")) hsub = q.get("h"); show(TABS.includes(q.get("tab")) ? q.get("tab") : TABS.includes(saved) ? saved : "today", { push: false }); }
 try { await load(); } catch (e) { console.error(e); }
-agenda.load().then(() => { if (cur === "today" || cur === "plan") paint(); });
+agenda.load().then(() => { if (cur === "today" || cur === "plan") paint(); faceState(); });
 if (isNative && !DEMO) hcStatus().then(s => { hc = s; pill(); }, () => {});
 pill();
 if (!DEMO) fullSync();

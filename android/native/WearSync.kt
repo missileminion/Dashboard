@@ -45,6 +45,12 @@ object WearSync {
         return out
     }
 
+    // any other phone → watch message (the watch face's data: /face/state)
+    fun put(ctx: Context, path: String, json: String) {
+        val req = PutDataMapRequest.create(path).apply { dataMap.putString("json", json); dataMap.putLong("at", System.currentTimeMillis()) }
+        Wearable.getDataClient(ctx).putDataItem(req.asPutDataRequest().setUrgent())
+    }
+
     fun publishState(ctx: Context, json: String) {
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putLong("lastOut", System.currentTimeMillis()).apply()
         val req = PutDataMapRequest.create("/gym/state").apply { dataMap.putString("json", json); dataMap.putLong("at", System.currentTimeMillis()) }

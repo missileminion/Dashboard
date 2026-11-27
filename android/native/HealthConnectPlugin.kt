@@ -79,6 +79,12 @@ class HealthConnectPlugin : Plugin() {
         }
     }
     @PluginMethod
+    fun wearPut(call: PluginCall) {
+        val path = call.getString("path") ?: return call.reject("no path"); val json = call.getString("json") ?: return call.reject("no data")
+        if (!path.startsWith("/face/")) return call.reject("unknown path")
+        try { WearSync.put(context, path, json); call.resolve() } catch (e: Exception) { call.reject(e.message ?: "watch link unavailable") }
+    }
+    @PluginMethod
     fun wearState(call: PluginCall) {
         val json = call.getString("json") ?: return call.reject("no state")
         try { WearSync.publishState(context, json); call.resolve() } catch (e: Exception) { call.reject(e.message ?: "watch link unavailable") }

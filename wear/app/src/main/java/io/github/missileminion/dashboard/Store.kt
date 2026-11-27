@@ -87,7 +87,7 @@ object Store {
         if (p.contains("step")) step = p.getFloat("step", 1f).toDouble()
         units = runCatching { JSONObject(p.getString("units", "{}")).let { o -> o.keys().asSequence().associateWith { o.getString(it) } } }.getOrDefault(emptyMap())
         scope.launch {   // whatever the phone published while the app was closed
-            runCatching { Wearable.getDataClient(app).dataItems.await().use { buf -> buf.forEach { if (it.uri.path == "/gym/state") DataMapItem.fromDataItem(it).dataMap.getString("json")?.let { j -> applyState(JSONObject(j)) } } } }
+            runCatching { Wearable.getDataClient(app).dataItems.await().use { buf -> buf.forEach { val j = DataMapItem.fromDataItem(it).dataMap.getString("json") ?: return@forEach; when (it.uri.path) { "/gym/state" -> applyState(JSONObject(j)); "/face/state" -> FaceData.apply(app, j) } } } }
         }
     }
 
@@ -149,8 +149,10 @@ object Store {
     }
 
     fun onData(events: DataEventBuffer) {
-        for (ev in events) if (ev.type == DataEvent.TYPE_CHANGED && ev.dataItem.uri.path == "/gym/state")
-            runCatching { DataMapItem.fromDataItem(ev.dataItem).dataMap.getString("json")?.let { applyState(JSONObject(it)) } }
+        for (ev in events) if (ev.type == DataEvent.TYPE_CHANGED) when (ev.dataItem.uri.path) {
+            "/gym/state" -> runCatching { DataMapItem.fromDataItem(ev.dataItem).dataMap.getString("json")?.let { applyState(JSONObject(it)) } }
+            "/face/state" -> runCatching { DataMapItem.fromDataItem(ev.dataItem).dataMap.getString("json")?.let { FaceData.apply(app, it) } }
+        }
     }
 }
 
