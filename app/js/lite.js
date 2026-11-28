@@ -13,6 +13,7 @@ import { demoDays, demoSleepHr } from "./demo.js";
 import { dm } from "./dotfont.js";
 import { sleepMonth, earlyOrb, nightFlow, drawLanes, routeDots } from "./widgets.js";
 import { runlog, mergedRuns } from "./runlog.js";
+import { beat, startBeats } from "./pulse.js";
 import { drawNight } from "./sleepchart.js";
 import { line, vital } from "./charts.js";
 import { gh } from "./ghstore.js";
@@ -178,16 +179,6 @@ function vitalRow(k, name, unit, dec) {   // the original vital row: latest valu
   const base = series(k, 31, addDays(l.d, -1)).map(x => x.v), mu = mean(base), s = sd(base);
   return vital(name, l.v, unit, s == null ? null : [mu - s, mu + s], dec, l.d === today ? "" : ` · from ${dayLabel(l.d)}`);
 }
-// a heartbeat trace in dots that beats at the given rate: a faint trace, and a bright sweep crossing one beat per beat
-function beat(bpm, { w = 300, h = 54 } = {}) {
-  const cell = w / 3, y0 = h * .58, pts = k => { const x = k * cell, c = v => (x + v * cell).toFixed(1);
-    return `L${c(.1)} ${y0} Q${c(.16)} ${y0 - h * .1} ${c(.22)} ${y0} L${c(.3)} ${y0} L${c(.33)} ${y0 + h * .1} L${c(.37)} ${h * .06} L${c(.41)} ${y0 + h * .26} L${c(.45)} ${y0} L${c(.56)} ${y0} Q${c(.64)} ${y0 - h * .2} ${c(.72)} ${y0} L${c(1)} ${y0}`; };
-  const d = `M0 ${y0}` + [0, 1, 2].map(pts).join(""), id = "bt" + Math.floor(Math.random() * 1e6), dur = (3 * 60 / Math.max(30, bpm)).toFixed(2);
-  return `<svg class="beat" viewBox="0 0 ${w} ${h}" role="img" aria-label="Heart beating at ${Math.round(bpm)} beats a minute">
-    <defs><linearGradient id="${id}g"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".8" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
-    <mask id="${id}"><rect class="sweep" x="${-cell}" y="0" width="${cell}" height="${h}" fill="url(#${id}g)" style="animation-duration:${dur}s;--w:${w + cell}px"/></mask></defs>
-    <path d="${d}" class="beat-dim"/><path d="${d}" class="beat-lit" mask="url(#${id})"/></svg>`;
-}
 const pace = s => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}`;
 function runsHTML() {
   const runs = mergedRuns(days.flatMap(d => (d.workouts || []).filter(w => /RUN/i.test(w.type || "")).map(w => ({ ...w, date: new Date(w.start + (w.offset || 0) * 1000).toISOString().slice(0, 10) }))));
@@ -197,7 +188,7 @@ function runsHTML() {
     <div class="rn-big">${dm(r.distanceM == null ? "—" : (r.distanceM / 1000).toFixed(2))}<small>km</small></div>
     <div class="rn-stats"><div><span>Pace</span><b>${r.paceSecPerKm ? pace(r.paceSecPerKm) : "—"}<i>/km</i></b></div><div><span>Time</span><b>${r.seconds ? pace(r.seconds) : "—"}</b></div><div><span>Avg HR</span><b>${r.avgHr ? Math.round(r.avgHr) : "—"}<i>bpm</i></b></div></div>
     ${r.route?.length > 3 ? routeDots(r.route, { w: 340, h: 170, dot: 1.8 }) : ""}
-    ${r.avgHr ? beat(r.avgHr, { w: 300, h: 44 }) : ""}`;
+    ${r.avgHr ? beat(r.avgHr, { h: 44 }) : ""}`;
   const rows = runs.slice(1, 5).map(x => `<div class="row"><div class="k">${dayLabel(x.date)}</div><div class="v"><span class="num">${x.distanceM ? (x.distanceM / 1000).toFixed(2) : "—"}</span><span class="u">km</span></div></div>`).join("");
   return `<div class="kick sec">Run ${ib("lastRun")}</div><div class="card rn">${last}</div>${rows ? `<div class="list">${rows}</div>` : ""}
     <div class="list"><div class="row pt"><div class="k">Pace target<small>your watch buzzes you back onto it</small></div>
@@ -224,6 +215,7 @@ function renderBody(el) {
   ${runsHTML()}`;
   try { earlyOrb($("orb"), m.signs, try_(() => A.earlySigns(byDate, addDays(today, -1), addDays))); } catch (e) { console.error(e); }
   try { line($("lrhr"), series("restingHr", 90), { h: 78 }); } catch (e) { console.error(e); }
+  startBeats();
 }
 
 // =============================== frame: tabs, sync pill, connections ===============================

@@ -395,12 +395,7 @@ details.adv{margin:22px 0 0;border-top:1px solid var(--line2);padding-top:12px} 
 /* Body: heart trace that beats at the resting rate, and the Run section */
 .hb-row{display:flex;align-items:center;gap:12px;margin-top:6px} .hb-row .beat{flex:1;min-width:0}
 .hb-n{display:flex;flex-direction:column;align-items:flex-end;line-height:0} .hb-n .dm{height:30px} .hb-n small{line-height:1.2;margin-top:6px;font:500 10px var(--mono);color:var(--tx3)}
-.beat{display:block;width:100%;height:auto;overflow:visible}
-.beat path{fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-width:2.6;stroke-dasharray:0 5.2}
-.beat-dim{stroke:var(--line2)} .beat-lit{stroke:var(--tx)}
-.beat .sweep{animation:sweep 1s linear infinite}
-@keyframes sweep{from{transform:translateX(0)}to{transform:translateX(var(--w))}}
-@media (prefers-reduced-motion:reduce){.beat .sweep{animation:none;transform:translateX(120px)}}
+.beat{display:block;width:100%;--pulse:255,52,52}   /* the heartbeat line (pulse.js): its red, as r,g,b */
 .rn .rn-big{display:flex;align-items:flex-end;gap:6px;line-height:0;margin:10px 0 12px} .rn .rn-big .dm{height:40px} .rn .rn-big small{line-height:1;font:500 11px var(--mono);color:var(--tx3);padding-bottom:3px}
 .rn-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:6px}
 .rn-stats span{display:block;font:500 9.5px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--tx3);margin-bottom:2px}
