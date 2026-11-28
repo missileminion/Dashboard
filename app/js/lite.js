@@ -138,8 +138,7 @@ function renderHealth() {
 let hrToken = 0;
 async function nightHr(n) {
   if (DEMO) return demoSleepHr(n);
-  const cached = await getMeta("hr:" + n.date); if (cached) return cached;
-  if (isNative) return hcNightHr(n);
+  if (isNative) return hcNightHr(n);   // keeps the night once it is complete, re-reads it while readings are still arriving
   return loadSleepHr(n);   // the shared series from the phone, or Google if signed in
 
 }

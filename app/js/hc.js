@@ -109,28 +109,36 @@ export async function hcSync(onProgress = () => {}) {
   return { days: merged.length, errors };
 }
 
-// Heart rate for one night, for the Night Flow chart: [[seconds since the first stage starts, bpm]], cached under the same key sync.js uses.
+// Heart rate for one night, for the Night Flow chart: [[seconds since the first stage starts, bpm]].
+// Health Connect can receive a night's heart rate late (the sleep stages arrive first), so a night is only kept for good once its
+// readings reach (within 15 min of) the end of the night, or 24 hours have passed. Until then it is read again each time.
+const span = day => { const st = day.sleepStages, a = Date.parse(st[0][1]), b = Date.parse(st[st.length - 1][2]); return { a, b, sec: (b - a) / 1000 }; };
+const covered = (hr, sec) => !!hr?.length && hr[hr.length - 1][0] >= sec - 900;
 export async function hcNightHr(day) {
   const st = day.sleepStages; if (!st?.length) return null;
-  const a = Date.parse(st[0][1]), b = Date.parse(st[st.length - 1][2]);
+  const { a, b, sec } = span(day), key = "hr:" + day.date, old = await getMeta(key), final = b < Date.now() - 24 * 36e5;
+  if (old?.length && (covered(old, sec) || final)) return old;
   const recs = (await call("read", { type: "heartRate", start: a, end: b, origins: origins() })).records || [];
   const hr = recs.filter(r => r.t >= a && r.t <= b).sort((x, y) => x.t - y.t).map(r => [(r.t - a) / 1000, r.v]);
-  if (hr.length && b < Date.now() - 36e5) await setMeta("hr:" + day.date, hr);   // a finished night does not change
-  return hr;
+  const best = old?.length && old.length > hr.length ? old : hr;   // never replace a longer copy with a shorter one
+  if (best.length && b < Date.now() - 36e5 && (covered(best, sec) || final)) await setMeta(key, best);
+  return best;
 }
 
 // ---- share each finished night's heart rate with the web (one reading a minute), a few nights per read so the first run stays light ----
+// hrshared: {date: seconds of the night already shared}. A night is shared again when a later read reaches further into it.
 const perMinute = hr => { const m = new Map(); for (const [t, v] of hr) { const k = Math.floor(t / 60), a = m.get(k) || [0, 0]; a[0] += v; a[1]++; m.set(k, a); } return [...m].sort((a, b) => a[0] - b[0]).map(([k, [s, n]]) => [k * 60 + 30, Math.round(s / n * 10) / 10]); };
 export async function shareNightHr() {
-  const done = new Set((await getMeta("hrshared")) || []), nights = {}, fresh = [];
-  const days = (await allDays()).filter(d => d.sleepStages?.length).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 30);
+  let done = (await getMeta("hrshared")) || {}; if (Array.isArray(done)) done = Object.fromEntries(done.map(d => [d, 0]));   // the first version stored a plain list
+  const nights = {}, fresh = {}, days = (await allDays()).filter(d => d.sleepStages?.length).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 30);
   for (const d of days) {
-    if (done.has(d.date) || fresh.length >= 10) continue;
-    if (Date.parse(d.sleepStages[d.sleepStages.length - 1][2]) > Date.now() - 36e5) continue;   // tonight's is not finished yet
-    const hr = (await getMeta("hr:" + d.date)) || (await hcNightHr(d));
-    if (hr?.length) { nights[d.date] = perMinute(hr); fresh.push(d.date); }
+    if (Object.keys(fresh).length >= 10) break;
+    const { b, sec } = span(d); if (b > Date.now() - 36e5) continue;   // tonight's is not finished yet
+    if (done[d.date] > 0 && (done[d.date] >= sec - 900 || b < Date.now() - 24 * 36e5)) continue;   // complete, or too old to change
+    const hr = await hcNightHr(d), last = hr?.length ? hr[hr.length - 1][0] : 0;
+    if (last > (done[d.date] || 0) + 300) { nights[d.date] = perMinute(hr); fresh[d.date] = last; }
   }
-  if (!fresh.length) return;
+  if (!Object.keys(fresh).length) return;
   await nightHrPush(nights);
-  await setMeta("hrshared", [...done, ...fresh]);
+  await setMeta("hrshared", { ...done, ...fresh });
 }
