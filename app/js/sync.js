@@ -1,6 +1,7 @@
 import { fetchPoints } from "./api.js";
 import * as A from "./aggregate.js";
 import { allDays, putDays, getMeta, setMeta } from "./db.js";
+import { hasToken } from "./auth.js";
 
 // The band is the only source we trust: other writers (phone steps, Strava, Whoop, Samsung Health, Health Sync)
 // duplicate or pollute the same metrics.
@@ -69,6 +70,11 @@ async function loadHr(key, start, end) {
   if (out.length) await setMeta(key, out);
   return out;
 }
-export const loadSleepHr = day => loadHr("hr:" + day.date, Date.parse(day.sleepStages[0][1]) / 1000, Date.parse(day.sleepStages[day.sleepStages.length - 1][2]) / 1000);
+export const loadSleepHr = async day => {
+  const key = "hr:" + day.date, c = await getMeta(key); if (c) return c;
+  try { const { nightHrFor } = await import("./cloud.js"); const s = await nightHrFor(day.date); if (s?.length) return s; } catch (e) { console.warn("shared night heart rate", e); }   // written by the phone
+  if (!hasToken()) return [];   // phone-driven: with no Google sign-in there is nothing else to ask
+  return loadHr(key, Date.parse(day.sleepStages[0][1]) / 1000, Date.parse(day.sleepStages[day.sleepStages.length - 1][2]) / 1000);
+};
 // runs include 3 minutes after the stop, for heart-rate recovery
 export const loadRunHr = run => loadHr("hr:run2:" + run.start, run.start / 1000, ((run.end || run.start + run.seconds * 1000) / 1000) + 180);

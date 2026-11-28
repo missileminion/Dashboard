@@ -7,7 +7,7 @@
 // actually in Health Connect so the owner can check which app writes the band's data on their phone.
 import { allDays, putDays, getMeta, setMeta } from "./db.js";
 import { SCHEMA } from "./sync.js";
-import { healthPush } from "./cloud.js";
+import { healthPush, nightHrPush } from "./cloud.js";
 import { ymd, addDays } from "./util.js";
 import { loadProfile } from "./macros.js";
 
@@ -104,6 +104,7 @@ export async function hcSync(onProgress = () => {}) {
   if (merged.length && errors.length < 9) {   // something was actually read: stamp it and share it (an all-failed read must not overwrite the web copy)
     await setMeta("lastSyncedAt", Date.now()); await setMeta("device", "Health Connect");
     healthPush().catch(e => console.warn("health share", e));   // the web version reads this copy
+    shareNightHr().catch(e => console.warn("night hr share", e));
   }
   return { days: merged.length, errors };
 }
@@ -116,4 +117,20 @@ export async function hcNightHr(day) {
   const hr = recs.filter(r => r.t >= a && r.t <= b).sort((x, y) => x.t - y.t).map(r => [(r.t - a) / 1000, r.v]);
   if (hr.length && b < Date.now() - 36e5) await setMeta("hr:" + day.date, hr);   // a finished night does not change
   return hr;
+}
+
+// ---- share each finished night's heart rate with the web (one reading a minute), a few nights per read so the first run stays light ----
+const perMinute = hr => { const m = new Map(); for (const [t, v] of hr) { const k = Math.floor(t / 60), a = m.get(k) || [0, 0]; a[0] += v; a[1]++; m.set(k, a); } return [...m].sort((a, b) => a[0] - b[0]).map(([k, [s, n]]) => [k * 60 + 30, Math.round(s / n * 10) / 10]); };
+export async function shareNightHr() {
+  const done = new Set((await getMeta("hrshared")) || []), nights = {}, fresh = [];
+  const days = (await allDays()).filter(d => d.sleepStages?.length).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 30);
+  for (const d of days) {
+    if (done.has(d.date) || fresh.length >= 10) continue;
+    if (Date.parse(d.sleepStages[d.sleepStages.length - 1][2]) > Date.now() - 36e5) continue;   // tonight's is not finished yet
+    const hr = (await getMeta("hr:" + d.date)) || (await hcNightHr(d));
+    if (hr?.length) { nights[d.date] = perMinute(hr); fresh.push(d.date); }
+  }
+  if (!fresh.length) return;
+  await nightHrPush(nights);
+  await setMeta("hrshared", [...done, ...fresh]);
 }

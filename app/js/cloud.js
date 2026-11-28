@@ -47,3 +47,25 @@ export async function healthPull() {   // true when this device took a newer cop
   if (d.device) await setMeta("device", d.device); if (d.lastSyncDate) await setMeta("lastSyncDate", d.lastSyncDate);
   return true;
 }
+
+// ---- Night heart rate: one small shared file, written by the phone, read by the web (the web no longer signs in to Google) ----
+// {version:1, nights:{"2026-11-27":[[seconds since the first stage starts, bpm], ...]}}, one reading a minute, the newest 35 nights.
+const NIGHTHR = "night-hr.b64";
+export async function nightHrPush(nights) {
+  if (!gh.on) return;
+  await retry(async () => {
+    const f = await ghRead(NIGHTHR); let old = {};
+    if (f) { try { old = JSON.parse(await fromB64(f.text)).nights || {}; } catch {} }
+    const all = { ...old, ...nights }, out = {}; Object.keys(all).sort().slice(-35).forEach(k => (out[k] = all[k]));
+    await ghWrite(NIGHTHR, await toB64(JSON.stringify({ version: 1, nights: out })), f?.sha, "Update night heart rate");
+  });
+}
+let nhr = null, nhrAt = 0;
+export async function nightHrFor(date) {   // the shared series for one night, or null; the file is fetched at most every 5 minutes
+  if (!gh.on) return null;
+  if (!nhr || Date.now() - nhrAt > 5 * 60e3) {
+    nhrAt = Date.now();
+    nhr = (async () => { const f = await ghRead(NIGHTHR); if (!f) return {}; try { return JSON.parse(await fromB64(f.text)).nights || {}; } catch { return {}; } })().catch(() => ({}));
+  }
+  return (await nhr)[date] || null;
+}

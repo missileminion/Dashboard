@@ -140,8 +140,8 @@ async function nightHr(n) {
   if (DEMO) return demoSleepHr(n);
   const cached = await getMeta("hr:" + n.date); if (cached) return cached;
   if (isNative) return hcNightHr(n);
-  if (hasToken()) return loadSleepHr(n);
-  return null;
+  return loadSleepHr(n);   // the shared series from the phone, or Google if signed in
+
 }
 async function drawSleepChart(n) {
   const my = ++hrToken; let hr = null; try { hr = await nightHr(n); } catch (e) { console.warn("night heart rate", e); }
