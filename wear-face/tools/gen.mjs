@@ -56,19 +56,30 @@ const marker = (p, rc) => (p.hr >= 0 ? Math.min(1, Math.exp(-((p.r - rc) ** 2) /
 const handField = (x, y, a, w, len, taper, start) => { const dx = x - C, dy = y - C, along = dx * Math.cos(a) + dy * Math.sin(a); if (along < start - 10 || along > len + 12) return 0;
   const perp = Math.abs(-dx * Math.sin(a) + dy * Math.cos(a)), we = w * (1 - taper * clamp(along / len)); let v = Math.exp(-(perp * perp) / (2 * we * we));
   if (along > len) v *= Math.exp(-((along - len) ** 2) / 30); if (along < start) v *= Math.exp(-((start - along) ** 2) / 30); return v; };
-function frame(name, field, size, alpha) {
-  const cv = canvas(); let x0 = S, y0 = S, x1 = 0, y1 = 0;
-  for (const p of pts) { if (p.r < 62) continue; const H = field(p.bx, p.by); if (H < .03) continue;
-    dot(cv, p.bx, p.by, .58 + H * size, .13 + H * alpha); const R = (.58 + H * size) * K + 2; x0 = Math.min(x0, p.bx * K - R); y0 = Math.min(y0, p.by * K - R); x1 = Math.max(x1, p.bx * K + R); y1 = Math.max(y1, p.by * K + R); }
-  x0 = Math.max(0, Math.floor(x0)); y0 = Math.max(0, Math.floor(y0)); x1 = Math.min(S, Math.ceil(x1)); y1 = Math.min(S, Math.ceil(y1));
-  const out = canvas(x1 - x0, y1 - y0); for (let j = 0; j < out.h; j++) for (let i = 0; i < out.w; i++) out.a[j * out.w + i] = cv.a[(j + y0) * S + i + x0];
-  png(out, name); return { name, x: x0, y: y0, w: out.w, h: out.h };
+// Each hand is a layer of the dial's grid dots at the hand's swollen size, shown only through a soft mask shaped like the hand's
+// field (1 on its axis, falling off sideways and towards both ends). The mask turns continuously with the time, so the dots stay
+// fixed on the grid and only their brightness moves, frame by frame, as in the concept.
+function dotsLayer(name, size, alpha, rmax) {
+  const cv = canvas(); for (const p of pts) { if (p.r < 62 || p.r > rmax) continue; dot(cv, p.bx, p.by, .58 + size, .13 + alpha); } png(cv, name);
 }
-const ang = f => f * TAU - Math.PI / 2;
-const NF = 180;   // positions per hand (every 2°); the face crossfades between neighbours
-const hourFrames = [...Array(NF)].map((_, k) => frame(`core_h${k}`, (x, y) => handField(x, y, ang(k / NF), 10.5, 128, .45, 66), 2.75, .85));
-const minFrames = [...Array(NF)].map((_, k) => frame(`core_m${k}`, (x, y) => handField(x, y, ang(k / NF), 6.6, 200, .4, 66), 2.75, .85));
-const secFrames = [...Array(NF)].map((_, k) => frame(`core_s${k}`, (x, y) => Math.max(handField(x, y, ang(k / NF), 2.1, 218, 0, 66), handField(x, y, ang(k / NF) + Math.PI, 3.2, 96, 0, 66)), 1.5, .8));
+function maskImage(name, field) {   // the field for a hand pointing to 12, as a smooth alpha image
+  const cv = canvas(); for (let j = 0; j < S; j++) for (let i = 0; i < S; i++) cv.a[j * S + i] = clamp(field((i + .5) / K, (j + .5) / K)); png(cv, name, [255, 255, 255]);
+}
+const up = -Math.PI / 2;
+// In the concept a dot under a hand grows with the field (radius .58 + H·size) as well as brightening. Four tiers approximate that:
+// each tier's dots are drawn at the size for one field level, and its mask lets them through only where the field is near it.
+const TIERS = [1, .72, .45, .2], NODES = [0, .2, .45, .72, 1];   // tent weights between neighbouring levels: they add up to 1, and 0 with no field
+const tw = (H, c) => { const k = NODES.indexOf(c), lo = NODES[k - 1], hi = NODES[k + 1];
+  if (H <= lo) return 0; if (H <= c) return (H - lo) / (c - lo); if (hi == null) return 1; return clamp(1 - (H - c) / (hi - c)); };
+const HANDS = {
+  hour: { size: 2.75, alpha: .85, rmax: 142, f: (x, y) => handField(x, y, up, 10.5, 128, .45, 66) },
+  min: { size: 2.75, alpha: .85, rmax: 214, f: (x, y) => handField(x, y, up, 6.6, 200, .4, 66) },
+  sec: { size: 1.5, alpha: .8, rmax: 226, f: (x, y) => Math.max(handField(x, y, up, 2.1, 218, 0, 66), handField(x, y, up + Math.PI, 3.2, 96, 0, 66)) },
+};
+for (const [id, h] of Object.entries(HANDS)) TIERS.forEach((c, i) => {
+  dotsLayer(`core_dots_${id}${i}`, h.size * c, h.alpha * c, h.rmax);
+  maskImage(`core_mask_${id}${i}`, (x, y) => tw(h.f(x, y), c));
+});
 
 
 // ---- the 3×5 micro type as bitmap-font glyphs (big: pitch 3.4 / dot 1.15; small: pitch 2.7 / dot .92)
@@ -99,25 +110,17 @@ for (const [font, p, rr, al] of [["big", 3.4, 1.15, .97], ["small", 2.7, .92, .8
 const q = v => Math.round(v * K);   // positions are whole pixels in the format
 const bitmapFont = (name, list) => `    <BitmapFont name="${name}">\n${list.map(g => `      <Character name="${g.ch === " " ? "&#32;" : g.ch}" resource="${g.res}" width="${g.w}" height="${g.h}" />`).join("\n")}\n    </BitmapFont>`;
 const hub = { x: q(C - 120), w: q(240) };
-// one hand = two layers on the fixed grid: the frame for the current position fading out and the next one fading in, by how far
-// the time has moved between them, so the brightness flows from dot to dot instead of jumping
-const hands = (id, frames, pos, aodAlpha) => {
-  const N = frames.length, idx = `floor(${pos})`, frac = `(${pos} - floor(${pos}))`, next = `((${idx}) + 1 - ${N} * floor(((${idx}) + 1) / ${N}))`;
-  const layer = (name, expr, alpha) => `      <Group name="${name}" x="0" y="0" width="${S}" height="${S}">
-        <Transform target="alpha" value="${alpha}" />
-        <Condition>
-          <Expressions>
-${frames.map((f, k) => `            <Expression name="${name}${k}"><![CDATA[${expr} == ${k}]]></Expression>`).join("\n")}
-          </Expressions>
-${frames.map((f, k) => `          <Compare expression="${name}${k}"><PartImage x="${f.x}" y="${f.y}" width="${f.w}" height="${f.h}"><Image resource="${f.name}" /></PartImage></Compare>`).join("\n")}
-        </Condition>
-      </Group>`;
-  return `    <Group name="${id}" x="0" y="0" width="${S}" height="${S}">
+// one hand: the dot layer, masked by the hand's field turning about the centre by the hand's angle (degrees, continuous)
+const hands = (id, angle, aodAlpha) => `    <Group name="${id}" x="0" y="0" width="${S}" height="${S}">
       <Variant mode="AMBIENT" target="alpha" value="${aodAlpha}" />
-${layer(id + "a", idx, `(1 - (${frac})) * 255`)}
-${layer(id + "b", next, `(${frac}) * 255`)}
+${TIERS.map((c, i) => `      <Group name="${id}${i}" x="0" y="0" width="${S}" height="${S}">
+        <PartImage x="0" y="0" width="${S}" height="${S}" renderMode="SOURCE"><Image resource="core_dots_${id}${i}" /></PartImage>
+        <PartImage x="0" y="0" width="${S}" height="${S}" pivotX="0.5" pivotY="0.5" renderMode="MASK">
+          <Image resource="core_mask_${id}${i}" />
+          <Transform target="angle" value="${angle}" />
+        </PartImage>
+      </Group>`).join("\n")}
     </Group>`;
-};
 const xml = `<?xml version="1.0" encoding="utf-8"?>
 <!-- CORE · INSTRUMENT. Generated by wear-face/tools/gen.mjs: edit that, not this. -->
 <WatchFace width="${S}" height="${S}">
@@ -177,9 +180,9 @@ ${bitmapFont("micro_small", fonts.small)}
       </Complication>
     </ComplicationSlot>
     <!-- the hands: the fixed grid's dots brightened along the hand, crossfading between positions; always-on keeps hour and minute, dimmed -->
-${hands("hour", hourFrames, `((([HOUR_0_11] * 60 + [MINUTE]) * 60 + [SECOND]) / 43200 * ${NF})`, 150)}
-${hands("minute", minFrames, `((([MINUTE] * 60 + [SECOND]) * 1000 + [MILLISECOND]) / 3600000 * ${NF})`, 150)}
-${hands("second", secFrames, `(([SECOND] * 1000 + [MILLISECOND]) / 60000 * ${NF})`, 0)}
+${hands("hour", "(([HOUR_0_11] * 60 + [MINUTE]) * 60 + [SECOND]) / 120", 150)}
+${hands("min", "(([MINUTE] * 60 + [SECOND]) * 1000 + [MILLISECOND]) / 10000", 150)}
+${hands("sec", "([SECOND] * 1000 + [MILLISECOND]) * 0.006", 0)}
   </Scene>
 </WatchFace>
 `;
