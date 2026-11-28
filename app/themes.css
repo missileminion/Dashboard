@@ -969,3 +969,24 @@ body.lm .ag-card{background:rgba(255,255,255,.66)!important;border-color:rgba(20
 /* ---------- Advanced: the Google sync fallback, collapsed and out of the way ---------- */
 .advsync{position:relative;font-size:12.5px;color:var(--tx3)} .advsync>summary{cursor:pointer;list-style:none;padding:6px 8px;border-radius:8px} .advsync>summary::-webkit-details-marker{display:none} .advsync>summary:hover{color:var(--tx2)}
 .advsync .advbody{position:absolute;right:0;top:100%;z-index:30;width:min(300px,86vw);margin-top:6px;padding:12px;border-radius:12px;background:var(--raised);border:1px solid var(--line);box-shadow:0 12px 30px -12px rgba(0,0,0,.6)} .advsync .advbody p{margin:0 0 10px;color:var(--tx2)}
+
+/* ---------- the phone's look on the full dashboard: black page, flat panels, mono labels, dot-matrix titles ----------
+   Scoped to :not(.lm) so a light phone keeps its light theme. The sun path (Calendar > day view) is untouched. */
+body.theme-glass:not(.lm){background:#05060a!important;--glass-a:rgba(255,255,255,.04);--glass-b:rgba(255,255,255,.04);--edge:rgba(255,255,255,.07);--hi:transparent;--drop:transparent;--glow:transparent;--btn:rgba(255,255,255,.04)}
+body.theme-glass:not(.lm) .bg-orbs{display:none!important}
+body.theme-glass:not(.lm) .card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:20px;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none}
+body.theme-glass:not(.lm) .card::before{display:none}
+body.theme-glass:not(.lm) .card.slot{background:transparent}
+body.theme-glass:not(.lm) h2{font-family:var(--mono);font-size:10.5px;font-weight:500;letter-spacing:.16em;color:var(--tx3)}
+body.theme-glass:not(.lm) .seg{border-color:rgba(255,255,255,.07);background:transparent;border-radius:12px}
+body.theme-glass:not(.lm) .seg button.on{background:rgba(255,255,255,.1)}
+body.theme-glass:not(.lm) .btn{border-radius:12px;border-color:rgba(255,255,255,.1);background:rgba(255,255,255,.04)}
+body.theme-glass:not(.lm) .banner{background:rgba(255,255,255,.04);box-shadow:none}
+body.theme-glass:not(.lm) .banner.signin{background:rgba(255,255,255,.04);box-shadow:none}
+.bar h1{line-height:0}
+.dm{display:inline-block;height:.74em;width:auto;fill:currentColor;vertical-align:baseline;overflow:visible}
+.bar h1 .dm{height:19px}
+#boot{background:#05060a}
+#boot .bo i{display:none}
+#boot .bo b{border-top-color:rgba(255,255,255,.85)}
+body.theme-glass:not(.lm)[data-tab=notes][data-ntth=dark]{background:#05060a!important}   /* Notes' dark mode had its own blue-teal glow: flat black like everything else */

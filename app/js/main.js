@@ -10,6 +10,7 @@ import { bad, red } from "./standards.js";
 import { sleepMonth, earlyOrb, yearRing, weakLink, nightFlow, drawLanes, lastRun } from "./widgets.js";
 import { INFO } from "./info.js";
 import { buildReport } from "./report.js";
+import { dm } from "./dotfont.js";
 import { initTimer } from "./timer.js";
 import { initGymLog, e1rm } from "./gymlog.js";
 import { runlog, mergedRuns } from "./runlog.js";
@@ -321,6 +322,7 @@ async function refresh(interactive) {
 }
 
 if (window.Capacitor?.isNativePlatform?.()) $("advSync").hidden = true;   // Google sign-in cannot work inside the Android WebView
+{ const h1 = document.querySelector(".bar h1"); if (h1) h1.innerHTML = dm((h1.textContent.trim() || "Health").toUpperCase()); }   // the page title in the same dot-matrix face as the phone
 $("signin").onclick = () => refresh(true);
 $("refresh").onclick = () => refresh(true);   // a click may open the sign-in window, so it asks properly
 $("prevN").onclick = () => { selNight = Math.max(0, selNight - 1); render(); };
